@@ -1,0 +1,118 @@
+:root {
+  --admin-bg: #07172a;
+  --admin-panel: rgba(12, 32, 56, 0.78);
+  --admin-panel-strong: #0e2949;
+  --admin-line: rgba(255, 255, 255, 0.1);
+  --admin-text: #f3f7fb;
+  --admin-muted: rgba(243, 247, 251, 0.7);
+  --admin-accent: #15a8a8;
+  --admin-accent-strong: #0b83a1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--admin-text);
+  background:
+    radial-gradient(circle at top, rgba(21, 168, 168, 0.16), transparent 24%),
+    linear-gradient(180deg, #07172a 0%, #0b1f38 100%);
+  font-family: Arial, sans-serif;
+}
+
+.admin-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 36px 0 48px;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-brand__mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: linear-gradient(135deg, var(--admin-accent-strong), var(--admin-accent));
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 18px;
+}
+
+.admin-card {
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+  backdrop-filter: blur(16px);
+}
+
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.admin-stat {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-stat strong {
+  display: block;
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.admin-list__item {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-badge {
+  display: inline-flex;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(21, 168, 168, 0.14);
+  color: #bff7f4;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@media (max-width: 920px) {
+  .admin-grid,
+  .admin-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

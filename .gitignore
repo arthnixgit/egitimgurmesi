@@ -1,0 +1,15 @@
+node_modules
+.turbo
+.next
+dist
+coverage
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+apps/*/.next
+apps/*/node_modules
+packages/*/node_modules
+packages/db/generated
+unikazan api/EGITIM_GURMESI_API.md

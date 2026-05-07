@@ -1,0 +1,30 @@
+{
+  "name": "egitim-gurmesi-akademi",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.11.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "npm --workspace @ega/web run dev",
+    "dev:admin": "npm --workspace @ega/admin run dev",
+    "dev:api": "npm --workspace @ega/db run build && npm --workspace @ega/api run dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "infra:up": "docker compose -f docker-compose.local.yml up -d",
+    "infra:down": "docker compose -f docker-compose.local.yml down",
+    "infra:logs": "docker compose -f docker-compose.local.yml logs -f",
+    "db:generate": "npm --workspace @ega/db run generate",
+    "db:migrate": "npm --workspace @ega/db run migrate:dev",
+    "db:format": "npm --workspace @ega/db run format",
+    "db:validate": "npm --workspace @ega/db run validate"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  }
+}

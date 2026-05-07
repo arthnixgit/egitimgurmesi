@@ -1,0 +1,798 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+}
+
+enum StaffStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum GradeLevel {
+  GRADE_9
+  GRADE_10
+  GRADE_11
+  GRADE_12
+  GRADUATE
+  UNIVERSITY
+  OTHER
+}
+
+enum StudyTrack {
+  SAYISAL
+  SOZEL
+  ESIT_AGIRLIK
+  DIL
+  TYT
+  OTHER
+}
+
+enum ProductType {
+  VIDEO_PACKAGE
+  COACHING_PACKAGE
+  HYBRID_PACKAGE
+  DIGITAL_RESOURCE
+}
+
+enum ExternalProvider {
+  LOCAL
+  UNIKAZAN
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Currency {
+  TRY
+  USD
+  EUR
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  REDIRECT_PENDING
+  AWAITING_CONFIRMATION
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  LOCAL_GATEWAY
+  UNIKAZAN
+  MANUAL
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  BANK_TRANSFER
+  EXTERNAL_REDIRECT
+  FREE
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentAttemptType {
+  CHECKOUT_INITIATED
+  REDIRECT_CREATED
+  REDIRECT_RETURN
+  WEBHOOK
+  STATUS_SYNC
+  MANUAL_REVIEW
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum ExternalProviderOrderStatus {
+  CREATED
+  REDIRECT_READY
+  REDIRECTED
+  RETURNED_SUCCESS
+  RETURNED_FAILURE
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  SCHEDULED
+  EXPIRED
+  CANCELLED
+}
+
+enum LessonType {
+  VIDEO
+  DOCUMENT
+  LIVE_SESSION
+  QUIZ
+  ASSIGNMENT
+}
+
+enum LessonResourceType {
+  PDF
+  LINK
+  DOWNLOAD
+}
+
+enum VideoProvider {
+  MUX
+  VIMEO
+  EXTERNAL
+}
+
+enum VideoAssetStatus {
+  PROCESSING
+  READY
+  FAILED
+  ARCHIVED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED
+}
+
+enum AuditActorType {
+  STAFF_USER
+  USER
+  SYSTEM
+}
+
+enum AuthActorType {
+  USER
+  STAFF
+}
+
+model User {
+  id              String                  @id @default(cuid())
+  email           String                  @unique
+  phone           String?                 @unique
+  passwordHash    String
+  status          UserStatus              @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  profile         UserProfile?
+  studentProfile  StudentProfile?
+  orders          Order[]
+  enrollments     Enrollment[]
+  whatsappLeads   WhatsAppLead[]
+  sessions        AuthSession[]
+  emailCodes      EmailVerificationCode[]
+  passwordResets  PasswordResetToken[]
+  auditLogs       AuditLog[]              @relation("UserAuditActor")
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  firstName              String
+  lastName               String
+  city                   String?
+  district               String?
+  birthDate              DateTime?
+  parentName             String?
+  parentPhone            String?
+  marketingConsent       Boolean   @default(false)
+  kvkkConsentAt          DateTime?
+  termsAcceptedAt        DateTime?
+  distanceSalesConsentAt DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model StudentProfile {
+  id             String      @id @default(cuid())
+  userId         String      @unique
+  gradeLevel     GradeLevel?
+  studyTrack     StudyTrack?
+  schoolName     String?
+  targetExamYear Int?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model StaffUser {
+  id                  String          @id @default(cuid())
+  email               String          @unique
+  passwordHash        String?
+  firstName           String
+  lastName            String
+  status              StaffStatus     @default(INVITED)
+  inviteAcceptedAt    DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  roles               StaffUserRole[] @relation("AssignedRoles")
+  roleAssignmentsMade StaffUserRole[] @relation("RoleAssignmentsMade")
+  auditLogs           AuditLog[]      @relation("StaffAuditActor")
+  handledLeads        WhatsAppLead[]  @relation("HandledLeads")
+  authoredCourses     Course[]        @relation("CoursesCreated")
+  sessions            AuthSession[]
+
+  @@map("staff_users")
+}
+
+model Role {
+  id               String           @id @default(cuid())
+  key              String           @unique
+  name             String
+  description      String?
+  isSystem         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  permissions      RolePermission[]
+  staffAssignments StaffUserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model StaffUserRole {
+  id                    String     @id @default(cuid())
+  staffUserId           String
+  roleId                String
+  assignedByStaffUserId String?
+  assignedAt            DateTime   @default(now())
+  staffUser             StaffUser  @relation("AssignedRoles", fields: [staffUserId], references: [id], onDelete: Cascade)
+  role                  Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy            StaffUser? @relation("RoleAssignmentsMade", fields: [assignedByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@unique([staffUserId, roleId])
+  @@map("staff_user_roles")
+}
+
+model AuthSession {
+  id               String        @id @default(cuid())
+  actorType        AuthActorType
+  userId           String?
+  staffUserId      String?
+  sessionFamily    String        @unique
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  lastUsedAt       DateTime?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffUser        StaffUser?    @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([staffUserId, expiresAt])
+  @@map("auth_sessions")
+}
+
+model EmailVerificationCode {
+  id         String    @id @default(cuid())
+  userId     String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("email_verification_codes")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id                    String                    @id @default(cuid())
+  categoryId            String?
+  name                  String
+  slug                  String                    @unique
+  shortDescription      String?
+  description           String?
+  type                  ProductType
+  provider              ExternalProvider          @default(LOCAL)
+  publishStatus         ContentStatus             @default(DRAFT)
+  isFeatured            Boolean                   @default(false)
+  sortOrder             Int                       @default(0)
+  accentColor           String?
+  seoTitle              String?
+  seoDescription        String?
+  coverImageUrl         String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  category              ProductCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants              ProductVariant[]
+  features              ProductFeature[]
+  couponLinks           CouponProduct[]
+  orderItems            OrderItem[]
+  enrollments           Enrollment[]
+  courseLinks           ProductCourse[]
+  externalProviderLinks ExternalProviderProduct[]
+  whatsappLeads         WhatsAppLead[]
+
+  @@index([type, publishStatus])
+  @@map("products")
+}
+
+model ProductVariant {
+  id                    String                    @id @default(cuid())
+  productId             String
+  title                 String
+  sku                   String                    @unique
+  billingLabel          String?
+  price                 Decimal                   @db.Decimal(10, 2)
+  compareAtPrice        Decimal?                  @db.Decimal(10, 2)
+  currency              Currency                  @default(TRY)
+  isDefault             Boolean                   @default(false)
+  isActive              Boolean                   @default(true)
+  hasInstallments       Boolean                   @default(false)
+  installmentCount      Int?
+  stockTracking         Boolean                   @default(false)
+  sortOrder             Int                       @default(0)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  product               Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems            OrderItem[]
+  externalProviderLinks ExternalProviderProduct[]
+
+  @@unique([productId, title])
+  @@map("product_variants")
+}
+
+model ProductFeature {
+  id          String   @id @default(cuid())
+  productId   String
+  title       String
+  description String?
+  iconKey     String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_features")
+}
+
+model ExternalProviderProduct {
+  id                String           @id @default(cuid())
+  productId         String
+  variantId         String?
+  provider          ExternalProvider
+  externalProductId String
+  externalVariantId String?
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  product           Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant           ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalProductId, externalVariantId])
+  @@index([productId, provider])
+  @@map("external_provider_products")
+}
+
+model Coupon {
+  id                   String          @id @default(cuid())
+  code                 String          @unique
+  title                String?
+  description          String?
+  discountType         DiscountType
+  discountValue        Decimal         @db.Decimal(10, 2)
+  usageLimit           Int?
+  usageCount           Int             @default(0)
+  startsAt             DateTime?
+  endsAt               DateTime?
+  isActive             Boolean         @default(true)
+  appliesToAllProducts Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  productLinks         CouponProduct[]
+  orders               Order[]
+
+  @@map("coupons")
+}
+
+model CouponProduct {
+  id        String   @id @default(cuid())
+  couponId  String
+  productId String
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, productId])
+  @@map("coupon_products")
+}
+
+model Order {
+  id             String                  @id @default(cuid())
+  orderNumber    String                  @unique
+  userId         String
+  couponId       String?
+  status         OrderStatus             @default(DRAFT)
+  currency       Currency                @default(TRY)
+  subtotalAmount Decimal                 @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal                 @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal                 @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal                 @default(0) @db.Decimal(10, 2)
+  note           String?
+  placedAt       DateTime?
+  paidAt         DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  coupon         Coupon?                 @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  payments       Payment[]
+  externalOrders ExternalProviderOrder[]
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String                  @id @default(cuid())
+  orderId        String
+  productId      String
+  variantId      String?
+  titleSnapshot  String
+  skuSnapshot    String?
+  quantity       Int                     @default(1)
+  unitPrice      Decimal                 @db.Decimal(10, 2)
+  discountAmount Decimal                 @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal                 @db.Decimal(10, 2)
+  currency       Currency                @default(TRY)
+  provider       ExternalProvider        @default(LOCAL)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  order          Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant        ProductVariant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  enrollments    Enrollment[]
+  externalOrders ExternalProviderOrder[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                    String                  @id @default(cuid())
+  orderId               String
+  provider              PaymentProvider
+  method                PaymentMethod
+  status                PaymentStatus           @default(INITIATED)
+  amount                Decimal                 @db.Decimal(10, 2)
+  currency              Currency                @default(TRY)
+  providerReference     String?
+  providerTransactionId String?
+  failureReason         String?
+  metadata              Json?
+  paidAt                DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  order                 Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  attempts              PaymentAttempt[]
+  externalOrders        ExternalProviderOrder[]
+
+  @@index([orderId, status])
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id              String               @id @default(cuid())
+  paymentId       String
+  attemptType     PaymentAttemptType
+  status          PaymentAttemptStatus @default(PENDING)
+  requestPayload  Json?
+  responsePayload Json?
+  errorMessage    String?
+  attemptedAt     DateTime             @default(now())
+  completedAt     DateTime?
+  payment         Payment              @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, attemptedAt])
+  @@map("payment_attempts")
+}
+
+model ExternalProviderOrder {
+  id                 String                      @id @default(cuid())
+  orderId            String
+  orderItemId        String?
+  paymentId          String?
+  provider           ExternalProvider
+  externalProductId  String?
+  externalVariantId  String?
+  externalReference  String?
+  status             ExternalProviderOrderStatus @default(CREATED)
+  checkoutUrl        String?
+  redirectToken      String?
+  redirectedAt       DateTime?
+  returnedAt         DateTime?
+  callbackReceivedAt DateTime?
+  callbackVerified   Boolean                     @default(false)
+  externalStatus     String?
+  requestPayload     Json?
+  responsePayload    Json?
+  callbackPayload    Json?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  order              Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem          OrderItem?                  @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  payment            Payment?                    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalReference])
+  @@index([orderId, provider])
+  @@map("external_provider_orders")
+}
+
+model Course {
+  id                       String          @id @default(cuid())
+  slug                     String          @unique
+  title                    String
+  shortDescription         String?
+  description              String?
+  coverImageUrl            String?
+  publishStatus            ContentStatus   @default(DRAFT)
+  estimatedDurationMinutes Int?
+  createdByStaffUserId     String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  createdBy                StaffUser?      @relation("CoursesCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  modules                  CourseModule[]
+  productLinks             ProductCourse[]
+  enrollments              Enrollment[]
+
+  @@map("courses")
+}
+
+model ProductCourse {
+  id        String   @id @default(cuid())
+  productId String
+  courseId  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, courseId])
+  @@map("product_courses")
+}
+
+model CourseModule {
+  id            String        @id @default(cuid())
+  courseId      String
+  title         String
+  description   String?
+  sortOrder     Int           @default(0)
+  publishStatus ContentStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  course        Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons       Lesson[]
+
+  @@unique([courseId, sortOrder])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id              String           @id @default(cuid())
+  moduleId        String
+  slug            String
+  title           String
+  description     String?
+  lessonType      LessonType
+  sortOrder       Int              @default(0)
+  publishStatus   ContentStatus    @default(DRAFT)
+  isPreview       Boolean          @default(false)
+  durationSeconds Int?
+  videoAssetId    String?          @unique
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  module          CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  videoAsset      VideoAsset?      @relation(fields: [videoAssetId], references: [id], onDelete: SetNull)
+  resources       LessonResource[]
+
+  @@unique([moduleId, slug])
+  @@unique([moduleId, sortOrder])
+  @@map("lessons")
+}
+
+model VideoAsset {
+  id              String           @id @default(cuid())
+  provider        VideoProvider
+  assetKey        String?          @unique
+  playbackId      String?          @unique
+  sourceUrl       String?
+  title           String?
+  durationSeconds Int?
+  status          VideoAssetStatus @default(PROCESSING)
+  thumbnailUrl    String?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lesson          Lesson?
+
+  @@map("video_assets")
+}
+
+model LessonResource {
+  id           String             @id @default(cuid())
+  lessonId     String
+  title        String
+  resourceType LessonResourceType
+  storageKey   String?
+  externalUrl  String?
+  sortOrder    Int                @default(0)
+  isPublished  Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  lesson       Lesson             @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("lesson_resources")
+}
+
+model Enrollment {
+  id              String           @id @default(cuid())
+  userId          String
+  productId       String?
+  courseId        String
+  orderItemId     String?
+  status          EnrollmentStatus @default(ACTIVE)
+  progressPercent Int              @default(0)
+  accessStartsAt  DateTime         @default(now())
+  accessEndsAt    DateTime?
+  grantedAt       DateTime         @default(now())
+  revokedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, courseId])
+  @@index([status, accessEndsAt])
+  @@map("enrollments")
+}
+
+model WhatsAppLead {
+  id                   String     @id @default(cuid())
+  userId               String?
+  productId            String?
+  status               LeadStatus @default(NEW)
+  sourcePage           String?
+  phoneSnapshot        String?
+  message              String?
+  utmSource            String?
+  utmMedium            String?
+  utmCampaign          String?
+  handledAt            DateTime?
+  handledByStaffUserId String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  user                 User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product              Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  handledBy            StaffUser? @relation("HandledLeads", fields: [handledByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("whatsapp_leads")
+}
+
+model AuditLog {
+  id          String         @id @default(cuid())
+  actorType   AuditActorType
+  staffUserId String?
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String
+  summary     String?
+  beforeData  Json?
+  afterData   Json?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime       @default(now())
+  staffActor  StaffUser?     @relation("StaffAuditActor", fields: [staffUserId], references: [id], onDelete: SetNull)
+  userActor   User?          @relation("UserAuditActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorType, createdAt])
+  @@map("audit_logs")
+}
