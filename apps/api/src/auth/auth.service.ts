@@ -137,6 +137,10 @@ export class AuthService {
     return this.createAuthResponseForStaff(staffUser, meta);
   }
 
+  async createAuthResponseForBootstrap(staffUser: StaffUserWithAccess, meta: RequestMeta) {
+    return this.createAuthResponseForStaff(staffUser, meta);
+  }
+
   async refresh(dto: RefreshTokenDto, meta: RequestMeta) {
     const payload = await this.authTokenService.verifyRefreshToken(dto.refreshToken);
     const session = await this.authSessionsRepository.findActiveBySessionFamily(payload.sessionFamily);

@@ -13,6 +13,9 @@
 6. Personel giriş akışı kuruldu
 7. `me` ve `logout` endpoint'leri kuruldu
 8. Varsayılan rol ve yetki seed mantığı eklendi
+9. İlk super-admin bootstrap akışı kuruldu
+10. Staff permission guard temeli kuruldu
+11. Public ve admin auth ekranları API endpoint'lerine bağlandı
 
 ## Eklenen Ana Endpoint'ler
 
@@ -24,6 +27,9 @@ Taban prefix: `v1`
 4. `POST /v1/auth/refresh`
 5. `GET /v1/auth/me`
 6. `POST /v1/auth/logout`
+7. `GET /v1/staff/bootstrap-status`
+8. `POST /v1/staff/bootstrap`
+9. `GET /v1/staff/overview`
 
 ## Mevcut Davranış
 
@@ -32,16 +38,17 @@ Taban prefix: `v1`
 3. Refresh token veritabanında hashlenmiş biçimde saklanır
 4. Personel girişinde roller ve permission anahtarları access token içine işlenir
 5. Logout işlemi aktif session kaydını revoke eder
+6. İlk kurulumda bootstrap secret ile ilk super-admin hesabı üretilebilir
+7. Staff overview endpoint'i `dashboard.read` yetkisi ister
 
 ## Özellikle Henüz Yapılmayanlar
 
 1. Email doğrulama akışı
 2. Şifre sıfırlama endpoint'leri
 3. Personel davet akışı
-4. İlk super-admin hesap üretimi
-5. Guard seviyesinde permission bazlı route koruması
-6. Cookie tabanlı auth taşıma
-7. Gerçek migration çalıştırma
+4. Cookie tabanlı auth taşıma
+5. Gerçek migration çalıştırma
+6. Daha geniş route bazlı permission uygulaması
 
 ## Bunun Anlamı
 
@@ -49,7 +56,7 @@ Temel auth omurgası hazırdır, ancak operasyonel auth özelliklerinin tamamı 
 
 Bir sonraki mantıklı adımlar:
 
-1. İlk migration ve seed
-2. Personel bootstrap akışı
-3. Permission guard'ları
-4. Kullanıcı ve personel auth ekranlarının API'ye bağlanması
+1. Email doğrulama ve şifre sıfırlama
+2. Personel davet ve hesap tamamlama akışı
+3. Cookie tabanlı auth sertleştirmesi
+4. Daha geniş permission kapsamı

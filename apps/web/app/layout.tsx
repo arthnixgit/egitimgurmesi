@@ -1,16 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Sora } from "next/font/google";
 import "./globals.css";
-
-const bodyFont = Manrope({
-  subsets: ["latin"],
-  variable: "--font-body"
-});
-
-const displayFont = Sora({
-  subsets: ["latin"],
-  variable: "--font-display"
-});
 
 export const metadata: Metadata = {
   title: "Eğitim Gurmesi Akademi",
@@ -25,14 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body
-        className={`${bodyFont.variable} ${displayFont.variable}`}
-        style={{
-          fontFamily: "var(--font-body)"
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

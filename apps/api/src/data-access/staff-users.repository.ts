@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@ega/db";
+import { Prisma, ROLE_KEYS, StaffStatus } from "@ega/db";
 import { PrismaService } from "../database/prisma.service";
 
 const staffAccessInclude = {
@@ -46,6 +46,48 @@ export class StaffUsersRepository {
       data: {
         lastLoginAt: new Date()
       }
+    });
+  }
+
+  hasSuperAdmin() {
+    return this.prisma.staffUser.count({
+      where: {
+        roles: {
+          some: {
+            role: {
+              key: ROLE_KEYS.superAdmin
+            }
+          }
+        }
+      }
+    });
+  }
+
+  createSuperAdmin(input: {
+    email: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    return this.prisma.staffUser.create({
+      data: {
+        email: input.email.toLowerCase(),
+        passwordHash: input.passwordHash,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        status: StaffStatus.ACTIVE,
+        inviteAcceptedAt: new Date(),
+        roles: {
+          create: {
+            role: {
+              connect: {
+                key: ROLE_KEYS.superAdmin
+              }
+            }
+          }
+        }
+      },
+      include: staffAccessInclude
     });
   }
 }

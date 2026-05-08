@@ -17,6 +17,7 @@ Bu kurulum, proje hostinge taşınmadan önce tüm temel geliştirme akışını
 1. Ortam değişkenleri örneği: `.env.example`
 2. Yerel servis orkestrasyonu: `docker-compose.local.yml`
 3. Veritabanı şeması: `packages/db/prisma/schema.prisma`
+4. İlk migration: `packages/db/prisma/migrations/20260507_init/migration.sql`
 
 ## Not
 
@@ -25,49 +26,57 @@ Bu makine üzerinde `docker` kurulu olmadığı için container'lar burada başl
 ## Önerilen Kurulum Adımları
 
 1. `.env.example` dosyasını `.env` olarak kopyalayın
-2. Docker kuruluysa şu komutu çalıştırın:
+2. `.env` içinde özellikle şu değerleri doldurun:
+
+```bash
+AUTH_SECRET=...
+BOOTSTRAP_ADMIN_SECRET=...
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/v1
+```
+
+3. Docker kuruluysa şu komutu çalıştırın:
 
 ```bash
 npm run infra:up
 ```
 
-3. Prisma şemasını doğrulayın:
+4. Prisma şemasını doğrulayın:
 
 ```bash
 npm run db:validate
 ```
 
-4. Prisma client üretin:
+5. Prisma client üretin:
 
 ```bash
 npm run db:generate
 ```
 
-5. İlk migration'ı oluşturup uygulayın:
+6. İlk migration'ı uygulayın:
 
 ```bash
-npm run db:migrate -- --name init
+npm run db:migrate
 ```
 
-6. Varsayılan rol ve yetkileri seed edin:
+7. Varsayılan rol ve yetkileri seed edin:
 
 ```bash
-npm --workspace @ega/db run seed
+npm run db:seed
 ```
 
-7. API uygulamasını başlatın:
+8. API uygulamasını başlatın:
 
 ```bash
 npm run dev:api
 ```
 
-8. Web uygulamasını başlatın:
+9. Web uygulamasını başlatın:
 
 ```bash
 npm run dev:web
 ```
 
-9. Admin uygulamasını başlatın:
+10. Admin uygulamasını başlatın:
 
 ```bash
 npm run dev:admin
@@ -87,3 +96,4 @@ npm run dev:admin
 2. Prisma client üretilebilir
 3. Çekirdek veri modeli migration'a hazır hale gelir
 4. Web, admin ve API iskeleti yerel makinede birlikte geliştirilebilir
+5. `/kurulum` ekranı üzerinden ilk super-admin hesabı oluşturulabilir

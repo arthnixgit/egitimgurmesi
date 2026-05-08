@@ -20,7 +20,8 @@
     "db:generate": "npm --workspace @ega/db run generate",
     "db:migrate": "npm --workspace @ega/db run migrate:dev",
     "db:format": "npm --workspace @ega/db run format",
-    "db:validate": "npm --workspace @ega/db run validate"
+    "db:validate": "npm --workspace @ega/db run validate",
+    "db:seed": "npm --workspace @ega/db run seed"
   },
   "devDependencies": {
     "prettier": "^3.5.3",

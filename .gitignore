@@ -3,6 +3,7 @@ node_modules
 .next
 dist
 coverage
+.tmp
 .env
 .env.local
 .env.development.local
@@ -13,3 +14,4 @@ apps/*/node_modules
 packages/*/node_modules
 packages/db/generated
 unikazan api/EGITIM_GURMESI_API.md
+*.tsbuildinfo
