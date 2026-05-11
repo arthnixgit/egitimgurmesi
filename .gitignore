@@ -15,3 +15,7 @@ packages/*/node_modules
 packages/db/generated
 unikazan api/EGITIM_GURMESI_API.md
 *.tsbuildinfo
+.codex-logs/
+*.log
+Logos/
+WhatsApp Image*.jpeg

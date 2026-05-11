@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { bootstrapStaff, fetchBootstrapStatus, saveStaffTokens } from "../../lib/auth-client";
 
 export default function BootstrapPage() {
@@ -63,7 +64,7 @@ export default function BootstrapPage() {
     try {
       const response = await bootstrapStaff(form);
       saveStaffTokens(response);
-      router.push("/");
+      router.push("/icerik");
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -89,7 +90,9 @@ export default function BootstrapPage() {
 
         {requiresBootstrap === false ? (
           <div className="admin-summary">
-            <div className="admin-list__item">Bootstrap artık kapalı. İlk yönetici hesabı zaten mevcut.</div>
+            <div className="admin-list__item">
+              Bootstrap artık kapalı. İlk yönetici hesabı zaten mevcut.
+            </div>
             <Link className="admin-button--ghost" href="/giris">
               Giriş sayfasına git
             </Link>

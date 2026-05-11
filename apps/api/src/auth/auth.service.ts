@@ -20,6 +20,7 @@ import { LoginStaffDto } from "./dto/login-staff.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { UpdateCurrentUserProfileDto } from "./dto/update-current-user-profile.dto";
 import { PasswordService } from "./password.service";
 import { AuthTokenService } from "./auth-token.service";
 
@@ -205,6 +206,74 @@ export class AuthService {
     return {
       actorType: AuthActorType.STAFF,
       staffUser: this.mapStaff(staffUser)
+    };
+  }
+
+  async updateMe(context: AuthenticatedRequestContext, dto: UpdateCurrentUserProfileDto) {
+    if (context.actorType !== AuthActorType.USER) {
+      throw new UnauthorizedException("Only student accounts can update this profile.");
+    }
+
+    const user = await this.usersRepository.findById(context.actorId);
+
+    if (!user) {
+      throw new UnauthorizedException("Kullanıcı bulunamadı.");
+    }
+
+    const phone =
+      dto.phone !== undefined ? normalizePhone(dto.phone) || null : (user.phone ?? null);
+    const parentPhone =
+      dto.parentPhone !== undefined
+        ? normalizePhone(dto.parentPhone) || null
+        : (user.profile?.parentPhone ?? null);
+
+    if (phone && phone !== user.phone) {
+      const existingByPhone = await this.usersRepository.findByPhone(phone);
+
+      if (existingByPhone && existingByPhone.id !== user.id) {
+        throw new ConflictException("Bu telefon numarası zaten kayıtlı.");
+      }
+    }
+
+    const updated = await this.usersRepository.updateUserProfile(user.id, {
+      phone,
+      profile: {
+        firstName: dto.firstName?.trim() ?? user.profile?.firstName ?? undefined,
+        lastName: dto.lastName?.trim() ?? user.profile?.lastName ?? undefined,
+        city: dto.city !== undefined ? dto.city.trim() || null : (user.profile?.city ?? null),
+        district:
+          dto.district !== undefined
+            ? dto.district.trim() || null
+            : (user.profile?.district ?? null),
+        parentName:
+          dto.parentName !== undefined
+            ? dto.parentName.trim() || null
+            : (user.profile?.parentName ?? null),
+        parentPhone,
+        marketingConsent:
+          dto.marketingConsent !== undefined
+            ? dto.marketingConsent
+            : (user.profile?.marketingConsent ?? false)
+      },
+      studentProfile: {
+        gradeLevel:
+          dto.gradeLevel !== undefined ? dto.gradeLevel : (user.studentProfile?.gradeLevel ?? null),
+        studyTrack:
+          dto.studyTrack !== undefined ? dto.studyTrack : (user.studentProfile?.studyTrack ?? null),
+        schoolName:
+          dto.schoolName !== undefined
+            ? dto.schoolName.trim() || null
+            : (user.studentProfile?.schoolName ?? null),
+        targetExamYear:
+          dto.targetExamYear !== undefined
+            ? dto.targetExamYear
+            : (user.studentProfile?.targetExamYear ?? null)
+      }
+    });
+
+    return {
+      actorType: AuthActorType.USER,
+      user: this.mapUser(updated)
     };
   }
 
@@ -429,7 +498,13 @@ export class AuthService {
       status: user.status,
       emailVerifiedAt: user.emailVerifiedAt,
       profile: user.profile,
-      studentProfile: user.studentProfile
+      studentProfile: user.studentProfile,
+      externalAccounts: user.externalAccounts.map((entry) => ({
+        id: entry.id,
+        provider: entry.provider,
+        externalEmail: entry.externalEmail,
+        linkedAt: entry.linkedAt
+      }))
     };
   }
 

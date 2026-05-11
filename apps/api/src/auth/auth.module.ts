@@ -27,6 +27,7 @@ import { StaffController } from "./staff.controller";
     StaffUsersRepository,
     AuthSessionsRepository,
     RolesRepository
-  ]
+  ],
+  exports: [AccessTokenGuard, PermissionsGuard, AuthTokenService]
 })
 export class AuthModule {}

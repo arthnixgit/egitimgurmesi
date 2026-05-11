@@ -94,20 +94,20 @@ export default function AdminHomePage() {
           <div>
             <strong style={{ display: "block" }}>Eğitim Gurmesi Akademi Yönetim</strong>
             <span style={{ color: "var(--admin-muted)" }}>
-              Personel girişi ve yetki kontrollü yönetim alanı
+              Yetki kontrollü içerik ve operasyon kontrol merkezi
             </span>
           </div>
         </div>
 
-        <span className="admin-badge">API Auth Bağlantısı Aktif</span>
+        <span className="admin-badge">Ayrı domain için hazır panel</span>
       </div>
 
       <div className="admin-grid">
         <section className="admin-card">
           <span className="admin-badge">Durum</span>
-          <h1>Yönetim erişimi artık gerçek endpoint’lere bağlı.</h1>
+          <h1>Yönetim paneli çekirdeği aktif</h1>
           <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
-            Bu ekran bootstrap durumu, personel auth ve permission guard sonucu ile davranır.
+            Personel auth, permission guard ve ilk CMS içerik ekranları aynı akış üzerinde çalışıyor.
           </p>
 
           {loading ? <div className="admin-message admin-message--success">Durum yükleniyor...</div> : null}
@@ -142,52 +142,61 @@ export default function AdminHomePage() {
                 <div>{staff.staffUser.roleKeys.join(", ")}</div>
               </div>
               <div className="admin-list__item">
-                <strong>Permission sayısı</strong>
-                <div>{overview?.permissionKeys.length ?? 0}</div>
+                <strong>Yetkiler</strong>
+                <div>{overview?.permissionKeys.length ?? 0} adet</div>
               </div>
             </div>
           ) : null}
         </section>
 
         <section className="admin-card">
-          <span className="admin-badge">İlk Yetki Testi</span>
+          <span className="admin-badge">Hızlı Erişim</span>
           <div className="admin-stat-grid">
             <div className="admin-stat">
-              <strong>Bootstrap</strong>
-              <span>{bootstrapRequired ? "Gerekli" : "Tamamlandı"}</span>
+              <strong>CMS Studio</strong>
+              <span>Navigation, pages, staff, success, free materials</span>
             </div>
             <div className="admin-stat">
-              <strong>Staff Access</strong>
-              <span>{staff?.staffUser ? "Aktif" : "Giriş bekleniyor"}</span>
+              <strong>Commerce Core</strong>
+              <span>Products, categories, variants and order visibility</span>
             </div>
             <div className="admin-stat">
               <strong>Guard Check</strong>
-              <span>{overview ? "dashboard.read geçti" : "Henüz çalışmadı"}</span>
+              <span>{overview ? "dashboard.read geçti" : "Henüz test edilmedi"}</span>
+            </div>
+            <div className="admin-stat">
+              <strong>Content Permission</strong>
+              <span>
+                {overview?.permissionKeys.includes("cms.manage") ? "cms.manage aktif" : "Yetki bekleniyor"}
+              </span>
             </div>
           </div>
 
           <div className="admin-list">
             <div className="admin-list__item">
-              `GET /staff/overview` artık permission guard ile korunuyor.
+              Public web ile aynı CMS tablolarına bağlı ilk içerik yönetim ekranları hazır.
             </div>
             <div className="admin-list__item">
-              İlk super-admin hesabı yoksa kurulum sayfası açılır.
-            </div>
-            <div className="admin-list__item">
-              Personel oturumu access/refresh token akışı ile dönüyor.
+              Sonraki adım ürün, kategori ve sipariş omurgasını gerçek admin modüllerine taşımak.
             </div>
           </div>
 
-          {staff?.staffUser ? (
-            <div className="admin-actions" style={{ marginTop: 20 }}>
-              <button className="admin-button" type="button" onClick={handleLogout}>
+          <div className="admin-actions" style={{ marginTop: 20 }}>
+            <Link className="admin-button" href="/icerik">
+              İçerik Stüdyosu
+            </Link>
+            <Link className="admin-button" href="/ticaret">
+              Ticaret Merkezi
+            </Link>
+            <Link className="admin-button--ghost" href="/giris">
+              Başka Hesapla Giriş
+            </Link>
+            {staff?.staffUser ? (
+              <button className="admin-button--ghost" type="button" onClick={handleLogout}>
                 Çıkış Yap
               </button>
-              <Link className="admin-button--ghost" href="/giris">
-                Başka Hesapla Giriş
-              </Link>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </section>
       </div>
     </main>

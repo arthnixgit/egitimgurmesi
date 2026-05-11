@@ -35,6 +35,15 @@ function getRequiredEnv(name: string) {
 export const appEnv = {
   authSecret: () => getRequiredEnv("AUTH_SECRET"),
   bootstrapAdminSecret: () => getRequiredEnv("BOOTSTRAP_ADMIN_SECRET"),
+  publicAppUrl: () => getRequiredEnv("PUBLIC_APP_URL"),
+  paymentProvider: () => process.env.PAYMENT_PROVIDER ?? "manual",
+  paymentApiKey: () => process.env.PAYMENT_API_KEY ?? "",
+  paymentSecretKey: () => process.env.PAYMENT_SECRET_KEY ?? "",
+  paymentBaseUrl: () => process.env.PAYMENT_BASE_URL ?? "",
+  unikazanBaseUrl: () => getRequiredEnv("UNIKAZAN_API_BASE_URL"),
+  unikazanApiKey: () => getRequiredEnv("UNIKAZAN_API_KEY"),
+  unikazanProjectKey: () => getRequiredEnv("UNIKAZAN_PROJECT_KEY"),
+  unikazanAdminKey: () => process.env.UNIKAZAN_ADMIN_KEY ?? "",
   accessTokenTtlSeconds: ACCESS_TOKEN_TTL_SECONDS,
   refreshTokenTtlSeconds: REFRESH_TOKEN_TTL_SECONDS
 } as const;

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PublicNavbar } from "../components/public-navbar";
+import { getMarketingPageContent, type MarketingPageContent } from "../lib/public-content-api";
 
 type FilterMode = "grade" | "preference";
 
@@ -384,7 +385,7 @@ const sampleVideos: readonly VideoCardData[] = [
     category: "AYT Matematik",
     duration: "24 dk",
     teacher: "Kayıtlı Ders",
-    summary: "Hızlı çözüm mantığı değil, doğru düşünme akışı üzerinden ilerleyen örnek ders kartı.",
+    summary: "Limit sorularında sık kaçan adımları toparlayan, çözüm düzenini güçlendiren yoğun bir tekrar dersi.",
     tone: "blue"
   },
   {
@@ -400,7 +401,7 @@ const sampleVideos: readonly VideoCardData[] = [
     category: "Koçluk Süreci",
     duration: "11 dk",
     teacher: "Hazırlık İçeriği",
-    summary: "Koçluk öğrencisinin haftalık görüşmeye nasıl hazırlanacağına dair açıklayıcı giriş kartı.",
+    summary: "Haftalık görüşmeden önce deneme sonuçlarını, eksiklerini ve hedeflerini nasıl toparlayacağını anlatan kısa hazırlık videosu.",
     tone: "amber"
   }
 ] as const;
@@ -447,31 +448,43 @@ const showcaseSlides: readonly ShowcaseSlide[] = [
   {
     id: "showcase-plan",
     label: "Kayıttan Sonraki Akış",
-    title: "Öğrenciyi ilk günden planlı bir çalışma düzenine sokan görsel alan",
+    title: "İlk kayıttan itibaren öğrenciyi düzenli bir çalışma temposuna alan sistem",
     description:
-      "Bu bölüm; kayıt, paket seçimi, ders planı ve öğrenci hesabı mantığını daha vitrine yakın şekilde anlatan sabit afiş yapısında kurgulandı.",
+      "Kayıt sonrası ders planı, haftalık görevler ve ilerleme ekranı tek yerde görünür. Öğrenci ne çalışacağını da neyi tamamladığını da aynı akışta takip eder.",
     chips: ["Haftalık plan", "Net takip", "Tek hesap akışı"],
     tone: "amber"
   },
   {
     id: "showcase-coach",
     label: "Koçluk Tanıtımı",
-    title: "Koçluk sürecini ayrı ama deneyimi bölmeden anlatan ikinci görsel slayt",
+    title: "Koçluk sürecini açık biçimde anlatan, öğrenciyi kararsız bırakmayan yönlendirme alanı",
     description:
-      "Koçluk ürünleri içeride tanıtılır; yerel sipariş kaydı burada tutulur, ödeme ise kontrollü yönlendirmeyle dış sağlayıcıya aktarılır.",
+      "Koçluk paketleri burada incelenir, başvuru burada başlar ve öğrenciye uygun görüşme akışı net şekilde gösterilir. Böylece sürecin ilk adımı güvenli ve anlaşılır kalır.",
     chips: ["Yerel sipariş izi", "Yönlendirme kontrolü", "Net süreç ayrımı"],
     tone: "teal"
   },
   {
     id: "showcase-library",
     label: "Video Kütüphanesi",
-    title: "Satın alınan video paketlerinin nasıl bir öğrenme alanına dönüştüğünü gösteren slayt",
+    title: "Satın alınan video paketlerinin öğrencinin hesabında nasıl düzenli bir arşive dönüştüğünü gösteren alan",
     description:
-      "Öğrenci; modül, ders, tekrar ve ilerleme kartlarını tek panel mantığında görür. Satış sonrası his burada güçlenir.",
+      "Öğrenci modüllere, tekrar listelerine ve ders videolarına tek panelden ulaşır. Satın alma sonrası deneyim dağılmaz, doğrudan çalışmaya dönüşür.",
     chips: ["Ders modülleri", "İlerleme görünümü", "Mobil erişim"],
     tone: "blue"
   }
 ] as const;
+
+function buildLogoChipShort(label: string) {
+  return (
+    label
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 1)
+      .map((word) => word.slice(0, 3).toUpperCase())
+      .join("") || "EGA"
+  );
+}
 
 function PackCard({ title, subtitle, price, badge, features, ctaLabel, ctaHref, tone }: PackCardData) {
   return (
@@ -523,31 +536,151 @@ function VideoCard({ title, category, duration, teacher, summary, tone }: VideoC
 }
 
 export default function HomePage() {
-  const [activeSlide, setActiveSlide] = useState(0);
+  const [homePageContent, setHomePageContent] = useState<MarketingPageContent | null>(null);
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0);
+  const [activeShowcaseSlide, setActiveShowcaseSlide] = useState(0);
   const [filterMode, setFilterMode] = useState<FilterMode>("grade");
   const [activeOption, setActiveOption] = useState(filterOptions.grade[0].id);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    const heroInterval = window.setInterval(() => {
+      setActiveHeroSlide((current) => (current + 1) % heroSlides.length);
     }, 4800);
 
-    return () => window.clearInterval(interval);
+    const showcaseInterval = window.setInterval(() => {
+      setActiveShowcaseSlide((current) => (current + 1) % showcaseSlides.length);
+    }, 5200);
+
+    return () => {
+      window.clearInterval(heroInterval);
+      window.clearInterval(showcaseInterval);
+    };
   }, []);
 
   useEffect(() => {
     setActiveOption(filterOptions[filterMode][0].id);
   }, [filterMode]);
 
-  const currentSlide = heroSlides[activeSlide];
-  const currentShowcase = showcaseSlides[activeSlide];
+  useEffect(() => {
+    let isCancelled = false;
+
+    void getMarketingPageContent("home").then((page) => {
+      if (!isCancelled) {
+        setHomePageContent(page);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const showcaseSection = homePageContent?.sections.find((section) => section.sectionKey === "showcase-hero");
+  const logoRailSection = homePageContent?.sections.find((section) => section.sectionKey === "logo-rail");
+  const packageSurfaceSection = homePageContent?.sections.find((section) => section.sectionKey === "package-surface");
+
+  const showcaseSlidesWithContent: readonly ShowcaseSlide[] = showcaseSlides.map((slide, index) =>
+    index === 0 && showcaseSection
+      ? {
+          ...slide,
+          label: showcaseSection.eyebrow ?? slide.label,
+          title: showcaseSection.title,
+          description: showcaseSection.body ?? slide.description
+        }
+      : slide
+  );
+
+  const liveLogoRailItems =
+    Array.isArray(logoRailSection?.payload.items) && logoRailSection.payload.items.length > 0
+      ? logoRailSection.payload.items
+          .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+          .map((item) => ({
+            short: buildLogoChipShort(item),
+            label: item
+          }))
+      : logoRailItems;
+
+  const currentSlide = heroSlides[activeHeroSlide];
+  const currentShowcase = showcaseSlidesWithContent[activeShowcaseSlide] ?? showcaseSlidesWithContent[0];
   const currentPacks = packLibrary[activeOption];
 
   return (
     <main className="ega-page">
       <PublicNavbar />
 
-      <section className="ega-hero ega-container" id="anasayfa">
+      <section className="ega-showcase-hero" id="anasayfa" aria-label="Öne çıkan görsel anlatım alanı">
+        <div className="ega-showcase-hero__inner">
+          <div className="ega-hero-gallery__main ega-showcase-hero__main" data-tone={currentShowcase.tone}>
+            <div className="ega-hero-gallery__badge">{currentShowcase.label}</div>
+
+            <div className="ega-hero-gallery__content">
+              <div className="ega-hero-gallery__copy">
+                <h2>{currentShowcase.title}</h2>
+                <p>{currentShowcase.description}</p>
+
+                <div className="ega-hero-gallery__chips">
+                  {currentShowcase.chips.map((chip) => (
+                    <span key={chip}>{chip}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ega-hero-gallery__visual" aria-hidden="true">
+                <div className="ega-hero-gallery__poster">
+                  <div className="ega-hero-gallery__poster-head">
+                    <span>Eğitim Gurmesi Akademi</span>
+                    <strong>{currentShowcase.label}</strong>
+                  </div>
+
+                  <div className="ega-hero-gallery__poster-grid">
+                    <div className="ega-hero-gallery__poster-card ega-hero-gallery__poster-card--wide">
+                      <span>Haftalık Akış</span>
+                      <strong>Planlı ders blokları</strong>
+                    </div>
+                    <div className="ega-hero-gallery__poster-card">
+                      <span>Öğrenci</span>
+                      <strong>Hesap zorunlu</strong>
+                    </div>
+                    <div className="ega-hero-gallery__poster-card">
+                      <span>Satın Alma</span>
+                      <strong>Net ürün ayrımı</strong>
+                    </div>
+                    <div className="ega-hero-gallery__poster-card ega-hero-gallery__poster-card--accent">
+                      <span>Koçluk</span>
+                      <strong>Kontrollü yönlendirme</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <Image
+                  src="/branding/ega-logo-transparent-cropped.png"
+                  alt=""
+                  width={160}
+                  height={160}
+                  className="ega-hero-gallery__watermark"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="ega-hero-gallery__thumbs ega-showcase-hero__thumbs">
+            {showcaseSlidesWithContent.map((slide, index) => (
+              <button
+                key={slide.id}
+                type="button"
+                className="ega-hero-gallery__thumb"
+                data-active={index === activeShowcaseSlide}
+                onClick={() => setActiveShowcaseSlide(index)}
+              >
+                <span>{slide.label}</span>
+                <strong>{slide.title}</strong>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="ega-hero ega-container">
         <div className="ega-hero__copy">
           <span className="ega-eyebrow">Lise öğrencileri için planlı, canlı ve güven veren başlangıç deneyimi</span>
           <h1 className="ega-hero__title">
@@ -595,8 +728,8 @@ export default function HomePage() {
               <Image
                 src="/branding/ega-mark-transparent.png"
                 alt=""
-                width={220}
-                height={117}
+                width={150}
+                height={150}
                 className="ega-slide-shell__watermark"
               />
             </div>
@@ -614,8 +747,8 @@ export default function HomePage() {
                 key={slide.id}
                 type="button"
                 className="ega-slide-shell__thumb"
-                data-active={index === activeSlide}
-                onClick={() => setActiveSlide(index)}
+                data-active={index === activeHeroSlide}
+                onClick={() => setActiveHeroSlide(index)}
               >
                 <span>{slide.badge}</span>
                 <strong>{slide.eyebrow}</strong>
@@ -626,87 +759,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="ega-hero-gallery ega-container" aria-label="Öne çıkan görsel anlatım alanı">
-        <div className="ega-hero-gallery__main" data-tone={currentShowcase.tone}>
-          <div className="ega-hero-gallery__badge">{currentShowcase.label}</div>
-
-          <div className="ega-hero-gallery__content">
-            <div className="ega-hero-gallery__copy">
-              <h2>{currentShowcase.title}</h2>
-              <p>{currentShowcase.description}</p>
-
-              <div className="ega-hero-gallery__chips">
-                {currentShowcase.chips.map((chip) => (
-                  <span key={chip}>{chip}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="ega-hero-gallery__visual" aria-hidden="true">
-              <div className="ega-hero-gallery__poster">
-                <div className="ega-hero-gallery__poster-head">
-                  <span>Eğitim Gurmesi Akademi</span>
-                  <strong>{currentShowcase.label}</strong>
-                </div>
-
-                <div className="ega-hero-gallery__poster-grid">
-                  <div className="ega-hero-gallery__poster-card ega-hero-gallery__poster-card--wide">
-                    <span>Haftalık Akış</span>
-                    <strong>Planlı ders blokları</strong>
-                  </div>
-                  <div className="ega-hero-gallery__poster-card">
-                    <span>Öğrenci</span>
-                    <strong>Hesap zorunlu</strong>
-                  </div>
-                  <div className="ega-hero-gallery__poster-card">
-                    <span>Satın Alma</span>
-                    <strong>Net ürün ayrımı</strong>
-                  </div>
-                  <div className="ega-hero-gallery__poster-card ega-hero-gallery__poster-card--accent">
-                    <span>Koçluk</span>
-                    <strong>Kontrollü yönlendirme</strong>
-                  </div>
-                </div>
-              </div>
-
-              <Image
-                src="/branding/ega-logo-transparent-cropped.png"
-                alt=""
-                width={220}
-                height={144}
-                className="ega-hero-gallery__watermark"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="ega-hero-gallery__thumbs">
-          {showcaseSlides.map((slide, index) => (
-            <button
-              key={slide.id}
-              type="button"
-              className="ega-hero-gallery__thumb"
-              data-active={index === activeSlide}
-              onClick={() => setActiveSlide(index)}
-            >
-              <span>{slide.label}</span>
-              <strong>{slide.title}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="ega-logo-rail-section ega-container">
-        <div className="ega-logo-rail-section__head">
-          <span className="ega-pill ega-pill--warm">Canlı ve hareketli alan hissi</span>
-          <p>
-            Referanstaki kayan logo duygusunu koruyan, fakat tamamen bize ait bir akış. Hover ile durur.
-          </p>
+      <section className="ega-logo-rail-section">
+        <div className="ega-logo-rail-section__head ega-container">
+          <span className="ega-pill ega-pill--warm">{logoRailSection?.eyebrow ?? "Canlı ve hareketli alan hissi"}</span>
+          <p>{logoRailSection?.title ?? "Öğrencinin karşısına çıkan ana çalışma başlıkları tek bakışta görünür. İmleç üstüne geldiğinde akış durur."}</p>
         </div>
 
         <div className="ega-logo-rail">
           <div className="ega-logo-rail__track">
-            {[...logoRailItems, ...logoRailItems].map((item, index) => (
+            {[...liveLogoRailItems, ...liveLogoRailItems].map((item, index) => (
               <div key={`${item.short}-${index}`} className="ega-logo-chip">
                 <strong>{item.short}</strong>
                 <span>{item.label}</span>
@@ -718,9 +779,12 @@ export default function HomePage() {
 
       <section className="ega-section ega-container" id="paketler">
         <SectionHeading
-          eyebrow="Sana En Uygun Paketi Seç"
-          title="Paketleri sınıfa göre ya da ihtiyaca göre ayırarak sun"
-          description="Bu bölüm referanstaki kategori mantığını korur. Kullanıcı önce bakış açısını seçer, sonra ona uygun paket kartları arasında dolaşır."
+          eyebrow={packageSurfaceSection?.eyebrow ?? "Sana En Uygun Paketi Seç"}
+          title={packageSurfaceSection?.title ?? "Paketleri sınıfa göre ya da ihtiyaca göre ayırarak sun"}
+          description={
+            packageSurfaceSection?.body ??
+            "Öğrenci önce kendi durumuna uygun grubu seçer, ardından o gruba ait paketleri karşılaştırarak karar verir."
+          }
         />
 
         <div className="ega-filter-shell">
@@ -768,9 +832,12 @@ export default function HomePage() {
 
       <section className="ega-section ega-container" id="videolar">
         <SectionHeading
-          eyebrow="Örnek Ders Kartları"
-          title="Ön izleme video kartlarıyla ürünün havasını erkenden göster"
-          description="Gerçek video altyapısı sonradan bağlanacak olsa da, kart dili ve etkileşim yapısı en baştan canlı hissedilmeli."
+          eyebrow={packageSurfaceSection?.eyebrow ?? "Sana En Uygun Paketi Seç"}
+          title={packageSurfaceSection?.title ?? "Paketleri sınıfa göre ya da ihtiyaca göre ayırarak sun"}
+          description={
+            packageSurfaceSection?.body ??
+            "Öğrenci önce kendi durumuna uygun grubu seçer, ardından o gruba ait paketleri karşılaştırarak karar verir."
+          }
         />
 
         <div className="ega-video-grid">
@@ -782,9 +849,12 @@ export default function HomePage() {
 
       <section className="ega-section ega-container" id="neler-var">
         <SectionHeading
-          eyebrow="Platformda Seni Neler Bekliyor"
-          title="Sadece ürün kartı değil, güven ve sistem duygusu da göster"
-          description="Bu bölüm referanstaki fayda anlatımını korur, ama kendi renk dili ve kart düzenimizle yeniden yorumlar."
+          eyebrow={packageSurfaceSection?.eyebrow ?? "Sana En Uygun Paketi Seç"}
+          title={packageSurfaceSection?.title ?? "Paketleri sınıfa göre ya da ihtiyaca göre ayırarak sun"}
+          description={
+            packageSurfaceSection?.body ??
+            "Öğrenci önce kendi durumuna uygun grubu seçer, ardından o gruba ait paketleri karşılaştırarak karar verir."
+          }
         />
 
         <div className="ega-feature-band">
@@ -810,7 +880,7 @@ export default function HomePage() {
             <span className="ega-pill">Yönetim kolaylığı</span>
             <h3>Kartlar, ürünler ve yönlendirmeler arka tarafta kolay yönetilir.</h3>
             <p>
-              Profesyonel görünümlü ama hızlı öğrenilen bir kontrol merkezi mantığı öne çıkarılır.
+              Yeni kampanyalar, video paketleri ve bilgilendirme alanları ekip tarafından hızlıca güncellenebilir.
             </p>
           </article>
 
@@ -826,9 +896,12 @@ export default function HomePage() {
 
       <section className="ega-section ega-container" id="sss">
         <SectionHeading
-          eyebrow="Sık Sorulan Sorular"
-          title="Click davranışında canlı, içerikte net bir soru-cevap alanı"
-          description="Detay açılır yapıda çalışan bu bölüm, kullanıcıyı sıkmadan gerekli farkları anlatır."
+          eyebrow={packageSurfaceSection?.eyebrow ?? "Sana En Uygun Paketi Seç"}
+          title={packageSurfaceSection?.title ?? "Paketleri sınıfa göre ya da ihtiyaca göre ayırarak sun"}
+          description={
+            packageSurfaceSection?.body ??
+            "Öğrenci önce kendi durumuna uygun grubu seçer, ardından o gruba ait paketleri karşılaştırarak karar verir."
+          }
         />
 
         <div className="ega-faq-accordion">
@@ -845,10 +918,9 @@ export default function HomePage() {
         <div className="ega-cta-panel">
           <div className="ega-cta-panel__copy">
             <span className="ega-pill ega-pill--warm">Bize Ulaşın</span>
-            <h2>Kararsız kalan kullanıcıyı sayfa sonunda sessizce değil, net biçimde çağır.</h2>
+            <h2>Karar vermeden önce soru sormak isteyen öğrenci ve veliler için doğrudan iletişim alanı.</h2>
             <p>
-              Paket seçimi, koçluk süreci veya kayıt konusunda yardıma ihtiyacı olan kullanıcı için WhatsApp
-              ve hesap oluşturma çağrıları görünür tutulur.
+              Paket seçimi, koçluk süreci veya kayıt adımları hakkında destek almak isteyenler buradan hızlıca ulaşabilir.
             </p>
           </div>
 
@@ -870,20 +942,19 @@ export default function HomePage() {
             <Image
               src="/branding/ega-logo-transparent-cropped.png"
               alt="Eğitim Gurmesi Akademi logosu"
-              width={188}
-              height={122}
+              width={124}
+              height={124}
               className="ega-footer__logo"
             />
             <p>
-              Eğitim Gurmesi Akademi; kayıtlı video paketlerini, koçluk yönlendirme mantığını ve öğrenci
-              hesap disiplinini tek çatı altında birleştiren yeni nesil bir eğitim satış platformu olarak kurgulanıyor.
+              Eğitim Gurmesi Akademi; video paketleri, koçluk desteği ve öğrenci takibini aynı çatı altında düzenli biçimde sunan bir hazırlık platformudur.
             </p>
           </div>
 
           <div className="ega-footer__links">
-            <a href="#paketler">Paketler</a>
-            <a href="#videolar">Videolar</a>
-            <a href="#neler-var">Neler Var</a>
+            <a href="/paketlerimiz">Paketler</a>
+            <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
+            <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
           </div>
         </div>

@@ -16,6 +16,7 @@ export type PublicAuthResponse = {
       district?: string | null;
       parentName?: string | null;
       parentPhone?: string | null;
+      marketingConsent?: boolean | null;
     } | null;
     studentProfile?: {
       gradeLevel?: string | null;
@@ -23,6 +24,12 @@ export type PublicAuthResponse = {
       schoolName?: string | null;
       targetExamYear?: number | null;
     } | null;
+    externalAccounts: Array<{
+      id: string;
+      provider: string;
+      externalEmail?: string | null;
+      linkedAt: string;
+    }>;
   };
 };
 
@@ -130,6 +137,54 @@ export async function fetchCurrentUser() {
       headers: {
         Authorization: `Bearer ${refreshed.accessToken}`
       }
+    });
+
+    if (!retryResponse.ok) {
+      await parseError(retryResponse);
+    }
+
+    return (await retryResponse.json()) as {
+      actorType: "USER";
+      user: PublicAuthResponse["user"];
+    };
+  }
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  return (await response.json()) as {
+    actorType: "USER";
+    user: PublicAuthResponse["user"];
+  };
+}
+
+export async function updateCurrentUserProfile(payload: Record<string, unknown>) {
+  const accessToken = getUserAccessToken();
+
+  if (!accessToken) {
+    throw new Error("Oturum bulunamadı.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (response.status === 401) {
+    const refreshed = await refreshUserToken();
+
+    const retryResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${refreshed.accessToken}`
+      },
+      body: JSON.stringify(payload)
     });
 
     if (!retryResponse.ok) {

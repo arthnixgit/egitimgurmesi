@@ -4,7 +4,15 @@ import { PrismaService } from "../database/prisma.service";
 
 const userProfileInclude = {
   profile: true,
-  studentProfile: true
+  studentProfile: true,
+  externalAccounts: {
+    select: {
+      id: true,
+      provider: true,
+      externalEmail: true,
+      linkedAt: true
+    }
+  }
 } satisfies Prisma.UserInclude;
 
 export type UserWithProfile = Prisma.UserGetPayload<{
@@ -33,6 +41,25 @@ type CreateUserInput = {
     studyTrack?: StudyTrack;
     schoolName?: string;
     targetExamYear?: number;
+  };
+};
+
+type UpdateUserProfileInput = {
+  phone?: string | null;
+  profile: {
+    firstName?: string;
+    lastName?: string;
+    city?: string | null;
+    district?: string | null;
+    parentName?: string | null;
+    parentPhone?: string | null;
+    marketingConsent?: boolean;
+  };
+  studentProfile: {
+    gradeLevel?: GradeLevel | null;
+    studyTrack?: StudyTrack | null;
+    schoolName?: string | null;
+    targetExamYear?: number | null;
   };
 };
 
@@ -87,6 +114,54 @@ export class UsersRepository {
       data: {
         lastLoginAt: new Date()
       }
+    });
+  }
+
+  updateUserProfile(id: string, input: UpdateUserProfileInput) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        phone: input.phone,
+        profile: {
+          upsert: {
+            create: {
+              firstName: input.profile.firstName ?? "",
+              lastName: input.profile.lastName ?? "",
+              city: input.profile.city ?? undefined,
+              district: input.profile.district ?? undefined,
+              parentName: input.profile.parentName ?? undefined,
+              parentPhone: input.profile.parentPhone ?? undefined,
+              marketingConsent: input.profile.marketingConsent ?? false
+            },
+            update: {
+              firstName: input.profile.firstName,
+              lastName: input.profile.lastName,
+              city: input.profile.city,
+              district: input.profile.district,
+              parentName: input.profile.parentName,
+              parentPhone: input.profile.parentPhone,
+              marketingConsent: input.profile.marketingConsent
+            }
+          }
+        },
+        studentProfile: {
+          upsert: {
+            create: {
+              gradeLevel: input.studentProfile.gradeLevel ?? undefined,
+              studyTrack: input.studentProfile.studyTrack ?? undefined,
+              schoolName: input.studentProfile.schoolName ?? undefined,
+              targetExamYear: input.studentProfile.targetExamYear ?? undefined
+            },
+            update: {
+              gradeLevel: input.studentProfile.gradeLevel,
+              studyTrack: input.studentProfile.studyTrack,
+              schoolName: input.studentProfile.schoolName,
+              targetExamYear: input.studentProfile.targetExamYear
+            }
+          }
+        }
+      },
+      include: userProfileInclude
     });
   }
 }

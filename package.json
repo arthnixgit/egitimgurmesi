@@ -27,5 +27,9 @@
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "react-native-purchases": "^10.1.0",
+    "react-native-purchases-ui": "^10.1.0"
   }
 }

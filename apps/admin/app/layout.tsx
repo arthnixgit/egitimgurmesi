@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Eğitim Gurmesi Akademi Yönetim",
-  description: "Ayrı domain üzerinde çalışacak yönetim paneli iskeleti."
+  description: "Ayrı domain üzerinde çalışacak yönetim paneli."
 };
 
 export default function RootLayout({

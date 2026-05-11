@@ -1,427 +1,313 @@
-# Eğitim Gurmesi Akademi - Proje Yol Haritası
+# Egitim Gurmesi Akademi - Revised Project Roadmap
 
-## Proje Tanımı
+Last revised: `May 9, 2026`
 
-Eğitim Gurmesi Akademi, lise öğrencilerine ve sınav hazırlık öğrencilerine yönelik:
+This document has been updated to reflect the project's real state after the latest UX/UI iterations. The previous roadmap is no longer accurate, because the public site structure, information architecture, and content surface have expanded significantly.
 
-1. Kayıtlı eğitim video paketleri satan
-2. Koçluk paketleri sunan
-3. Kendi kullanıcı sistemi, kendi ödeme altyapısı, kendi LMS alanı ve kendi yönetim paneli olan
-4. Yalnızca koçluk ödemelerinde Unikazan'a yönlendirme yapan
-5. Tamamen Türkçe çalışan
+## 1. Architectural Changes After the UX/UI Revisions
 
-bir eğitim platformu olarak kurgulanacaktır.
+After the latest design cycle, the scope changed in these ways:
 
-## Kesin Mimari Sınırlar
+1. The navbar is no longer tied to homepage anchors.
+2. `Paketlerimiz` has become a real catalog area with its own category and subcategory structure.
+3. `Yuz Yuze Kocluk`, `Akademik Kadro`, `Basarilarimiz`, `Ucretsiz Materyaller`, and `Hakkimizda` now exist as separate pages.
+4. `Ucretsiz Materyaller` is now an open-access content area and no longer depends on account creation.
+5. The exam countdown pages have become separate SEO-oriented landing pages.
+6. `Akademik Kadro` now requires a dedicated content type for academic staff profiles that will later be managed from the admin panel.
+7. The homepage is now a much denser visual storefront; keeping it as large static JSX is not sustainable.
+8. Navigation, package catalog content, free materials, academic staff, and success content now require proper database or CMS-backed management structures.
 
-1. Ana platformun sahibi bizim sistemimiz olacaktır.
-2. Kullanıcı kaydı, giriş, profil, sipariş, yetki, içerik erişimi ve raporlama bizim veritabanımızda tutulacaktır.
-3. Unikazan entegrasyonu sadece koçluk paketi ödeme yönlendirmesi için kullanılacaktır.
-4. Admin paneli kullanıcı alanından ayrı domain veya subdomain üzerinde çalışacaktır.
-5. Tüm hassas entegrasyonlar yalnızca server-side yapılacaktır.
-6. Arayüz ve içerik dili yalnızca Türkçe olacaktır.
+Result:
+The public frontend is now visually far ahead, but the content and operations layers still need to catch up.
 
-## Seçilen Marka Varlığı
+## 2. Current Architecture Snapshot
 
-Projede kullanılacak örnek logo bu konuma kopyalanmıştır:
+### Public Web
 
-`assets/branding/ega-logo-primary.png`
+- `apps/web`
+- Built on Next.js App Router
+- Separate route structure is in place
+- Navbar and public layout were rebuilt
+- Package pages, coaching landing page, free materials page, and academic staff page exist
 
-Kaynak dosya korunmuştur:
+### Admin Web
 
-`Logos/Logo Alt 4.png`
+- `apps/admin`
+- Separate login and bootstrap flow exists
+- Real operational screens do not exist yet
+- At the moment it is only an auth/bootstrap shell
 
-## Önerilen Teknik Kurgu
+### API
 
-1. Monorepo yapı
-2. `apps/web` - genel kullanıcı sitesi ve öğrenci alanı
-3. `apps/admin` - ayrı admin paneli
-4. `apps/api` - ortak backend servisleri
-5. `packages/ui` - ortak tasarım bileşenleri
-6. `packages/db` - veritabanı şeması ve erişim katmanı
-7. `PostgreSQL` - ana veritabanı
-8. `Prisma` veya eşdeğer ORM - şema disiplini için
-9. `Redis` - oturum, rate limit, kuyruk ve cache için
-10. S3 uyumlu obje depolama - görseller, dökümanlar, sertifikalar ve varlıklar için
-11. Video sağlayıcı - Mux, Vimeo OTT veya erişim kontrollü eşdeğer çözüm
-12. Hata ve olay izleme - Sentry, log toplama ve audit kayıtları
+- `apps/api`
+- Built with NestJS
+- Auth, bootstrap, and RBAC foundations are present
+- Product, CMS, order, payment, LMS, and media modules do not exist yet
 
-## Faz 0 - Kapsamı Kilitleme
+### Database
 
-Amaç:
-Projenin ticari ve teknik sınırlarını netleştirmek.
+- `packages/db`
+- Prisma schema, migration, and seed exist
+- Auth, RBAC, product, order, payment, and LMS core models exist
+- But the schema still lacks the menu/CMS/staff/content management structures required by the latest UI revisions
 
-Çıktılar:
-1. Paket tiplerinin kesin listesi
-2. Video paketi, koçluk paketi ve karma paket tanımları
-3. Kendi ödeme sağlayıcımızın seçimi
-4. Unikazan ile sadece koçluk ödeme entegrasyonu sınırının yazılı onayı
-5. Admin rol dağılımının kesin matrisi
-6. Hukuki sayfalar için metin ihtiyaç listesi
-7. Domain ve alt domain planı
+### UI Package
 
-Karar verilmesi gereken başlıklar:
-1. Kayıtlı videolar nerede barındırılacak
-2. Canlı ders veya birebir görüşme planlanacak mı
-3. Kampanya, kupon ve referans sistemi ilk versiyonda olacak mı
-4. Fatura ve muhasebe akışı içeride mi dışarıda mı yönetilecek
+- `packages/ui`
+- Shared UI component base exists
+- The public side still uses a lot of custom page-specific CSS and JSX
+- There is not yet a truly unified design system shared cleanly between public and admin
 
-## Faz 1 - Marka ve Deneyim Çerçevesi
+## 3. Fixed System Boundaries
 
-Amaç:
-Unikazan referansındaki enerjiye yakın, ama Eğitim Gurmesi Akademi'ye ait özgün bir arayüz kimliği üretmek.
+These architecture decisions remain unchanged:
 
-Çıktılar:
-1. Renk sistemi
-2. Tipografi sistemi
-3. Buton, kart, rozet ve tablo dili
-4. Ana sayfa bölüm sırası
-5. Paket listeleme düzeni
-6. Paket detay sayfası yapısı
-7. Öğrenci paneli tasarım dili
-8. Admin paneli bilgi mimarisi
+1. The main platform belongs to our system.
+2. User auth, orders, LMS, and admin belong to our system.
+3. Coaching payment redirection goes only to Unikazan.
+4. The admin area is separate from the public user area.
+5. Sensitive integrations must be server-side only.
+6. The website language is Turkish.
 
-Zorunlu tasarım ilkeleri:
-1. Mobil öncelikli yaklaşım
-2. Turkuaz ve lacivert tabanlı marka hissi
-3. Güven veren ama sıradan olmayan eğitim ürünü dili
-4. Satış odaklı ama bilgi yoğun olmayan açılış sayfası
-5. WhatsApp erişiminin görünür olması
+## 4. Core Layers Already Completed
 
-## Faz 2 - Teknik Temel ve Repo Kurulumu
+### Phase A - Project Skeleton
 
-Amaç:
-Geliştirme ortamını, klasör yapısını ve dağıtım iskeletini kurmak.
+Completed:
 
-Adımlar:
-1. Monorepo oluştur
-2. `web`, `admin` ve `api` uygulamalarını aç
-3. Ortak lint, format ve TypeScript kurallarını tanımla
-4. Ortak environment yönetimini kur
-5. Local development docker servislerini hazırla
-6. CI temelini kur
-7. Staging ve production ortam ayrımını kur
+1. Monorepo structure was created.
+2. `apps/web`, `apps/admin`, `apps/api`, `packages/db`, and `packages/ui` were established.
+3. Turbo and npm workspace flow were configured.
+4. Local Docker development configuration was prepared.
 
-Teslimler:
-1. Çalışan başlangıç repo yapısı
-2. Ortak config paketleri
-3. Branch ve deployment stratejisi
-4. Secret yönetim standardı
+### Phase B - Database Foundation
 
-## Faz 3 - Veritabanı Tasarımı
+Completed:
 
-Amaç:
-Temiz ve büyüyebilir bir veri modeli oluşturmak.
+1. Prisma schema was created.
+2. The first migration was written and applied locally.
+3. The seed flow was written.
+4. Core auth and RBAC models were implemented.
 
-İlk çekirdek tablolar:
-1. users
-2. user_profiles
-3. student_profiles
-4. staff_users
-5. roles
-6. permissions
-7. role_permissions
-8. staff_role_assignments
-9. products
-10. product_categories
-11. product_variants
-12. pricing_rules
-13. coupons
-14. orders
-15. order_items
-16. payments
-17. payment_attempts
-18. external_provider_orders
-19. enrollments
-20. course_modules
-21. lessons
-22. video_assets
-23. downloads
-24. whatsapp_leads
-25. cms_pages
-26. cms_sections
-27. banners
-28. testimonials
-29. faq_items
-30. audit_logs
+### Phase C - Auth Foundation
 
-Temel model kuralları:
-1. Bizim sistemimiz her sipariş için tekil iç sipariş numarası üretir
-2. Unikazan yönlendirmeleri `external_provider_orders` içinde tutulur
-3. Koçluk ürünleri `provider = unikazan` mantığıyla işaretlenir
-4. Video ürünleri ve erişimler tamamen bizim LMS yapımıza bağlı olur
-5. Tüm kritik admin işlemleri audit log yazar
+Completed:
 
-## Faz 4 - Kimlik Doğrulama ve Yetki Sistemi
+1. Student registration/login endpoints were built.
+2. Staff login flow was built.
+3. Access/refresh token flow was built.
+4. The first super-admin bootstrap flow was built.
+5. Permission guard foundation was built.
 
-Amaç:
-Kullanıcı ve personel alanlarını güvenli biçimde ayırmak.
+### Phase D - Public Site First Real Version
 
-Adımlar:
-1. Kullanıcı kayıt ve giriş akışını kur
-2. Email doğrulama ve şifre sıfırlama akışını kur
-3. Ayrı admin giriş ekranını kur
-4. Personel oturumlarını kullanıcı oturumlarından ayır
-5. Rol bazlı yetki katmanını kur
-6. Rate limit, brute force koruması ve oturum güvenliğini ekle
+Largely completed:
 
-Başlangıç rol çatısı:
-1. super-admin
-2. admin
-3. accounting
-4. technician
+1. The homepage has been heavily built out.
+2. The sticky milky transparent navbar was built.
+3. The packages mega menu was built.
+4. The package listing and package detail flow were created.
+5. The `Yuz Yuze Kocluk` page was created.
+6. The `Akademik Kadro` page was created.
+7. The `Basarilarimiz` page was created.
+8. The `Ucretsiz Materyaller` and exam countdown pages were created.
+9. The `Hakkimizda` page was created.
+10. Login and registration were merged into a single page.
 
-Not:
-Bu rollerin ekran ve işlem bazlı yetki matrisi ayrıca netleştirilecektir.
+## 5. New Technical Requirements Caused by the UX/UI Revisions
 
-## Faz 5 - Genel Kullanıcı Sitesi
+These were not as critical before. Now they are:
 
-Amaç:
-Satış odaklı kamuya açık web sitesini tamamlamak.
+1. Navigation must become admin-manageable.
+2. Package categories and subcategories must become database- or CMS-manageable.
+3. Package cards currently run on mock data and must be connected to real product records.
+4. `Akademik Kadro` needs a dedicated content type.
+5. `Basarilarimiz` needs a dedicated content type.
+6. `Ucretsiz Materyaller` needs a dedicated content type plus media/document handling.
+7. Countdown pages need SEO article blocks that can later be managed in admin.
+8. The homepage should no longer remain a static page; it now needs section-based content management.
 
-Temel sayfalar:
-1. Ana sayfa
-2. Paketler
-3. Paket detay sayfaları
-4. Hakkımızda
-5. Sık sorulan sorular
-6. Başarı hikayeleri
-7. İletişim
-8. Giriş
-9. Kayıt
-10. Şifremi unuttum
+## 6. Revised Roadmap
 
-Ana sayfa bölümleri:
-1. Hero alanı
-2. Güven ve sonuç odaklı kısa değer önerileri
-3. Öne çıkan paketler
-4. Koçluk ve video ürün ayrımı
-5. Eğitim yaklaşımı
-6. Başarı yorumları
-7. Sık sorulan sorular
-8. WhatsApp çağrısı
-9. SEO metin alanları
+The project should now proceed in this order:
 
-## Faz 6 - Ürün, Sepet ve Sipariş Motoru
+### Phase 1 - Lock the Public Content Architecture
 
-Amaç:
-Kendi satış altyapımızı kurmak.
+Goal:
+Extract a real data model from the current design iterations.
 
-Adımlar:
-1. Ürün modeli ve listeleme akışını bağla
-2. Paket detayında satın alma senaryolarını tanımla
-3. Sepet altyapısını kur
-4. Kupon ve fiyat kırılımı mantığını yaz
-5. Kendi ödeme sağlayıcımız için checkout akışını kur
-6. Sipariş durum makinesini oluştur
-7. Başarılı, başarısız ve bekleyen ödeme ekranlarını üret
+Tasks:
 
-Sipariş durumları için minimum yapı:
-1. draft
-2. pending_payment
-3. redirect_pending
-4. awaiting_confirmation
-5. paid
-6. failed
-7. cancelled
-8. refunded
+1. Define a manageable data model for the navigation tree.
+2. Define a data model for package categories, subcategories, and landing pages.
+3. Define a data model for academic staff cards.
+4. Define a data model for success stories.
+5. Define a data model for free materials, useful links, PDF documents, guidance content, and countdown pages.
+6. Define a section-based content model for the homepage.
 
-## Faz 7 - Unikazan Koçluk Yönlendirme Entegrasyonu
+Output:
+The frontend can stop depending on static helper files and begin consuming manageable data sources.
 
-Amaç:
-Koçluk ürünlerinde kullanıcıyı kontrollü biçimde dış ödeme akışına yönlendirmek.
+### Phase 2 - Extend the Missing Database Schema
 
-Adımlar:
-1. Koçluk ürünlerini içeride `provider = unikazan` olarak işaretle
-2. Paket ile Unikazan dış paket kodu veya ID eşleşmesini tut
-3. Kullanıcı satın alma butonuna bastığında yerel sipariş kaydı oluştur
-4. Gerekli parametrelerle server-side entegrasyon çağrısını yap
-5. Dış ödeme URL veya checkout referansını kayıt altına al
-6. Kullanıcıyı güvenli şekilde yönlendir
-7. Dönüş URL'lerinde siparişi geçici duruma al
-8. Webhook veya durum sorgusu ile son ödemeyi doğrula
-9. Başarılı ise koçluk haklarını ve görünürlüğünü kullanıcı hesabına işle
+Goal:
+Add the tables and relations needed to support the expanded public content surface.
 
-Zorunlu veri alanları:
-1. local_order_id
-2. provider_name
-3. provider_package_id
-4. provider_reference
-5. redirect_url
-6. redirect_at
-7. callback_payload
-8. callback_verified
-9. payment_status
+Tables or structures to add/revise:
 
-Risk notu:
-Webhook veya doğrulanabilir sipariş sorgusu yoksa bu entegrasyon muhasebe açısından zayıf kalır.
+1. `navigation_menus`
+2. `navigation_menu_items`
+3. `marketing_pages`
+4. `marketing_page_sections`
+5. `staff_profiles`
+6. `success_stories`
+7. `free_material_items`
+8. `free_material_categories`
+9. `countdown_pages`
+10. `countdown_targets`
+11. `seo_articles`
+12. `media_assets`
+13. `site_settings`
 
-## Faz 8 - Öğrenci Paneli ve LMS
+Note:
+The current schema covers auth and commerce core concepts, but the marketing/CMS layer is still missing.
 
-Amaç:
-Öğrencinin satın aldığı içerikleri düzenli biçimde kullanabildiği alanı oluşturmak.
+### Phase 3 - Build the Public Content API Layer
 
-Temel modüller:
-1. Panel ana ekranı
-2. Profil ve hesap ayarları
-3. Satın alınan paketler
-4. Ders modülleri ve oynatıcı
-5. İlerleme takibi
-6. İndirilebilir materyaller
-7. Sipariş geçmişi
-8. Koçluk görünümü ve durum alanı
-9. Destek ve WhatsApp yönlendirmesi
+Goal:
+Serve the public content that is currently living in static files through the API.
 
-Teknik ihtiyaçlar:
-1. Erişim kontrolü
-2. İmzalı video URL veya korumalı oynatma
-3. Modül bazlı yayın açma-kapama
-4. Temel ilerleme analitiği
+Tasks:
 
-## Faz 9 - Admin Paneli
+1. Navigation endpoints
+2. Package category and product endpoints
+3. Package detail endpoints
+4. Academic staff endpoints
+5. Success story endpoints
+6. Free materials endpoints
+7. Countdown page endpoints
+8. Homepage section endpoints
 
-Amaç:
-Profesyonel ama öğrenmesi kolay bir operasyon merkezi kurmak.
+### Phase 4 - Turn the Admin Panel Into a Real Production Tool
 
-Temel modüller:
+Goal:
+Make all visible public content manageable through admin.
+
+First mandatory admin modules:
+
 1. Dashboard
-2. Ürün ve kart yönetimi
-3. Kategori yönetimi
-4. Fiyat ve kampanya yönetimi
-5. Kupon yönetimi
-6. Sipariş yönetimi
-7. Ödeme takibi
-8. Kullanıcı yönetimi
-9. Koçluk yönlendirme kayıtları
-10. LMS içerik yönetimi
-11. Banner ve sayfa bölümü yönetimi
-12. WhatsApp lead yönetimi
-13. Raporlama
-14. Personel ve rol yönetimi
-15. Sistem ayarları
-16. Audit log görüntüleme
+2. Navigation management
+3. Homepage section management
+4. Package category and package management
+5. Academic staff management
+6. Success story management
+7. Free materials management
+8. Countdown content management
+9. Site settings and logo/contact management
 
-Admin paneli ilkeleri:
-1. Karmaşık veri tabloları filtrelenebilir olmalı
-2. Sık kullanılan işlemler iki tıklama içinde erişilebilir olmalı
-3. Finansal ekranlar accounting rolü için özel filtreler taşımalı
-4. Teknik bakım ekranları kullanıcı ekranlarından ayrılmalı
+### Phase 5 - Complete the Commerce Engine
 
-## Faz 10 - WhatsApp Altyapısı
+Goal:
+Connect the public storefront to real product and purchase flows.
 
-Amaç:
-Satış ve destek tarafını WhatsApp'a hazır hale getirmek.
+Tasks:
 
-Adımlar:
-1. Sabit WhatsApp CTA bileşeni ekle
-2. Paket bazlı ön tanımlı mesaj yapısı kur
-3. Lead kaydını veritabanına yaz
-4. Admin panelinde lead görüntüleme ekranı aç
-5. İkinci aşama için resmi API veya sağlayıcı entegrasyon alanını hazır tut
+1. Product CRUD API
+2. Connect product cards to database data
+3. Order creation flow
+4. Cart infrastructure
+5. Local payment provider integration
+6. Order detail and order history screens
+7. Accounting visibility
 
-İlk versiyonda minimum hedef:
-1. Tıklanabilir WhatsApp butonu
-2. Kaynağı takip edilen lead kaydı
-3. UTM ve sayfa bilgisi ile birlikte kayıt
+### Phase 6 - Build the Unikazan Adapter Layer
 
-## Faz 11 - Güvenlik, SEO ve Ölçümleme
+Goal:
+Create a local order record + secure external redirect flow for coaching products.
 
-Amaç:
-Canlıya çıkmadan önce sistemin görünürlüğünü ve dayanıklılığını artırmak.
+Tasks:
 
-Adımlar:
-1. Teknik SEO temelini kur
-2. Schema markup ekle
-3. Site haritası ve robots yapılandır
-4. Performans optimizasyonu yap
-5. Yetki ve erişim testleri yap
-6. Admin alanına ek güvenlik katmanları ekle
-7. Olay loglama ve hata izlemeyi aktif et
-8. Analytics ve dönüşüm olaylarını kur
+1. Separate `provider = unikazan` products
+2. Store external product code mappings
+3. Create a local order before redirect
+4. Implement server-side redirect or token generation
+5. Implement callback / status verification flow
+6. Store accounting reconciliation traces
 
-## Faz 12 - Test ve Kabul Süreci
+### Phase 7 - Student Panel and LMS MVP
 
-Amaç:
-Yayın öncesi hem teknik hem operasyonel kaliteyi doğrulamak.
+Goal:
+Open the first real post-purchase student experience.
 
-Test başlıkları:
-1. Kayıt ve giriş testleri
-2. Sepet ve ödeme testleri
-3. Unikazan yönlendirme testleri
-4. LMS erişim testleri
-5. Rol bazlı admin testleri
-6. Mobil görünüm testleri
-7. Tarayıcı uyumluluk testleri
-8. Hız ve yük testleri
-9. Türkçe içerik ve karakter kontrolü
-10. Muhasebe ve rapor eşleşme testleri
+First-release modules:
 
-Kabul kriterleri:
-1. Kritik akışlarda blocker seviye hata kalmaması
-2. Sipariş ve ödeme kayıtlarının izlenebilir olması
-3. Rol yetkilerinin beklendiği gibi çalışması
-4. Mobil kullanılabilirliğin kabul edilebilir seviyede olması
+1. Account dashboard
+2. Purchased products list
+3. Video/course access
+4. Course module / lesson listing
+5. Video playback
+6. Material downloads
+7. Order history
+8. Coaching order status
 
-## Faz 13 - Canlıya Alma
+### Phase 8 - Security, Operations, and Release Preparation
 
-Amaç:
-Sistemi güvenli ve kontrollü şekilde üretim ortamına taşımak.
+Goal:
+Finish the functional build tonight, and finish polish and release hardening tomorrow.
 
-Adımlar:
-1. Production environment değerlerini tanımla
-2. Domain ve SSL kur
-3. Public ve admin domainlerini ayır
-4. Veritabanı migrationlarını üretime geçir
-5. Dosya depolama ve CDN'i bağla
-6. Monitoring, alarm ve yedekleri aktif et
-7. Son smoke testleri çalıştır
-8. Canlıya al
+Tasks:
 
-## Faz 14 - Canlı Sonrası Stabilizasyon
+1. Email verification
+2. Password reset
+3. Rate limiting
+4. Admin session hardening
+5. Error logging
+6. SEO metadata completion
+7. Sitemap / robots
+8. Smoke test scenarios
 
-Amaç:
-İlk yayın sonrası operasyonel sorunları hızlı çözmek ve gerçek kullanım verisi toplamak.
+## 7. Exact Execution Order for Tonight
 
-İlk 30 gün planı:
-1. Günlük hata ve performans takibi
-2. Ödeme ve sipariş kayıtlarının manuel çapraz kontrolü
-3. WhatsApp lead dönüşüm takibi
-4. Admin kullanıcı geri bildirim toplama
-5. LMS kullanım davranışı analizi
-6. Gerekli küçük UX düzeltmeleri
+This is the correct build order for tonight:
 
-## Harici Bağımlılıklar
+1. Add the missing CMS/content schema
+2. Write the migration
+3. Revise the seed
+4. Build the public content API modules
+5. Move packages from mock files to API data
+6. Move academic staff and free materials to API data
+7. Open admin MVP screens for content management
+8. Open product CRUD and category management
+9. Build the order core
+10. Build the Unikazan redirect adapter skeleton
+11. Feed the account page with real data
+12. Open the LMS skeleton
 
-Proje başlamadan veya erken fazlarda hazır olması gerekenler:
+## 8. Polish and Hardening Order for Tomorrow
 
-1. Domain ve hosting kararları
-2. Kendi ödeme sağlayıcımızın hesap ve API bilgileri
-3. Unikazan entegrasyon test bilgileri
-4. Video barındırma sağlayıcısı kararı
-5. Yasal metinler
-6. KVKK ve çerez metinleri
-7. Destek ve satış WhatsApp numarası
-8. İçerik üretimi ve kurs materyali formatı
+1. UI spacing and responsive polish
+2. Typography cleanup
+3. Turkish encoding cleanup
+4. SEO metadata fine-tuning
+5. Error state and empty state cleanup
+6. Admin UX refinement
+7. Test checklist pass
+8. Git cleanup and release preparation
 
-## Tavsiye Edilen İlk Sprint Sırası
+## 9. Critical External Blockers
 
-1. Repo kurulumu
-2. Veritabanı iskeleti
-3. Kullanıcı auth sistemi
-4. Public site iskeleti
-5. Ürün modeli
-6. Admin iskeleti
-7. Kendi ödeme akışı
-8. Unikazan yönlendirme adaptörü
-9. LMS modülleri
-10. Test ve sertleştirme
+These still block a fully production-ready system:
 
-## Başlangıç İçin Eksik Kararlar
+1. The local payment provider is not finalized.
+2. The video provider is not finalized.
+3. SMTP / transactional email provider is not finalized.
+4. The WhatsApp number and lead handling flow are not finalized.
+5. Unikazan callback / verification behavior is not finalized.
+6. Final domain and hosting topology are not finalized.
 
-İnşaata başlamadan netleştirilmesi gereken son başlıklar:
+## 10. Conclusion
 
-1. Kendi ödeme sağlayıcımız hangisi olacak
-2. Videolar hangi sağlayıcıda tutulacak
-3. Admin rollerinin ekran bazlı yetkileri nasıl dağılacak
-4. Koçluk satın alımı sonrası kullanıcı panelinde hangi bilgiler gösterilecek
-5. İlk versiyonda sertifika, deneme sınavı veya ödev modülü olacak mı
+The frontend visibility layer is farther along than expected.
+The backend and admin operations layers are not yet far enough along to feed this new storefront properly.
+
+So the remaining main work is no longer design. It is data modeling, content management, commerce, and LMS backbone construction.

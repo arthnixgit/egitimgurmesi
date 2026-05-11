@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import type { FormEvent } from "react";
+import { useState } from "react";
 import { loginStaff, saveStaffTokens } from "../../lib/auth-client";
 
 export default function StaffLoginPage() {
@@ -20,7 +21,7 @@ export default function StaffLoginPage() {
     try {
       const response = await loginStaff({ email, password });
       saveStaffTokens(response);
-      router.push("/");
+      router.push("/icerik");
     } catch (submissionError) {
       setError(
         submissionError instanceof Error
@@ -38,7 +39,8 @@ export default function StaffLoginPage() {
         <span className="admin-badge">Personel Girişi</span>
         <h1>Yönetim paneline giriş yap</h1>
         <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
-          Bu ekran `POST /auth/staff/login` endpoint’ine bağlıdır ve sadece aktif personel hesaplarını kabul eder.
+          Bu ekran `POST /auth/staff/login` endpoint’ine bağlıdır ve yalnızca aktif personel
+          hesaplarını kabul eder.
         </p>
 
         <form className="admin-form" onSubmit={handleSubmit}>

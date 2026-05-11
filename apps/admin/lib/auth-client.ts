@@ -31,12 +31,185 @@ type StaffMeResponse = {
   staffUser: StaffAuthResponse["staffUser"];
 };
 
+export type AdminNavigationItem = {
+  id?: string;
+  itemKey: string;
+  label: string;
+  href: string;
+  description?: string | null;
+  target?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+  children: AdminNavigationItem[];
+};
+
+export type AdminNavigationMenu = {
+  id: string;
+  key: string;
+  name: string;
+  location: string;
+  description?: string | null;
+  isActive: boolean;
+  items: AdminNavigationItem[];
+};
+
+export type AdminMarketingPageSection = {
+  id?: string;
+  sectionKey: string;
+  eyebrow?: string | null;
+  title?: string | null;
+  body?: string | null;
+  variantKey?: string | null;
+  payload?: Record<string, unknown> | null;
+  sortOrder?: number;
+  isActive?: boolean;
+  publishStatus?: string;
+};
+
+export type AdminMarketingPage = {
+  id: string;
+  key: string;
+  slug: string;
+  title: string;
+  excerpt?: string | null;
+  description?: string | null;
+  pageType: string;
+  publishStatus: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  heroImageUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+  sections: AdminMarketingPageSection[];
+};
+
+export type AdminStaffProfile = {
+  id?: string;
+  slug: string;
+  fullName: string;
+  title: string;
+  city?: string | null;
+  biography?: string | null;
+  photoUrl?: string | null;
+  sortOrder?: number;
+  publishStatus?: string;
+};
+
+export type AdminStaffProfileGroup = {
+  id?: string;
+  key: string;
+  label: string;
+  eyebrow?: string | null;
+  description?: string | null;
+  sortOrder?: number;
+  publishStatus?: string;
+  profiles: AdminStaffProfile[];
+};
+
+export type AdminStaffProfilesDocument = {
+  groups: AdminStaffProfileGroup[];
+};
+
+export type AdminSuccessStory = {
+  id?: string;
+  slug: string;
+  studentName: string;
+  city?: string | null;
+  examLabel?: string | null;
+  resultTitle: string;
+  highlight: string;
+  story?: string | null;
+  avatarUrl?: string | null;
+  sortOrder?: number;
+  isFeatured?: boolean;
+  publishStatus?: string;
+};
+
+export type AdminSuccessStoriesDocument = {
+  stories: AdminSuccessStory[];
+};
+
+export type AdminFreeMaterialItem = {
+  id?: string;
+  slug?: string | null;
+  title: string;
+  itemType: string;
+  badgeLabel?: string | null;
+  summary?: string | null;
+  href?: string | null;
+  buttonLabel?: string | null;
+  opensInNewTab?: boolean;
+  sortOrder?: number;
+  isFeatured?: boolean;
+  publishStatus?: string;
+  countdownPageSlug?: string | null;
+};
+
+export type AdminFreeMaterialCategory = {
+  id?: string;
+  key: string;
+  label: string;
+  description?: string | null;
+  sortOrder?: number;
+  publishStatus?: string;
+  items: AdminFreeMaterialItem[];
+};
+
+export type AdminCountdownTarget = {
+  id?: string;
+  label: string;
+  targetAt?: string | null;
+  dateLabel: string;
+  note: string;
+  sortOrder?: number;
+};
+
+export type AdminCountdownOfficialLink = {
+  id?: string;
+  title: string;
+  linkType: string;
+  summary: string;
+  href: string;
+  buttonLabel?: string | null;
+  sortOrder?: number;
+};
+
+export type AdminCountdownArticleSection = {
+  id?: string;
+  title: string;
+  body: string;
+  sortOrder?: number;
+};
+
+export type AdminCountdownPage = {
+  id?: string;
+  slug: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  updatedLabel?: string | null;
+  videoTitle: string;
+  videoNote: string;
+  publishStatus?: string;
+  targets: AdminCountdownTarget[];
+  officialLinks: AdminCountdownOfficialLink[];
+  articleSections: AdminCountdownArticleSection[];
+};
+
+export type AdminFreeMaterialsDocument = {
+  categories: AdminFreeMaterialCategory[];
+  countdownPages: AdminCountdownPage[];
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
 const ACCESS_TOKEN_KEY = "ega_staff_access_token";
 const REFRESH_TOKEN_KEY = "ega_staff_refresh_token";
 
 type ApiErrorPayload = {
   message?: string;
+};
+
+type StaffRequestInit = Omit<RequestInit, "body"> & {
+  body?: unknown;
 };
 
 async function parseError(response: Response) {
@@ -48,7 +221,7 @@ async function parseError(response: Response) {
     payload = null;
   }
 
-  throw new Error(payload?.message || "İstek işlenemedi.");
+  throw new Error(payload?.message || "Request could not be processed.");
 }
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -113,7 +286,7 @@ async function refreshStaffToken() {
   const refreshToken = getStaffRefreshToken();
 
   if (!refreshToken) {
-    throw new Error("Yenileme belirteci bulunamadı.");
+    throw new Error("Refresh token is missing.");
   }
 
   const response = await request<StaffAuthResponse>("/auth/refresh", {
@@ -125,27 +298,33 @@ async function refreshStaffToken() {
   return response;
 }
 
-async function fetchWithStaffToken<T>(path: string) {
+export async function requestWithStaffToken<T>(path: string, init?: StaffRequestInit) {
   const accessToken = getStaffAccessToken();
 
   if (!accessToken) {
-    throw new Error("Personel oturumu bulunamadı.");
+    throw new Error("Staff session is missing.");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+  const headers = {
+    ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...(init?.headers ?? {})
+  };
+
+  const performFetch = (token: string) =>
+    fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...headers
+      }
+    });
+
+  const response = await performFetch(accessToken);
 
   if (response.status === 401) {
     const refreshed = await refreshStaffToken();
-
-    const retryResponse = await fetch(`${API_BASE_URL}${path}`, {
-      headers: {
-        Authorization: `Bearer ${refreshed.accessToken}`
-      }
-    });
+    const retryResponse = await performFetch(refreshed.accessToken);
 
     if (!retryResponse.ok) {
       await parseError(retryResponse);
@@ -162,11 +341,80 @@ async function fetchWithStaffToken<T>(path: string) {
 }
 
 export function fetchStaffOverview() {
-  return fetchWithStaffToken<StaffOverviewResponse>("/staff/overview");
+  return requestWithStaffToken<StaffOverviewResponse>("/staff/overview");
 }
 
 export function fetchCurrentStaffUser() {
-  return fetchWithStaffToken<StaffMeResponse>("/auth/me");
+  return requestWithStaffToken<StaffMeResponse>("/auth/me");
+}
+
+export function fetchAdminNavigationMenu(key = "primary") {
+  return requestWithStaffToken<AdminNavigationMenu>(
+    `/admin-content/navigation/${encodeURIComponent(key)}`
+  );
+}
+
+export function saveAdminNavigationMenu(
+  key: string,
+  payload: Omit<AdminNavigationMenu, "id" | "key">
+) {
+  return requestWithStaffToken<AdminNavigationMenu>(
+    `/admin-content/navigation/${encodeURIComponent(key)}`,
+    {
+      method: "PUT",
+      body: payload
+    }
+  );
+}
+
+export function fetchAdminMarketingPages() {
+  return requestWithStaffToken<AdminMarketingPage[]>("/admin-content/marketing-pages");
+}
+
+export function saveAdminMarketingPage(
+  key: string,
+  payload: Omit<AdminMarketingPage, "id" | "key">
+) {
+  return requestWithStaffToken<AdminMarketingPage>(
+    `/admin-content/marketing-pages/${encodeURIComponent(key)}`,
+    {
+      method: "PUT",
+      body: payload
+    }
+  );
+}
+
+export function fetchAdminStaffProfilesDocument() {
+  return requestWithStaffToken<AdminStaffProfilesDocument>("/admin-content/staff-profiles");
+}
+
+export function saveAdminStaffProfilesDocument(payload: AdminStaffProfilesDocument) {
+  return requestWithStaffToken<AdminStaffProfilesDocument>("/admin-content/staff-profiles", {
+    method: "PUT",
+    body: payload
+  });
+}
+
+export function fetchAdminSuccessStoriesDocument() {
+  return requestWithStaffToken<AdminSuccessStoriesDocument>("/admin-content/success-stories");
+}
+
+export function saveAdminSuccessStoriesDocument(payload: AdminSuccessStoriesDocument) {
+  return requestWithStaffToken<AdminSuccessStoriesDocument>("/admin-content/success-stories", {
+    method: "PUT",
+    body: payload
+  });
+}
+
+export function fetchAdminFreeMaterialsDocument() {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>("/admin-content/free-materials");
+}
+
+export function saveAdminFreeMaterialsDocument(payload: AdminFreeMaterialsDocument) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>("/admin-content/free-materials", {
+    method: "PUT",
+    body: payload
+  });
 }
 
 export async function logoutStaff() {
