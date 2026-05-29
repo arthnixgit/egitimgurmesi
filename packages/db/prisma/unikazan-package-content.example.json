@@ -1,0 +1,39 @@
+{
+  "source": "licensed-unikazan-export",
+  "products": [
+    {
+      "slug": "online-yks-kocluk-baslangic",
+      "externalProductId": "pkg-online-yks-core",
+      "name": "AUTHORIZED_PRODUCT_TITLE",
+      "shortDescription": "AUTHORIZED_SHORT_DESCRIPTION",
+      "description": "AUTHORIZED_LONG_DESCRIPTION",
+      "seoTitle": "AUTHORIZED_SEO_TITLE",
+      "seoDescription": "AUTHORIZED_SEO_DESCRIPTION",
+      "coverImageUrl": "https://example.com/authorized-cover.webp",
+      "introVideoSourceType": "EMBED",
+      "introVideoUrl": "https://example.com/authorized-embed-url",
+      "introVideoPosterUrl": "https://example.com/authorized-poster.webp",
+      "introVideoTitle": "AUTHORIZED_VIDEO_TITLE",
+      "features": [
+        {
+          "title": "AUTHORIZED_FEATURE_TITLE",
+          "description": "AUTHORIZED_FEATURE_DESCRIPTION",
+          "iconKey": "check"
+        }
+      ],
+      "variants": [
+        {
+          "title": "Standart",
+          "billingLabel": "AUTHORIZED_PRICE_LABEL",
+          "price": "0.00",
+          "currency": "TRY",
+          "isDefault": true
+        }
+      ],
+      "externalProvider": {
+        "externalProductId": "AUTHORIZED_UNIKAZAN_PRODUCT_ID",
+        "externalVariantId": "standard"
+      }
+    }
+  ]
+}

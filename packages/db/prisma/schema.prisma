@@ -59,6 +59,11 @@ enum ExternalProvider {
   UNIKAZAN
 }
 
+enum ProductVideoSourceType {
+  DIRECT
+  EMBED
+}
+
 enum ContentStatus {
   DRAFT
   PUBLISHED
@@ -94,6 +99,11 @@ enum MediaAssetKind {
   AUDIO
   BRANDING
   OTHER
+}
+
+enum MediaAssetSourceType {
+  LOCAL_UPLOAD
+  EXTERNAL_URL
 }
 
 enum Currency {
@@ -220,27 +230,447 @@ enum AuthActorType {
   STAFF
 }
 
-model User {
-  id               String                  @id @default(cuid())
-  email            String                  @unique
-  phone            String?                 @unique
-  passwordHash     String
-  status           UserStatus              @default(PENDING_VERIFICATION)
-  emailVerifiedAt  DateTime?
-  lastLoginAt      DateTime?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  profile          UserProfile?
-  studentProfile   StudentProfile?
-  orders           Order[]
-  enrollments      Enrollment[]
-  whatsappLeads    WhatsAppLead[]
-  sessions         AuthSession[]
-  emailCodes       EmailVerificationCode[]
-  passwordResets   PasswordResetToken[]
-  externalAccounts ExternalAccountLink[]
-  auditLogs        AuditLog[]              @relation("UserAuditActor")
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
 
+enum BranchStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum BranchMembershipStatus {
+  ACTIVE
+  SUSPENDED
+  LEFT
+}
+
+enum StaffBranchRole {
+  BRANCH_ADMIN
+  INSTRUCTOR
+  COACH
+  ACCOUNTANT
+  STAFF
+}
+
+enum ClassGroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ClassGroupStudentStatus {
+  ACTIVE
+  LEFT
+}
+
+enum LiveSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum LiveSessionParticipantStatus {
+  INVITED
+  ATTENDED
+  MISSED
+  EXCUSED
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AnnouncementAudience {
+  ALL
+  STAFF
+  STUDENTS
+  BRANCH_ADMINS
+  INSTRUCTORS
+  COACHES
+  ACCOUNTANTS
+}
+
+enum CoachingPlanStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum IntegrationProvider {
+  PAYTR
+  UNIKAZAN
+  OPENAI
+  GOOGLE_DRIVE
+  OTHER
+}
+
+model Organization {
+  id                     String                    @id @default(cuid())
+  slug                   String                    @unique
+  name                   String
+  legalName              String?
+  status                 OrganizationStatus        @default(ACTIVE)
+  taxNumber              String?
+  supportEmail           String?
+  supportPhone           String?
+  metadata               Json?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  educationCenters       EducationCenter[]
+  branches               Branch[]
+  users                  User[]                    @relation("OrganizationUsers")
+  staffUsers             StaffUser[]               @relation("OrganizationStaffUsers")
+  branchStaffAssignments BranchStaffAssignment[]
+  studentMemberships     StudentBranchMembership[]
+  classGroups            ClassGroup[]
+  classGroupStudents     ClassGroupStudent[]
+  instructorAssignments  InstructorAssignment[]
+  coachAssignments       CoachAssignment[]
+  liveSessions           LiveSession[]
+  announcements          Announcement[]
+  coachingPlans          CoachingPlan[]
+  coachingNotes          CoachingNote[]
+  productCategories      ProductCategory[]
+  products               Product[]
+  orders                 Order[]
+  payments               Payment[]
+  courses                Course[]
+  enrollments            Enrollment[]
+  mediaAssets            MediaAsset[]
+  leads                  WhatsAppLead[]
+  auditLogs              AuditLog[]
+  featureFlags           FeatureFlag[]
+  tenantSettings         TenantSetting[]
+  integrationCredentials IntegrationCredential[]
+
+  @@map("organizations")
+}
+
+model EducationCenter {
+  id             String       @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  legalName      String?
+  centerType     String?
+  city           String?
+  district       String?
+  address        String?
+  phone          String?
+  email          String?
+  status         BranchStatus @default(ACTIVE)
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branches       Branch[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("education_centers")
+}
+
+model Branch {
+  id                     String                    @id @default(cuid())
+  organizationId         String
+  educationCenterId      String?
+  slug                   String
+  name                   String
+  code                   String?
+  status                 BranchStatus              @default(ACTIVE)
+  city                   String?
+  district               String?
+  address                String?
+  phone                  String?
+  email                  String?
+  metadata               Json?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  educationCenter        EducationCenter?          @relation(fields: [educationCenterId], references: [id], onDelete: SetNull)
+  primaryStudents        User[]                    @relation("PrimaryBranchStudents")
+  primaryStaff           StaffUser[]               @relation("PrimaryBranchStaff")
+  staffAssignments       BranchStaffAssignment[]
+  studentMemberships     StudentBranchMembership[]
+  classGroups            ClassGroup[]
+  classGroupStudents     ClassGroupStudent[]
+  instructorAssignments  InstructorAssignment[]
+  coachAssignments       CoachAssignment[]
+  liveSessions           LiveSession[]
+  announcements          Announcement[]
+  coachingPlans          CoachingPlan[]
+  coachingNotes          CoachingNote[]
+  productCategories      ProductCategory[]
+  products               Product[]
+  orders                 Order[]
+  payments               Payment[]
+  courses                Course[]
+  enrollments            Enrollment[]
+  mediaAssets            MediaAsset[]
+  leads                  WhatsAppLead[]
+  auditLogs              AuditLog[]
+  featureFlags           FeatureFlag[]
+  tenantSettings         TenantSetting[]
+  integrationCredentials IntegrationCredential[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@index([educationCenterId])
+  @@map("branches")
+}
+
+model BranchStaffAssignment {
+  id                    String          @id @default(cuid())
+  organizationId        String
+  branchId              String
+  staffUserId           String
+  roleKey               StaffBranchRole
+  isPrimary             Boolean         @default(false)
+  permissionsOverride   Json?
+  assignedByStaffUserId String?
+  assignedAt            DateTime        @default(now())
+  revokedAt             DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  organization          Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  staffUser             StaffUser       @relation("StaffBranchAssignments", fields: [staffUserId], references: [id], onDelete: Cascade)
+  assignedBy            StaffUser?      @relation("BranchStaffAssignmentsMade", fields: [assignedByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@unique([staffUserId, branchId, roleKey])
+  @@index([organizationId, branchId])
+  @@index([staffUserId, revokedAt])
+  @@map("branch_staff_assignments")
+}
+
+model StudentBranchMembership {
+  id             String                 @id @default(cuid())
+  organizationId String
+  branchId       String
+  userId         String
+  status         BranchMembershipStatus @default(ACTIVE)
+  isPrimary      Boolean                @default(false)
+  joinedAt       DateTime               @default(now())
+  leftAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@index([organizationId, branchId, status])
+  @@index([userId, status])
+  @@map("student_branch_memberships")
+}
+
+model ClassGroup {
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  branchId              String
+  slug                  String
+  name                  String
+  description           String?
+  gradeLevel            GradeLevel?
+  studyTrack            StudyTrack?
+  status                ClassGroupStatus       @default(ACTIVE)
+  startsAt              DateTime?
+  endsAt                DateTime?
+  createdByStaffUserId  String?
+  metadata              Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch                 @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdBy             StaffUser?             @relation("ClassGroupsCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  students              ClassGroupStudent[]
+  instructorAssignments InstructorAssignment[] @relation("ClassGroupInstructorAssignments")
+  coachAssignments      CoachAssignment[]      @relation("ClassGroupCoachAssignments")
+  liveSessions          LiveSession[]
+  announcements         Announcement[]
+
+  @@unique([branchId, slug])
+  @@index([organizationId, branchId, status])
+  @@map("class_groups")
+}
+
+model ClassGroupStudent {
+  id             String                  @id @default(cuid())
+  organizationId String
+  branchId       String
+  classGroupId   String
+  userId         String
+  status         ClassGroupStudentStatus @default(ACTIVE)
+  joinedAt       DateTime                @default(now())
+  leftAt         DateTime?
+  metadata       Json?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  classGroup     ClassGroup              @relation(fields: [classGroupId], references: [id], onDelete: Cascade)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([classGroupId, userId])
+  @@index([organizationId, branchId, status])
+  @@index([userId, status])
+  @@map("class_group_students")
+}
+
+model InstructorAssignment {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  branchId              String
+  staffUserId           String
+  userId                String?
+  classGroupId          String?
+  assignedByStaffUserId String?
+  startsAt              DateTime     @default(now())
+  endsAt                DateTime?
+  isActive              Boolean      @default(true)
+  metadata              Json?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  instructor            StaffUser    @relation("InstructorStaffAssignments", fields: [staffUserId], references: [id], onDelete: Cascade)
+  student               User?        @relation("StudentInstructorAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  classGroup            ClassGroup?  @relation("ClassGroupInstructorAssignments", fields: [classGroupId], references: [id], onDelete: Cascade)
+  assignedBy            StaffUser?   @relation("InstructorAssignmentsMade", fields: [assignedByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId, isActive])
+  @@index([staffUserId, isActive])
+  @@index([userId, isActive])
+  @@index([classGroupId, isActive])
+  @@map("instructor_assignments")
+}
+
+model CoachAssignment {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  branchId              String
+  staffUserId           String
+  userId                String?
+  classGroupId          String?
+  assignedByStaffUserId String?
+  startsAt              DateTime     @default(now())
+  endsAt                DateTime?
+  isActive              Boolean      @default(true)
+  metadata              Json?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  coach                 StaffUser    @relation("CoachStaffAssignments", fields: [staffUserId], references: [id], onDelete: Cascade)
+  student               User?        @relation("StudentCoachAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  classGroup            ClassGroup?  @relation("ClassGroupCoachAssignments", fields: [classGroupId], references: [id], onDelete: Cascade)
+  assignedBy            StaffUser?   @relation("CoachAssignmentsMade", fields: [assignedByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId, isActive])
+  @@index([staffUserId, isActive])
+  @@index([userId, isActive])
+  @@index([classGroupId, isActive])
+  @@map("coach_assignments")
+}
+
+model FeatureFlag {
+  id             String        @id @default(cuid())
+  organizationId String?
+  branchId       String?
+  key            String
+  name           String
+  description    String?
+  isEnabled      Boolean       @default(false)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, branchId, key])
+  @@index([key, isEnabled])
+  @@map("feature_flags")
+}
+
+model TenantSetting {
+  id             String        @id @default(cuid())
+  organizationId String?
+  branchId       String?
+  key            String
+  label          String?
+  value          Json?
+  isSecret       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, branchId, key])
+  @@index([key])
+  @@map("tenant_settings")
+}
+
+model IntegrationCredential {
+  id               String              @id @default(cuid())
+  organizationId   String?
+  branchId         String?
+  provider         IntegrationProvider
+  key              String
+  displayName      String
+  encryptedPayload Json?
+  metadata         Json?
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  organization     Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch           Branch?             @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, branchId, provider, key])
+  @@index([provider, isActive])
+  @@map("integration_credentials")
+}
+
+model User {
+  id                      String                    @id @default(cuid())
+  organizationId          String?
+  primaryBranchId         String?
+  email                   String                    @unique
+  phone                   String?                   @unique
+  passwordHash            String
+  status                  UserStatus                @default(PENDING_VERIFICATION)
+  emailVerifiedAt         DateTime?
+  lastLoginAt             DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  profile                 UserProfile?
+  studentProfile          StudentProfile?
+  orders                  Order[]
+  enrollments             Enrollment[]
+  whatsappLeads           WhatsAppLead[]
+  sessions                AuthSession[]
+  emailCodes              EmailVerificationCode[]
+  passwordResets          PasswordResetToken[]
+  externalAccounts        ExternalAccountLink[]
+  auditLogs               AuditLog[]                @relation("UserAuditActor")
+  organization            Organization?             @relation("OrganizationUsers", fields: [organizationId], references: [id], onDelete: SetNull)
+  primaryBranch           Branch?                   @relation("PrimaryBranchStudents", fields: [primaryBranchId], references: [id], onDelete: SetNull)
+  branchMemberships       StudentBranchMembership[]
+  classGroupMemberships   ClassGroupStudent[]
+  instructorAssignments   InstructorAssignment[]    @relation("StudentInstructorAssignments")
+  coachAssignments        CoachAssignment[]         @relation("StudentCoachAssignments")
+  liveSessionParticipants LiveSessionParticipant[]
+  announcementReads       AnnouncementRead[]        @relation("UserAnnouncementReads")
+  coachingPlans           CoachingPlan[]            @relation("StudentCoachingPlans")
+  coachingNotes           CoachingNote[]            @relation("StudentCoachingNotes")
+
+  @@index([organizationId])
+  @@index([primaryBranchId])
   @@map("users")
 }
 
@@ -299,23 +729,46 @@ model ExternalAccountLink {
 }
 
 model StaffUser {
-  id                  String          @id @default(cuid())
-  email               String          @unique
-  passwordHash        String?
-  firstName           String
-  lastName            String
-  status              StaffStatus     @default(INVITED)
-  inviteAcceptedAt    DateTime?
-  lastLoginAt         DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  roles               StaffUserRole[] @relation("AssignedRoles")
-  roleAssignmentsMade StaffUserRole[] @relation("RoleAssignmentsMade")
-  auditLogs           AuditLog[]      @relation("StaffAuditActor")
-  handledLeads        WhatsAppLead[]  @relation("HandledLeads")
-  authoredCourses     Course[]        @relation("CoursesCreated")
-  sessions            AuthSession[]
+  id                        String                  @id @default(cuid())
+  organizationId            String?
+  primaryBranchId           String?
+  email                     String                  @unique
+  passwordHash              String?
+  firstName                 String
+  lastName                  String
+  status                    StaffStatus             @default(INVITED)
+  inviteAcceptedAt          DateTime?
+  lastLoginAt               DateTime?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  roles                     StaffUserRole[]         @relation("AssignedRoles")
+  roleAssignmentsMade       StaffUserRole[]         @relation("RoleAssignmentsMade")
+  auditLogs                 AuditLog[]              @relation("StaffAuditActor")
+  handledLeads              WhatsAppLead[]          @relation("HandledLeads")
+  authoredCourses           Course[]                @relation("CoursesCreated")
+  mediaAssetsCreated        MediaAsset[]            @relation("MediaAssetsCreated")
+  sessions                  AuthSession[]
+  organization              Organization?           @relation("OrganizationStaffUsers", fields: [organizationId], references: [id], onDelete: SetNull)
+  primaryBranch             Branch?                 @relation("PrimaryBranchStaff", fields: [primaryBranchId], references: [id], onDelete: SetNull)
+  branchAssignments         BranchStaffAssignment[] @relation("StaffBranchAssignments")
+  branchAssignmentsMade     BranchStaffAssignment[] @relation("BranchStaffAssignmentsMade")
+  classGroupsCreated        ClassGroup[]            @relation("ClassGroupsCreated")
+  instructorAssignments     InstructorAssignment[]  @relation("InstructorStaffAssignments")
+  instructorAssignmentsMade InstructorAssignment[]  @relation("InstructorAssignmentsMade")
+  coachAssignments          CoachAssignment[]       @relation("CoachStaffAssignments")
+  coachAssignmentsMade      CoachAssignment[]       @relation("CoachAssignmentsMade")
+  liveSessionsCreated       LiveSession[]           @relation("LiveSessionsCreated")
+  liveSessionsAsInstructor  LiveSession[]           @relation("LiveSessionInstructor")
+  liveSessionsAsCoach       LiveSession[]           @relation("LiveSessionCoach")
+  announcementsCreated      Announcement[]          @relation("AnnouncementsCreated")
+  announcementReads         AnnouncementRead[]      @relation("StaffAnnouncementReads")
+  coachingPlansCreated      CoachingPlan[]          @relation("CoachingPlansCreated")
+  coachingPlansAsCoach      CoachingPlan[]          @relation("CoachingPlanCoach")
+  coachingNotesCreated      CoachingNote[]          @relation("CoachingNotesCreated")
+  coachingNotesAsCoach      CoachingNote[]          @relation("CoachingNoteCoach")
 
+  @@index([organizationId])
+  @@index([primaryBranchId])
   @@map("staff_users")
 }
 
@@ -498,16 +951,20 @@ model MarketingPageSection {
 }
 
 model StaffProfileGroup {
-  id            String         @id @default(cuid())
-  key           String         @unique
-  label         String
-  eyebrow       String?
-  description   String?
-  sortOrder     Int            @default(0)
-  publishStatus ContentStatus  @default(PUBLISHED)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  profiles      StaffProfile[]
+  id                   String                  @id @default(cuid())
+  key                  String                  @unique
+  label                String
+  eyebrow              String?
+  description          String?
+  introVideoSourceType ProductVideoSourceType?
+  introVideoUrl        String?
+  introVideoPosterUrl  String?
+  introVideoTitle      String?
+  sortOrder            Int                     @default(0)
+  publishStatus        ContentStatus           @default(PUBLISHED)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  profiles             StaffProfile[]
 
   @@map("staff_profile_groups")
 }
@@ -657,19 +1114,33 @@ model CountdownArticleSection {
 }
 
 model MediaAsset {
-  id               String         @id @default(cuid())
-  kind             MediaAssetKind
-  title            String
-  altText          String?
-  mimeType         String?
-  storageKey       String?
-  publicUrl        String?
-  originalFileName String?
-  sizeBytes        Int?
-  metadata         Json?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                   String               @id @default(cuid())
+  organizationId       String?
+  branchId             String?
+  kind                 MediaAssetKind
+  sourceType           MediaAssetSourceType @default(LOCAL_UPLOAD)
+  title                String
+  altText              String?
+  mimeType             String?
+  storageKey           String?
+  publicUrl            String?
+  externalProvider     String?
+  externalUrl          String?
+  embedUrl             String?
+  thumbnailUrl         String?
+  originalFileName     String?
+  sizeBytes            Int?
+  metadata             Json?
+  createdByStaffUserId String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  createdBy            StaffUser?           @relation("MediaAssetsCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  organization         Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch               Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
+  @@index([kind, sourceType])
+  @@index([createdByStaffUserId])
+  @@index([organizationId, branchId])
   @@map("media_assets")
 }
 
@@ -695,6 +1166,8 @@ model SiteSetting {
 
 model ProductCategory {
   id               String            @id @default(cuid())
+  organizationId   String?
+  branchId         String?
   parentCategoryId String?
   name             String
   slug             String            @unique
@@ -709,12 +1182,17 @@ model ProductCategory {
   parentCategory   ProductCategory?  @relation("ProductCategoryTree", fields: [parentCategoryId], references: [id], onDelete: SetNull)
   childCategories  ProductCategory[] @relation("ProductCategoryTree")
   products         Product[]
+  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch           Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, branchId])
   @@map("product_categories")
 }
 
 model Product {
   id                    String                    @id @default(cuid())
+  organizationId        String?
+  branchId              String?
   categoryId            String?
   name                  String
   slug                  String                    @unique
@@ -729,6 +1207,10 @@ model Product {
   seoTitle              String?
   seoDescription        String?
   coverImageUrl         String?
+  introVideoSourceType  ProductVideoSourceType?
+  introVideoUrl         String?
+  introVideoPosterUrl   String?
+  introVideoTitle       String?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   category              ProductCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -740,8 +1222,11 @@ model Product {
   courseLinks           ProductCourse[]
   externalProviderLinks ExternalProviderProduct[]
   whatsappLeads         WhatsAppLead[]
+  organization          Organization?             @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch                Branch?                   @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([type, publishStatus])
+  @@index([organizationId, branchId])
   @@map("products")
 }
 
@@ -837,6 +1322,8 @@ model CouponProduct {
 
 model Order {
   id             String                  @id @default(cuid())
+  organizationId String?
+  branchId       String?
   orderNumber    String                  @unique
   userId         String
   couponId       String?
@@ -853,6 +1340,8 @@ model Order {
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
   user           User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization   Organization?           @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch         Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   coupon         Coupon?                 @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items          OrderItem[]
   payments       Payment[]
@@ -860,6 +1349,7 @@ model Order {
 
   @@index([userId, status])
   @@index([status, createdAt])
+  @@index([organizationId, branchId, status])
   @@map("orders")
 }
 
@@ -890,6 +1380,8 @@ model OrderItem {
 
 model Payment {
   id                    String                  @id @default(cuid())
+  organizationId        String?
+  branchId              String?
   orderId               String
   provider              PaymentProvider
   method                PaymentMethod
@@ -904,10 +1396,13 @@ model Payment {
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   order                 Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  organization          Organization?           @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch                Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   attempts              PaymentAttempt[]
   externalOrders        ExternalProviderOrder[]
 
   @@index([orderId, status])
+  @@index([organizationId, branchId, status])
   @@map("payments")
 }
 
@@ -961,6 +1456,8 @@ model ExternalProviderOrder {
 
 model Course {
   id                       String          @id @default(cuid())
+  organizationId           String?
+  branchId                 String?
   slug                     String          @unique
   title                    String
   shortDescription         String?
@@ -972,10 +1469,14 @@ model Course {
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
   createdBy                StaffUser?      @relation("CoursesCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  organization             Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch                   Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
   modules                  CourseModule[]
   productLinks             ProductCourse[]
   enrollments              Enrollment[]
+  liveSessions             LiveSession[]
 
+  @@index([organizationId, branchId, publishStatus])
   @@map("courses")
 }
 
@@ -1067,6 +1568,8 @@ model LessonResource {
 
 model Enrollment {
   id              String           @id @default(cuid())
+  organizationId  String?
+  branchId        String?
   userId          String
   productId       String?
   courseId        String
@@ -1080,20 +1583,171 @@ model Enrollment {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch          Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
   product         Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
   course          Course           @relation(fields: [courseId], references: [id], onDelete: Restrict)
   orderItem       OrderItem?       @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
 
   @@index([userId, courseId])
   @@index([status, accessEndsAt])
+  @@index([organizationId, branchId, status])
   @@map("enrollments")
 }
 
+model LiveSession {
+  id                    String                   @id @default(cuid())
+  organizationId        String?
+  branchId              String?
+  classGroupId          String?
+  courseId              String?
+  instructorStaffUserId String?
+  coachStaffUserId      String?
+  createdByStaffUserId  String?
+  title                 String
+  description           String?
+  startsAt              DateTime
+  endsAt                DateTime
+  meetingUrl            String?
+  status                LiveSessionStatus        @default(SCHEDULED)
+  metadata              Json?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  organization          Organization?            @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch                Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  classGroup            ClassGroup?              @relation(fields: [classGroupId], references: [id], onDelete: SetNull)
+  course                Course?                  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  instructor            StaffUser?               @relation("LiveSessionInstructor", fields: [instructorStaffUserId], references: [id], onDelete: SetNull)
+  coach                 StaffUser?               @relation("LiveSessionCoach", fields: [coachStaffUserId], references: [id], onDelete: SetNull)
+  createdBy             StaffUser?               @relation("LiveSessionsCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  participants          LiveSessionParticipant[]
+
+  @@index([organizationId, branchId, startsAt])
+  @@index([classGroupId, startsAt])
+  @@index([instructorStaffUserId, startsAt])
+  @@index([coachStaffUserId, startsAt])
+  @@map("live_sessions")
+}
+
+model LiveSessionParticipant {
+  id            String                       @id @default(cuid())
+  liveSessionId String
+  userId        String
+  status        LiveSessionParticipantStatus @default(INVITED)
+  attendedAt    DateTime?
+  notes         String?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  liveSession   LiveSession                  @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+  user          User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([liveSessionId, userId])
+  @@index([userId, status])
+  @@map("live_session_participants")
+}
+
+model Announcement {
+  id                   String               @id @default(cuid())
+  organizationId       String?
+  branchId             String?
+  classGroupId         String?
+  createdByStaffUserId String?
+  title                String
+  body                 String
+  status               AnnouncementStatus   @default(DRAFT)
+  audience             AnnouncementAudience @default(ALL)
+  publishAt            DateTime?
+  expiresAt            DateTime?
+  metadata             Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  organization         Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch               Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  classGroup           ClassGroup?          @relation(fields: [classGroupId], references: [id], onDelete: SetNull)
+  createdBy            StaffUser?           @relation("AnnouncementsCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+  reads                AnnouncementRead[]
+
+  @@index([organizationId, branchId, status, publishAt])
+  @@index([classGroupId, status, publishAt])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  userId         String?
+  staffUserId    String?
+  readAt         DateTime     @default(now())
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User?        @relation("UserAnnouncementReads", fields: [userId], references: [id], onDelete: Cascade)
+  staffUser      StaffUser?   @relation("StaffAnnouncementReads", fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@unique([announcementId, staffUserId])
+  @@index([userId, readAt])
+  @@index([staffUserId, readAt])
+  @@map("announcement_reads")
+}
+
+model CoachingPlan {
+  id                   String             @id @default(cuid())
+  organizationId       String?
+  branchId             String?
+  userId               String
+  coachStaffUserId     String?
+  createdByStaffUserId String?
+  title                String
+  summary              String?
+  weekStartsAt         DateTime?
+  weekEndsAt           DateTime?
+  goals                Json?
+  status               CoachingPlanStatus @default(ACTIVE)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  organization         Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch               Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  student              User               @relation("StudentCoachingPlans", fields: [userId], references: [id], onDelete: Cascade)
+  coach                StaffUser?         @relation("CoachingPlanCoach", fields: [coachStaffUserId], references: [id], onDelete: SetNull)
+  createdBy            StaffUser?         @relation("CoachingPlansCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId, status])
+  @@index([userId, status])
+  @@index([coachStaffUserId, status])
+  @@map("coaching_plans")
+}
+
+model CoachingNote {
+  id                   String        @id @default(cuid())
+  organizationId       String?
+  branchId             String?
+  userId               String
+  coachStaffUserId     String?
+  createdByStaffUserId String?
+  title                String
+  body                 String
+  followUpAt           DateTime?
+  isPrivate            Boolean       @default(false)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  organization         Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch               Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  student              User          @relation("StudentCoachingNotes", fields: [userId], references: [id], onDelete: Cascade)
+  coach                StaffUser?    @relation("CoachingNoteCoach", fields: [coachStaffUserId], references: [id], onDelete: SetNull)
+  createdBy            StaffUser?    @relation("CoachingNotesCreated", fields: [createdByStaffUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId, createdAt])
+  @@index([userId, createdAt])
+  @@index([coachStaffUserId, createdAt])
+  @@map("coaching_notes")
+}
+
 model WhatsAppLead {
-  id                   String     @id @default(cuid())
+  id                   String        @id @default(cuid())
+  organizationId       String?
+  branchId             String?
   userId               String?
   productId            String?
-  status               LeadStatus @default(NEW)
+  status               LeadStatus    @default(NEW)
   sourcePage           String?
   phoneSnapshot        String?
   message              String?
@@ -1102,35 +1756,43 @@ model WhatsAppLead {
   utmCampaign          String?
   handledAt            DateTime?
   handledByStaffUserId String?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-  user                 User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-  product              Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  handledBy            StaffUser? @relation("HandledLeads", fields: [handledByStaffUserId], references: [id], onDelete: SetNull)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  user                 User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product              Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  organization         Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch               Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  handledBy            StaffUser?    @relation("HandledLeads", fields: [handledByStaffUserId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+  @@index([organizationId, branchId, status])
   @@map("whatsapp_leads")
 }
 
 model AuditLog {
-  id          String         @id @default(cuid())
-  actorType   AuditActorType
-  staffUserId String?
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String
-  summary     String?
-  beforeData  Json?
-  afterData   Json?
-  metadata    Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime       @default(now())
-  staffActor  StaffUser?     @relation("StaffAuditActor", fields: [staffUserId], references: [id], onDelete: SetNull)
-  userActor   User?          @relation("UserAuditActor", fields: [userId], references: [id], onDelete: SetNull)
+  id             String         @id @default(cuid())
+  organizationId String?
+  branchId       String?
+  actorType      AuditActorType
+  staffUserId    String?
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String
+  summary        String?
+  beforeData     Json?
+  afterData      Json?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime       @default(now())
+  staffActor     StaffUser?     @relation("StaffAuditActor", fields: [staffUserId], references: [id], onDelete: SetNull)
+  userActor      User?          @relation("UserAuditActor", fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  branch         Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId, createdAt])
   @@index([actorType, createdAt])
+  @@index([organizationId, branchId, createdAt])
   @@map("audit_logs")
 }

@@ -1,0 +1,68 @@
+# Future Alternative Deployment / Experimental.
+#
+# Official first beta deployment strategy is PM2 + Nginx using the VPS runbook.
+# This workflow currently drives the Docker/Caddy deployment script and must not
+# be used for the first VPS beta unless the release owner explicitly switches
+# deployment strategy.
+
+name: Deploy to VDS
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or commit SHA to deploy"
+        required: false
+        default: "production"
+      run_migrations:
+        description: "Run Prisma migrations before restart"
+        required: true
+        type: boolean
+        default: true
+      restart_services:
+        description: "Build and restart Docker Compose services"
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: production-vds-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy selected ref to VDS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout deployment scripts
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.VDS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${{ secrets.VDS_SSH_PORT || 22 }}" "${{ secrets.VDS_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Run VDS deploy script
+        shell: bash
+        env:
+          DEPLOY_REF: ${{ inputs.ref }}
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+          RESTART_SERVICES: ${{ inputs.restart_services }}
+          APP_DIR: ${{ secrets.VDS_APP_DIR }}
+          REPO_URL: ${{ secrets.VDS_REPO_URL }}
+          API_HEALTH_URL: ${{ secrets.VDS_API_HEALTH_URL }}
+          SSH_HOST: ${{ secrets.VDS_SSH_HOST }}
+          SSH_USER: ${{ secrets.VDS_SSH_USER }}
+          SSH_PORT: ${{ secrets.VDS_SSH_PORT || 22 }}
+        run: |
+          set -euo pipefail
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "APP_DIR='$APP_DIR' REPO_URL='$REPO_URL' DEPLOY_REF='$DEPLOY_REF' RUN_MIGRATIONS='$RUN_MIGRATIONS' RESTART_SERVICES='$RESTART_SERVICES' API_HEALTH_URL='${API_HEALTH_URL:-http://127.0.0.1/v1/health}' bash -s" \
+            < scripts/deploy/vds-deploy.sh

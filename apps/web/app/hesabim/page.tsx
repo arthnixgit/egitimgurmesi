@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react";
+import { StudentLmsDashboard } from "../../components/student-lms-dashboard";
+import { StudentOperationalOverviewPanel } from "../../components/student-operational-overview";
 import {
   clearUserTokens,
   fetchCurrentUser,
@@ -247,7 +249,7 @@ export default function AccountPage() {
     try {
       const response = await startOrderCheckout(orderNumber);
 
-      if (response.status === "redirect_ready" && response.mode === "external_redirect") {
+      if (response.status === "redirect_ready") {
         window.location.href = response.redirectUrl;
         return;
       }
@@ -255,7 +257,7 @@ export default function AccountPage() {
       if (response.status === "gateway_pending") {
         setSuccess(response.message);
       } else {
-        setError(response.message);
+        setError("Ödeme akışı yeniden başlatılamadı.");
       }
 
       const refreshedOrders = await fetchMyOrders();
@@ -277,7 +279,7 @@ export default function AccountPage() {
       <main className="ega-auth-shell ega-auth-shell--wide">
         <section className="ega-auth-card">
           <div className="ega-pill">Öğrenci paneli</div>
-          <h1 style={{ fontFamily: "var(--font-display)" }}>Panel hazırlanıyor</h1>
+          <h1 style={{ fontFamily: "var(--font-display)" }}>Panel yükleniyor</h1>
           <div className="ega-message ega-message--success">
             Hesap ve sipariş verileri yükleniyor...
           </div>
@@ -348,6 +350,10 @@ export default function AccountPage() {
           <span>Tamamlanan sipariş</span>
         </div>
       </section>
+
+      <StudentOperationalOverviewPanel />
+
+      <StudentLmsDashboard />
 
       <section className="ega-dashboard-grid">
         <section className="ega-dashboard-card">
@@ -525,14 +531,14 @@ export default function AccountPage() {
           </div>
 
           <p className="ega-dashboard-note">
-            Koçluk ürünlerinde yönlendirmeli ödeme kullanılır. Bu yüzden gerekli
-            olduğunda mevcut Unikazan hesabını burada bağlayabilirsin.
+            Koçluk ürünlerinde yönlendirmeli ödeme kullanılır. Gerektiğinde mevcut Unikazan
+            hesabını güvenle bağlayabilirsin.
           </p>
 
           <div className="ega-dashboard-linkbox">
             <div className="ega-summary-row">
               <strong>Durum</strong>
-              <span>{unikazanLink ? "Bağlı" : "Henüz bağlı değil"}</span>
+              <span>{unikazanLink ? "Bağlı" : "Bağlı değil"}</span>
             </div>
             <div className="ega-summary-row">
               <strong>Hesap</strong>
@@ -706,8 +712,7 @@ export default function AccountPage() {
         ) : (
           <div className="ega-dashboard-empty">
             <p>
-              Henüz sipariş görünmüyor. Paketleri inceleyerek ilk satın alma akışını
-              başlatabilirsin.
+              Sipariş bulunmuyor. Paketleri inceleyerek satın alma akışını başlatabilirsin.
             </p>
             <div className="ega-actions">
               <Link className="ega-button" href="/paketlerimiz">

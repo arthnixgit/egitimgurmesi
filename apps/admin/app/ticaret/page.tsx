@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,10 +32,23 @@ import {
   updateAdminOrderStatus,
   updateAdminProduct
 } from "../../lib/commerce-client";
+import {
+  createExternalMedia,
+  fetchAdminMedia,
+  uploadAdminMedia,
+  type AdminMediaAsset,
+  type AdminMediaKind
+} from "../../lib/media-client";
 
 type CommerceTabKey = "categories" | "products" | "orders";
 type StaffMeResponse = Awaited<ReturnType<typeof fetchCurrentStaffUser>>;
 type StaffOverviewResponse = Awaited<ReturnType<typeof fetchStaffOverview>>;
+type MediaPickerRequest = {
+  title: string;
+  description?: string;
+  kinds: AdminMediaKind[];
+  onSelect: (asset: AdminMediaAsset) => void;
+};
 
 const tabMeta: Record<
   CommerceTabKey,
@@ -68,6 +81,7 @@ const providerOptions = ["LOCAL", "UNIKAZAN"] as const;
 const publishStatusOptions = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 const currencyOptions = ["TRY", "USD", "EUR"] as const;
 const accentOptions = ["blue", "teal", "amber"] as const;
+const videoSourceOptions = ["EMBED", "DIRECT"] as const;
 const orderStatusOptions = [
   "DRAFT",
   "PENDING_PAYMENT",
@@ -107,6 +121,10 @@ export default function AdminCommercePage() {
   const [orderLoading, setOrderLoading] = useState(false);
   const [staff, setStaff] = useState<StaffMeResponse | null>(null);
   const [overview, setOverview] = useState<StaffOverviewResponse | null>(null);
+  const [mediaAssets, setMediaAssets] = useState<AdminMediaAsset[]>([]);
+  const [mediaPickerRequest, setMediaPickerRequest] = useState<MediaPickerRequest | null>(null);
+  const [mediaPickerLoading, setMediaPickerLoading] = useState(false);
+  const [mediaPickerError, setMediaPickerError] = useState("");
   const [categories, setCategories] = useState<AdminCatalogCategory[]>([]);
   const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrderSummary[]>([]);
@@ -191,8 +209,7 @@ export default function AdminCommercePage() {
         clearStaffTokens();
         router.replace("/giris");
         setError(
-          requestError instanceof Error
-            ? requestError.message
+          requestError instanceof Error ? requestError.message
             : "Ticaret yönetimi verileri yüklenemedi."
         );
       } finally {
@@ -261,6 +278,35 @@ export default function AdminCommercePage() {
   async function handleReload() {
     router.refresh();
     window.location.reload();
+  }
+
+  async function loadMediaAssets() {
+    setMediaPickerLoading(true);
+    setMediaPickerError("");
+
+    try {
+      setMediaAssets(await fetchAdminMedia());
+    } catch (requestError) {
+      setMediaPickerError(
+        requestError instanceof Error ? requestError.message : "Medya kütüphanesi yüklenemedi."
+      );
+    } finally {
+      setMediaPickerLoading(false);
+    }
+  }
+
+  function openMediaPicker(request: MediaPickerRequest) {
+    setMediaPickerRequest(request);
+    setMediaPickerError("");
+
+    if (!mediaAssets.length && !mediaPickerLoading) {
+      void loadMediaAssets();
+    }
+  }
+
+  function selectMediaAsset(asset: AdminMediaAsset) {
+    mediaPickerRequest?.onSelect(asset);
+    setMediaPickerRequest(null);
   }
 
   function syncOrderDrafts(order: AdminOrderDetail) {
@@ -518,7 +564,7 @@ export default function AdminCommercePage() {
       <main className="admin-shell">
         <section className="admin-card">
           <span className="admin-badge">Yükleniyor</span>
-          <h1>Ticaret yönetimi hazırlanıyor</h1>
+          <h1>Ticaret yönetimi yükleniyor</h1>
           <div className="admin-message admin-message--success">
             Kategori, ürün ve sipariş verileri okunuyor.
           </div>
@@ -547,6 +593,9 @@ export default function AdminCommercePage() {
           <Link className="admin-button--ghost" href="/icerik">
             İçerik Stüdyosu
           </Link>
+          <Link className="admin-button--ghost" href="/medya">
+            Medya Kütüphanesi
+          </Link>
           <button className="admin-button--ghost" type="button" onClick={handleReload}>
             Yeniden Yükle
           </button>
@@ -559,11 +608,9 @@ export default function AdminCommercePage() {
       <div className="admin-panel-grid">
         <aside className="admin-card admin-sidebar">
           <span className="admin-badge">Yetki</span>
-          <h2 style={{ marginTop: 18 }}>Ticaret yönetimi açık</h2>
+          <h2 style={{ marginTop: 18 }}>Ticaret Yönetimi</h2>
           <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
-            Bu alan kategori ve ürün yönetimini, ayrıca sipariş operasyonunu aynı panelden
-            yürütür. Sipariş tarafında not, durum, manuel inceleme ve zaman çizelgesi araçları
-            bulunur.
+            Paketleri, kategorileri, fiyatları ve sipariş operasyonunu yönetin.
           </p>
 
           <div className="admin-summary">
@@ -750,6 +797,7 @@ export default function AdminCommercePage() {
                   onChange={setProductDraft}
                   onSave={handleSaveProduct}
                   onDelete={handleDeleteProduct}
+                  onOpenMediaPicker={openMediaPicker}
                 />
               </div>
             </div>
@@ -893,8 +941,177 @@ export default function AdminCommercePage() {
           ) : null}
         </section>
       </div>
+
+      {mediaPickerRequest ? (
+        <MediaPickerModal
+          request={mediaPickerRequest}
+          assets={mediaAssets}
+          loading={mediaPickerLoading}
+          error={mediaPickerError}
+          onClose={() => setMediaPickerRequest(null)}
+          onReload={() => void loadMediaAssets()}
+          onSelect={selectMediaAsset}
+        />
+      ) : null}
     </main>
   );
+}
+
+function MediaUrlField({
+  label,
+  value,
+  kinds,
+  pickerTitle,
+  placeholder,
+  onChange,
+  onSelectAsset,
+  onOpenMediaPicker
+}: {
+  label: string;
+  value: string;
+  kinds: AdminMediaKind[];
+  pickerTitle: string;
+  placeholder?: string;
+  onChange: (value: string) => void;
+  onSelectAsset?: (asset: AdminMediaAsset) => void;
+  onOpenMediaPicker: (request: MediaPickerRequest) => void;
+}) {
+  return (
+    <label className="admin-field">
+      <span>{label}</span>
+      <div className="admin-media-url-field">
+        <input
+          className="admin-input"
+          type="text"
+          value={value}
+          placeholder={placeholder ?? "Medya URL'si"}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          className="admin-button--ghost admin-button--compact"
+          type="button"
+          onClick={() =>
+            onOpenMediaPicker({
+              title: pickerTitle,
+              description: `${kinds.join(", ")} türündeki medya kayıtları listelenir.`,
+              kinds,
+              onSelect: (asset) => {
+                if (onSelectAsset) {
+                  onSelectAsset(asset);
+                  return;
+                }
+
+                onChange(getMediaAssetUsableUrl(asset));
+              }
+            })
+          }
+        >
+          Medyadan Seç
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function MediaPickerModal({
+  request,
+  assets,
+  loading,
+  error,
+  onClose,
+  onReload,
+  onSelect
+}: {
+  request: MediaPickerRequest;
+  assets: AdminMediaAsset[];
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+  onReload: () => void;
+  onSelect: (asset: AdminMediaAsset) => void;
+}) {
+  const filteredAssets = assets.filter((asset) => request.kinds.includes(asset.kind));
+
+  return (
+    <div className="admin-media-picker" role="dialog" aria-modal="true" aria-label={request.title}>
+      <button className="admin-media-picker__backdrop" type="button" aria-label="Kapat" onClick={onClose} />
+
+      <section className="admin-media-picker__panel">
+        <div className="admin-media-picker__head">
+          <div>
+            <span className="admin-badge">Medya Kütüphanesi</span>
+            <h2>{request.title}</h2>
+            <p>{request.description ?? "Uygun medya kaydını seçin."}</p>
+          </div>
+
+          <div className="admin-actions">
+            <button className="admin-button--ghost" type="button" onClick={onReload} disabled={loading}>
+              {loading ? "Yükleniyor..." : "Yenile"}
+            </button>
+            <Link className="admin-button--ghost" href="/medya" target="_blank">
+              Medya Ekle
+            </Link>
+            <button className="admin-button" type="button" onClick={onClose}>
+              Kapat
+            </button>
+          </div>
+        </div>
+
+        {error ? <div className="admin-message admin-message--error">{error}</div> : null}
+        {loading ? <div className="admin-message admin-message--success">Medya kayıtları yükleniyor.</div> : null}
+
+        {!loading && filteredAssets.length === 0 ? (
+          <div className="admin-empty-state">
+            Uygun medya bulunamadı. Medya Kütüphanesi’nden yeni kayıt ekleyin.
+          </div>
+        ) : null}
+
+        <div className="admin-media-picker__grid">
+          {filteredAssets.map((asset) => (
+            <article key={asset.id} className="admin-media-picker-card">
+              <div className="admin-media-picker-card__preview">
+                {asset.kind === "IMAGE" || asset.kind === "BRANDING" ? (
+                  getMediaAssetUsableUrl(asset) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={getMediaAssetUsableUrl(asset)} alt={asset.altText ?? asset.title} />
+                  ) : (
+                    <span>{asset.kind}</span>
+                  )
+                ) : asset.kind === "VIDEO" && asset.embedUrl ? (
+                  <iframe src={asset.embedUrl} title={asset.title} loading="lazy" allowFullScreen />
+                ) : asset.kind === "VIDEO" && asset.publicUrl ? (
+                  <video src={asset.publicUrl} poster={asset.thumbnailUrl ?? undefined} preload="metadata" controls />
+                ) : (
+                  <span>{asset.kind}</span>
+                )}
+              </div>
+
+              <div className="admin-media-picker-card__body">
+                <strong>{asset.title}</strong>
+                <span>
+                  {asset.kind} · {asset.sourceType}
+                </span>
+                <code>{getMediaAssetUsableUrl(asset) || "URL yok"}</code>
+              </div>
+
+              <button
+                className="admin-button"
+                type="button"
+                disabled={!getMediaAssetUsableUrl(asset)}
+                onClick={() => onSelect(asset)}
+              >
+                Bu Medyayı Kullan
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function getMediaAssetUsableUrl(asset: AdminMediaAsset) {
+  return asset.url ?? asset.embedUrl ?? asset.publicUrl ?? asset.externalUrl ?? asset.thumbnailUrl ?? "";
 }
 
 function CategoryForm({
@@ -1043,7 +1260,8 @@ function ProductForm({
   saving,
   onChange,
   onSave,
-  onDelete
+  onDelete,
+  onOpenMediaPicker
 }: {
   draft: AdminCatalogProduct;
   categories: AdminCatalogCategory[];
@@ -1051,8 +1269,10 @@ function ProductForm({
   onChange: (nextValue: AdminCatalogProduct) => void;
   onSave: () => void;
   onDelete: () => void;
+  onOpenMediaPicker: (request: MediaPickerRequest) => void;
 }) {
   const canShowExternalMapping = draft.provider === "UNIKAZAN";
+  const [mediaBusy, setMediaBusy] = useState(false);
 
   function updateVariant(index: number, nextValue: AdminCatalogVariant) {
     onChange({
@@ -1066,6 +1286,68 @@ function ProductForm({
       ...draft,
       features: draft.features.map((entry, entryIndex) => (entryIndex === index ? nextValue : entry))
     });
+  }
+
+  async function handleNormalizeIntroVideoUrl() {
+    if (!draft.introVideoUrl?.trim()) {
+      window.alert("Önce bir video URL girin.");
+      return;
+    }
+
+    setMediaBusy(true);
+
+    try {
+      const asset = await createExternalMedia({
+        kind: "VIDEO",
+        title: draft.introVideoTitle?.trim() || `${draft.name} tanıtım videosu`,
+        externalUrl: draft.introVideoUrl,
+        thumbnailUrl: draft.introVideoPosterUrl ?? undefined
+      });
+
+      onChange({
+        ...draft,
+        introVideoSourceType: asset.playbackSourceType ?? "EMBED",
+        introVideoUrl: asset.url ?? asset.embedUrl ?? asset.publicUrl ?? draft.introVideoUrl,
+        introVideoPosterUrl: asset.thumbnailUrl ?? draft.introVideoPosterUrl ?? null
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Video URL normalize edilemedi.");
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function handleUploadProductMedia(
+    file: File | null,
+    field: "coverImageUrl" | "introVideoPosterUrl"
+  ) {
+    if (!file) {
+      return;
+    }
+
+    setMediaBusy(true);
+
+    try {
+      const asset = await uploadAdminMedia({
+        file,
+        kind: "IMAGE",
+        title: `${draft.name} ${field === "coverImageUrl" ? "kapak" : "video poster"}`
+      });
+      const assetUrl = asset.url ?? asset.publicUrl ?? "";
+
+      if (!assetUrl) {
+        throw new Error("Yüklenen medya için kullanılabilir URL üretilemedi.");
+      }
+
+      onChange({
+        ...draft,
+        [field]: assetUrl
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Medya yüklenemedi.");
+    } finally {
+      setMediaBusy(false);
+    }
   }
 
   return (
@@ -1198,14 +1480,115 @@ function ProductForm({
           />
         </div>
         <div className="admin-field">
-          <label>Kapak Görsel URL</label>
-          <input
-            className="admin-input"
+          <MediaUrlField
+            label="Kapak Görsel URL"
             value={draft.coverImageUrl ?? ""}
-            onChange={(event) => onChange({ ...draft, coverImageUrl: event.target.value })}
+            kinds={["IMAGE", "BRANDING"]}
+            pickerTitle={`${draft.name || "Ürün"} kapak görseli seç`}
+            onChange={(value) => onChange({ ...draft, coverImageUrl: value })}
+            onOpenMediaPicker={onOpenMediaPicker}
+          />
+          <input
+            className="admin-input admin-file-input"
+            type="file"
+            accept="image/*"
+            disabled={mediaBusy}
+            onChange={(event) =>
+              void handleUploadProductMedia(event.target.files?.[0] ?? null, "coverImageUrl")
+            }
           />
         </div>
       </div>
+
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Tanıtım Videosu</span>
+          <span className="admin-editor-meta__text">
+            Aynı video alanı ana sayfa kartlarında, paket listesinde ve detay sayfasında oynatılır
+          </span>
+        </div>
+
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <label>Kaynak Tipi</label>
+            <select
+              className="admin-input admin-select"
+              value={draft.introVideoSourceType ?? "EMBED"}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  introVideoSourceType: event.target.value as "EMBED" | "DIRECT"
+                })
+              }
+            >
+              {videoSourceOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label>Video Başlığı</label>
+            <input
+              className="admin-input"
+              value={draft.introVideoTitle ?? ""}
+              onChange={(event) => onChange({ ...draft, introVideoTitle: event.target.value })}
+              placeholder="Kart içindeki video etiketi"
+            />
+          </div>
+        </div>
+
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <MediaUrlField
+              label="Embed / Video URL"
+              value={draft.introVideoUrl ?? ""}
+              kinds={["VIDEO"]}
+              pickerTitle={`${draft.name || "Ürün"} tanıtım videosu seç`}
+              placeholder="Cloud streamer embed ya da doğrudan video adresi"
+              onChange={(value) => onChange({ ...draft, introVideoUrl: value })}
+              onSelectAsset={(asset) =>
+                onChange({
+                  ...draft,
+                  introVideoUrl: getMediaAssetUsableUrl(asset),
+                  introVideoSourceType: asset.playbackSourceType ?? draft.introVideoSourceType ?? "EMBED",
+                  introVideoPosterUrl: asset.thumbnailUrl ?? draft.introVideoPosterUrl ?? null
+                })
+              }
+              onOpenMediaPicker={onOpenMediaPicker}
+            />
+            <button
+              className="admin-button--ghost"
+              type="button"
+              disabled={mediaBusy || !draft.introVideoUrl?.trim()}
+              onClick={() => void handleNormalizeIntroVideoUrl()}
+            >
+              Google Drive / Cloud URL Normalize Et
+            </button>
+          </div>
+          <div className="admin-field">
+            <MediaUrlField
+              label="Poster URL"
+              value={draft.introVideoPosterUrl ?? ""}
+              kinds={["IMAGE", "BRANDING"]}
+              pickerTitle={`${draft.name || "Ürün"} video posteri seç`}
+              placeholder="Oynatma öncesi kapak görseli"
+              onChange={(value) => onChange({ ...draft, introVideoPosterUrl: value })}
+              onOpenMediaPicker={onOpenMediaPicker}
+            />
+            <input
+              className="admin-input admin-file-input"
+              type="file"
+              accept="image/*"
+              disabled={mediaBusy}
+              onChange={(event) =>
+                void handleUploadProductMedia(event.target.files?.[0] ?? null, "introVideoPosterUrl")
+              }
+            />
+          </div>
+        </div>
+      </section>
 
       <div className="admin-field">
         <label>Açıklama</label>
@@ -1891,6 +2274,10 @@ function createEmptyProduct(): AdminCatalogProduct {
     seoTitle: "",
     seoDescription: "",
     coverImageUrl: "",
+    introVideoSourceType: "EMBED",
+    introVideoUrl: "",
+    introVideoPosterUrl: "",
+    introVideoTitle: "",
     variants: [createEmptyVariant()],
     features: [createEmptyFeature()]
   };
@@ -1932,6 +2319,12 @@ function normalizeProductDraft(draft: AdminCatalogProduct): AdminCatalogProduct 
     seoTitle: draft.seoTitle?.trim() || null,
     seoDescription: draft.seoDescription?.trim() || null,
     coverImageUrl: draft.coverImageUrl?.trim() || null,
+    introVideoSourceType: draft.introVideoUrl?.trim()
+      ? (draft.introVideoSourceType ?? "EMBED")
+      : null,
+    introVideoUrl: draft.introVideoUrl?.trim() || null,
+    introVideoPosterUrl: draft.introVideoPosterUrl?.trim() || null,
+    introVideoTitle: draft.introVideoTitle?.trim() || null,
     variants: draft.variants.map((variant, index) => ({
       ...variant,
       title: variant.title.trim(),
@@ -1961,3 +2354,4 @@ function formatDateTime(value?: string | null) {
     timeStyle: "short"
   }).format(new Date(value));
 }
+

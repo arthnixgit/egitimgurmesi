@@ -10,13 +10,78 @@ import {
   type PackageCategory,
   type PackageProduct
 } from "../lib/package-catalog";
+import type { MarketingPageSection } from "../lib/public-content-api";
 
 type PackagesDirectoryProps = {
   categories: readonly PackageCategory[];
   products: readonly PackageProduct[];
+  ribbonSection?: MarketingPageSection | null;
+  introSection?: MarketingPageSection | null;
 };
 
-export function PackagesDirectory({ categories, products }: PackagesDirectoryProps) {
+const comparisonRows = [
+  {
+    feature: "Fiyatlandırma",
+    gurmesi: "Esnek ve ulaşılabilir paket yapısı",
+    classic: "Yüksek yıllık maliyet",
+    others: "Değişken fiyat politikası"
+  },
+  {
+    feature: "Birebir Koçluk",
+    gurmesi: "Düzenli görüşme ve takip",
+    classic: "Genelde yok",
+    others: "Seyrek görüşme"
+  },
+  {
+    feature: "Kişiye Özel Program",
+    gurmesi: "Öğrencinin seviyesine göre güncellenen plan",
+    classic: "Genel sınıf programı",
+    others: "Sınırlı özelleştirme"
+  },
+  {
+    feature: "Program Takibi",
+    gurmesi: "Koç ve panel üzerinden görünür ilerleme",
+    classic: "Çoğu zaman yapılmaz",
+    others: "Sınırlı takip"
+  },
+  {
+    feature: "Motivasyon Desteği",
+    gurmesi: "Görüşme, görev ve analizle sürdürülen süreç",
+    classic: "Standart ders akışı",
+    others: "Kısıtlı destek"
+  },
+  {
+    feature: "Yapay Zeka Desteği",
+    gurmesi: "Analiz, soru çözüm ve ödev önerisi",
+    classic: "Bulunmaz",
+    others: "Genelde yok"
+  },
+  {
+    feature: "Canlı Dersler",
+    gurmesi: "Seçili yayın ve ders erişimi",
+    classic: "Kalabalık sınıf yapısı",
+    others: "Sabit ders yapısı"
+  },
+  {
+    feature: "Esnek Paket Seçeneği",
+    gurmesi: "Aylık, dönemlik ve kamp odaklı seçenekler",
+    classic: "Genelde yıllık kayıt",
+    others: "Kısıtlı seçenek"
+  },
+  {
+    feature: "İade Güvencesi",
+    gurmesi: "İlk görüşmeden memnun kalmazsan iade",
+    classic: "Çoğunlukla yok",
+    others: "Değişken politika"
+  }
+] as const;
+
+export function PackagesDirectory({
+  categories,
+  products,
+  ribbonSection,
+  introSection
+}: PackagesDirectoryProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -41,49 +106,35 @@ export function PackagesDirectory({ categories, products }: PackagesDirectoryPro
       categoryId as Parameters<typeof buildPackagesPageHref>[0],
       subcategoryId as Parameters<typeof buildPackagesPageHref>[1]
     );
+    const nextHref = href === "/paketlerimiz" ? pathname : href;
+    const currentHref = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
 
-    router.push(href === "/paketlerimiz" ? pathname : href);
+    if (nextHref === currentHref) {
+      return;
+    }
+
+    router.replace(nextHref, { scroll: false });
   }
 
   return (
     <PublicPageLayout>
-      <section className="ega-page-banner ega-page-banner--packages">
-        <div className="ega-container ega-page-banner__inner">
-          <div className="ega-page-banner__copy">
-            <span className="ega-eyebrow">Paket Kataloğu</span>
-            <h1>Paketleri kategori ve alt kategoriye göre filtreleyip doğrudan incele.</h1>
-            <p>
-              Bu sayfa artık ana sayfadaki bölüme bağlı değil. Menüden gelen ziyaretçi doğrudan ürün kataloğuna
-              düşer, kategori seçer, alt başlık daraltır ve kartlar üzerinden inceleme ya da satın alma akışına geçer.
-            </p>
-          </div>
-
-          <div className="ega-page-banner__panel">
-            <span>Aktif görünüm</span>
-            <strong>{activeCategory?.label ?? "Hepsi"}</strong>
-            <p>{activeSubcategory?.label ?? "Tüm paket ve koçluk kartları birlikte listeleniyor."}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="ega-section ega-container">
+      <section className="ega-section ega-container ega-section--packages-directory">
         <SectionHeading
-          eyebrow="Filtreleme"
-          title="Tüm paketleri tek sayfada gez, istersen başlığa göre daralt"
-          description="Üst satır ana kategorileri, ikinci satır seçilen kategorinin alt başlıklarını kontrol eder. Hiçbir seçim yapılmazsa Hepsi görünümü açık kalır."
+          title={introSection?.title ?? "Sana En Uygun Paketi Seç"}
+          description={introSection?.body ?? undefined}
         />
+
+        {ribbonSection?.isActive !== false && ribbonSection?.title ? (
+          <div className="ega-guarantee-ribbon" role="note" aria-label="Paket garantisi bilgisi">
+            <div className="ega-guarantee-ribbon__badge" aria-hidden="true">
+              ✓
+            </div>
+            <strong>{ribbonSection.title}</strong>
+          </div>
+        ) : null}
 
         <div className="ega-filter-shell ega-filter-shell--directory">
           <div className="ega-filter-shell__mode ega-filter-shell__mode--directory">
-            <button
-              type="button"
-              className="ega-filter-mode"
-              data-active={!activeCategory}
-              onClick={() => setFilter(null, null)}
-            >
-              Hepsi
-            </button>
-
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -99,16 +150,6 @@ export function PackagesDirectory({ categories, products }: PackagesDirectoryPro
 
           {activeCategory ? (
             <div className="ega-filter-shell__subcategories">
-              <button
-                type="button"
-                className="ega-filter-option ega-filter-option--compact"
-                data-active={!activeSubcategory}
-                onClick={() => setFilter(activeCategory.id, null)}
-              >
-                <strong>Hepsi</strong>
-                <span>{activeCategory.label} içindeki tüm alt başlıklar</span>
-              </button>
-
               {activeCategory.subcategories.map((subcategory) => (
                 <button
                   key={subcategory.id}
@@ -125,15 +166,6 @@ export function PackagesDirectory({ categories, products }: PackagesDirectoryPro
           ) : null}
         </div>
 
-        <div className="ega-filter-summary">
-          <strong>{visibleProducts.length} kart listeleniyor</strong>
-          <span>
-            {activeCategory
-              ? `${activeCategory.label}${activeSubcategory ? ` / ${activeSubcategory.label}` : ""}`
-              : "Hepsi görünümü"}
-          </span>
-        </div>
-
         {visibleProducts.length ? (
           <div className="ega-pack-grid">
             {visibleProducts.map((product) => (
@@ -143,9 +175,66 @@ export function PackagesDirectory({ categories, products }: PackagesDirectoryPro
         ) : (
           <div className="ega-empty-state">
             <h2>Bu filtrede henüz görünür kart yok.</h2>
-            <p>Başka bir kategori seçerek devam edebilir veya Hepsi görünümüne dönebilirsin.</p>
+            <p>Başka bir kategori ya da alt başlık seçerek devam edebilirsin.</p>
           </div>
         )}
+
+        <section className="ega-why-gurmesi">
+          <div className="ega-why-gurmesi__head">
+            <h2>Neden Eğitim Gürmesi?</h2>
+            <p>
+              Eğitim Gürmesi Akademi; paket seçimi, koçluk takibi, canlı ders ve öğrenci panelini
+              daha görünür bir sistemde birleştirir.
+            </p>
+          </div>
+
+          <div
+            className="ega-why-gurmesi__table"
+            role="table"
+            aria-label="Neden Eğitim Gürmesi karşılaştırması"
+          >
+            <div className="ega-why-gurmesi__row ega-why-gurmesi__row--head" role="row">
+              <div className="ega-why-gurmesi__cell ega-why-gurmesi__cell--feature" role="columnheader">
+                Özellikler
+              </div>
+              <div className="ega-why-gurmesi__cell ega-why-gurmesi__cell--brand" role="columnheader">
+                Eğitim Gürmesi
+              </div>
+              <div className="ega-why-gurmesi__cell" role="columnheader">
+                Klasik Dershaneler
+              </div>
+              <div className="ega-why-gurmesi__cell" role="columnheader">
+                Diğer Koçluk Sistemleri
+              </div>
+            </div>
+
+            {comparisonRows.map((row) => (
+              <div key={row.feature} className="ega-why-gurmesi__row" role="row">
+                <div className="ega-why-gurmesi__cell ega-why-gurmesi__cell--feature" role="cell">
+                  {row.feature}
+                </div>
+                <div className="ega-why-gurmesi__cell ega-why-gurmesi__cell--brand" role="cell">
+                  <span className="ega-why-gurmesi__status ega-why-gurmesi__status--good" aria-hidden="true">
+                    ✓
+                  </span>
+                  <span>{row.gurmesi}</span>
+                </div>
+                <div className="ega-why-gurmesi__cell" role="cell">
+                  <span className="ega-why-gurmesi__status ega-why-gurmesi__status--warn" aria-hidden="true">
+                    !
+                  </span>
+                  <span>{row.classic}</span>
+                </div>
+                <div className="ega-why-gurmesi__cell" role="cell">
+                  <span className="ega-why-gurmesi__status ega-why-gurmesi__status--mid" aria-hidden="true">
+                    •
+                  </span>
+                  <span>{row.others}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </section>
     </PublicPageLayout>
   );

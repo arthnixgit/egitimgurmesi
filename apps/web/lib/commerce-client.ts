@@ -1,12 +1,9 @@
 "use client";
 
-import {
-  clearUserTokens,
-  getUserAccessToken,
-  refreshUserToken
-} from "./auth-client";
+import { clearUserTokens, getUserAccessToken, refreshUserToken } from "./auth-client";
+import { resolveApiBaseUrl } from "./api-base-url";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
+const API_BASE_URL = resolveApiBaseUrl();
 
 type ApiErrorPayload = {
   message?: string;
@@ -51,6 +48,15 @@ export type UserOrder = {
   }>;
 };
 
+export type StartCheckoutPayload = {
+  identityNumber?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingDistrict?: string;
+  billingZipCode?: string;
+  billingCountry?: string;
+};
+
 export type StartCheckoutResponse =
   | {
       status: "gateway_pending";
@@ -61,7 +67,18 @@ export type StartCheckoutResponse =
       checkoutUrl: null;
     }
   | {
-      status: "link_required" | "mapping_required" | "provider_not_configured" | "profile_incomplete";
+      status: "redirect_ready";
+      mode: "local_gateway";
+      provider: "PAYTR";
+      orderNumber: string;
+      redirectUrl: string;
+    }
+  | {
+      status:
+        | "link_required"
+        | "mapping_required"
+        | "provider_not_configured"
+        | "profile_incomplete";
       mode: "external_redirect";
       provider: "UNIKAZAN";
       orderNumber: string;
@@ -148,11 +165,12 @@ export function createCheckoutOrder(variantId: string, couponCode?: string) {
   });
 }
 
-export function startOrderCheckout(orderNumber: string) {
+export function startOrderCheckout(orderNumber: string, payload?: StartCheckoutPayload) {
   return requestUserApi<StartCheckoutResponse>(
     `/orders/my/${encodeURIComponent(orderNumber)}/checkout`,
     {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify(payload ?? {})
     }
   );
 }

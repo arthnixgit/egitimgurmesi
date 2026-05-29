@@ -44,7 +44,7 @@ export default function InPersonCoachingPage() {
           <div className="ega-coaching-hero__copy">
             <span className="ega-pill ega-pill--warm">Ankara yüz yüze koçluk modeli</span>
             <h1>
-              <span>“Yüz Yüze Koçluk”</span>
+              <span>"Yüz Yüze Koçluk"</span>
               <strong>Dönemi Başladı!</strong>
             </h1>
             <p>Koçum yanımda olsun diyorsan, Eğitim Gurmesi Akademi senin için doğru yer.</p>

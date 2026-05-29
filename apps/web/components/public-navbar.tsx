@@ -8,9 +8,12 @@ import { getNavigationItems } from "../lib/public-content-api";
 import { publicNavigationItems, type PublicNavItem } from "../lib/navigation";
 
 export function PublicNavbar() {
-  const [navigationItems, setNavigationItems] = useState<readonly PublicNavItem[]>(publicNavigationItems);
+  const [navigationItems, setNavigationItems] =
+    useState<readonly PublicNavItem[]>(publicNavigationItems);
   const [openMegaMenuId, setOpenMegaMenuId] = useState<string | null>(null);
   const [activeMegaColumnId, setActiveMegaColumnId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [openMobileGroupId, setOpenMobileGroupId] = useState<string | null>(null);
   const [isScrollSettling, setIsScrollSettling] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
   const scrollUnlockTimerRef = useRef<number | null>(null);
@@ -35,6 +38,11 @@ export function PublicNavbar() {
     setActiveMegaColumnId(null);
   };
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+    setOpenMobileGroupId(null);
+  };
+
   const scheduleMegaMenuClose = () => {
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {
@@ -52,6 +60,7 @@ export function PublicNavbar() {
     () => () => {
       clearCloseTimer();
       clearScrollUnlockTimer();
+      document.body.style.overflow = "";
     },
     []
   );
@@ -73,6 +82,7 @@ export function PublicNavbar() {
   useEffect(() => {
     const closeOnViewportChange = () => {
       closeMegaMenu();
+      closeMobileMenu();
       setIsScrollSettling(true);
       clearScrollUnlockTimer();
       scrollUnlockTimerRef.current = window.setTimeout(() => {
@@ -88,6 +98,10 @@ export function PublicNavbar() {
       window.removeEventListener("resize", closeOnViewportChange);
     };
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+  }, [mobileMenuOpen]);
 
   return (
     <header className="ega-header">
@@ -105,6 +119,21 @@ export function PublicNavbar() {
             <strong>Eğitim Gurmesi Akademi</strong>
           </div>
         </Link>
+
+        <button
+          type="button"
+          className="ega-mobile-nav-toggle"
+          aria-label={mobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
+          aria-expanded={mobileMenuOpen}
+          onClick={() => {
+            closeMegaMenu();
+            setMobileMenuOpen((current) => !current);
+          }}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
 
         <nav
           className="ega-nav"
@@ -131,7 +160,8 @@ export function PublicNavbar() {
 
             const columns = item.megaMenuColumns;
             const isOpen = openMegaMenuId === item.id;
-            const activeColumn = columns.find((column) => column.id === activeMegaColumnId) ?? null;
+            const activeColumn =
+              columns.find((column) => column.id === activeMegaColumnId) ?? null;
 
             return (
               <div
@@ -153,8 +183,8 @@ export function PublicNavbar() {
                   }
                 }}
               >
-                <button
-                  type="button"
+                <Link
+                  href={item.href}
                   className="ega-nav__trigger"
                   aria-expanded={isOpen}
                   aria-haspopup="true"
@@ -164,9 +194,13 @@ export function PublicNavbar() {
                   <span className="ega-nav__chevron" aria-hidden="true">
                     ▾
                   </span>
-                </button>
+                </Link>
 
-                <div className="ega-nav__mega-panel" data-open={isOpen} onPointerEnter={clearCloseTimer}>
+                <div
+                  className="ega-nav__mega-panel"
+                  data-open={isOpen}
+                  onPointerEnter={clearCloseTimer}
+                >
                   <div className="ega-nav__mega-strip">
                     {columns.map((column) => {
                       const isActive = activeColumn?.id === column.id;
@@ -219,8 +253,107 @@ export function PublicNavbar() {
           })}
         </nav>
 
-        <div className="ega-header__actions" onPointerEnter={closeMegaMenu} onFocusCapture={closeMegaMenu}>
+        <div
+          className="ega-header__actions"
+          onPointerEnter={closeMegaMenu}
+          onFocusCapture={closeMegaMenu}
+        >
           <ButtonLink href="/giris" label="Giriş Yap / Kayıt Ol" />
+        </div>
+      </div>
+
+      <div className="ega-mobile-nav" data-open={mobileMenuOpen} aria-hidden={!mobileMenuOpen}>
+        <div className="ega-mobile-nav__backdrop" onClick={closeMobileMenu} />
+        <div className="ega-mobile-nav__panel">
+          <div className="ega-mobile-nav__head">
+            <strong>Menü</strong>
+            <button
+              type="button"
+              className="ega-mobile-nav__close"
+              aria-label="Menüyü kapat"
+              onClick={closeMobileMenu}
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="ega-mobile-nav__body">
+            {navigationItems.map((item) => {
+              if (!item.megaMenuColumns) {
+                return (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    className="ega-mobile-nav__link"
+                    target={item.target}
+                    rel={item.target === "_blank" ? "noreferrer" : undefined}
+                    onClick={closeMobileMenu}
+                  >
+                    {item.label}
+                  </a>
+                );
+              }
+
+              const isGroupOpen = openMobileGroupId === item.id;
+
+              return (
+                <div key={item.id} className="ega-mobile-nav__group" data-open={isGroupOpen}>
+                  <div className="ega-mobile-nav__group-head">
+                    <a href={item.href} className="ega-mobile-nav__link" onClick={closeMobileMenu}>
+                      {item.label}
+                    </a>
+                    <button
+                      type="button"
+                      className="ega-mobile-nav__group-toggle"
+                      aria-expanded={isGroupOpen}
+                      onClick={() =>
+                        setOpenMobileGroupId((current) => (current === item.id ? null : item.id))
+                      }
+                    >
+                      <span>{isGroupOpen ? "−" : "+"}</span>
+                    </button>
+                  </div>
+
+                  <div className="ega-mobile-nav__submenu">
+                    {item.megaMenuColumns.map((column) => (
+                      <div key={column.id} className="ega-mobile-nav__submenu-block">
+                        <a
+                          href={column.href}
+                          className="ega-mobile-nav__submenu-title"
+                          target={column.target}
+                          rel={column.target === "_blank" ? "noreferrer" : undefined}
+                          onClick={closeMobileMenu}
+                        >
+                          {column.label}
+                        </a>
+
+                        {column.items?.length ? (
+                          <div className="ega-mobile-nav__submenu-links">
+                            {column.items.map((subItem) => (
+                              <a
+                                key={subItem.id}
+                                href={subItem.href}
+                                className="ega-mobile-nav__submenu-link"
+                                target={subItem.target}
+                                rel={subItem.target === "_blank" ? "noreferrer" : undefined}
+                                onClick={closeMobileMenu}
+                              >
+                                {subItem.label}
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="ega-mobile-nav__footer">
+            <ButtonLink href="/giris" label="Giriş Yap / Kayıt Ol" />
+          </div>
         </div>
       </div>
     </header>

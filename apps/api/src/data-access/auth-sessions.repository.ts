@@ -49,4 +49,16 @@ export class AuthSessionsRepository {
       }
     });
   }
+
+  revokeAllForUser(userId: string) {
+    return this.prisma.authSession.updateMany({
+      where: {
+        userId,
+        revokedAt: null
+      },
+      data: {
+        revokedAt: new Date()
+      }
+    });
+  }
 }

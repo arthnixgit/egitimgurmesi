@@ -264,6 +264,10 @@ export class AdminContentService {
             label: group.label,
             eyebrow: group.eyebrow,
             description: group.description,
+            introVideoSourceType: group.introVideoSourceType ?? null,
+            introVideoUrl: group.introVideoUrl ?? null,
+            introVideoPosterUrl: group.introVideoPosterUrl ?? null,
+            introVideoTitle: group.introVideoTitle ?? null,
             sortOrder: group.sortOrder ?? (groupIndex + 1) * 10,
             publishStatus: group.publishStatus ?? ContentStatus.PUBLISHED
           }
@@ -630,6 +634,10 @@ function normalizeStaffGroup(group: StaffGroupWithProfiles) {
     label: group.label,
     eyebrow: group.eyebrow,
     description: group.description,
+    introVideoSourceType: group.introVideoSourceType,
+    introVideoUrl: group.introVideoUrl,
+    introVideoPosterUrl: group.introVideoPosterUrl,
+    introVideoTitle: group.introVideoTitle,
     sortOrder: group.sortOrder,
     publishStatus: group.publishStatus,
     profiles: group.profiles.map((profile) => ({

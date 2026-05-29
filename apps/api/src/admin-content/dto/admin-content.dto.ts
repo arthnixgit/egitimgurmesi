@@ -17,7 +17,8 @@ import {
   ContentStatus,
   FreeMaterialItemType,
   MarketingPageType,
-  NavigationMenuLocation
+  NavigationMenuLocation,
+  ProductVideoSourceType
 } from "@ega/db";
 
 export class SaveNavigationMenuItemDto {
@@ -76,6 +77,10 @@ export class SaveNavigationMenuDto {
 }
 
 export class SaveMarketingPageSectionDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsString()
   sectionKey!: string;
 
@@ -203,6 +208,22 @@ export class SaveStaffProfileGroupDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(ProductVideoSourceType)
+  introVideoSourceType?: ProductVideoSourceType | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoPosterUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoTitle?: string | null;
 
   @IsOptional()
   @IsInt()

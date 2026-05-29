@@ -38,8 +38,7 @@ export default function BootstrapPage() {
         }
 
         setError(
-          requestError instanceof Error
-            ? requestError.message
+          requestError instanceof Error ? requestError.message
             : "Bootstrap durumu alınamadı."
         );
       } finally {
@@ -67,8 +66,7 @@ export default function BootstrapPage() {
       router.push("/icerik");
     } catch (submissionError) {
       setError(
-        submissionError instanceof Error
-          ? submissionError.message
+        submissionError instanceof Error ? submissionError.message
           : "Bootstrap sırasında beklenmeyen bir hata oluştu."
       );
     } finally {

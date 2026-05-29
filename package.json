@@ -14,16 +14,27 @@
     "dev:api": "npm --workspace @ega/db run build && npm --workspace @ega/api run dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
     "infra:up": "docker compose -f docker-compose.local.yml up -d",
     "infra:down": "docker compose -f docker-compose.local.yml down",
     "infra:logs": "docker compose -f docker-compose.local.yml logs -f",
+    "staging:build": "docker compose -f docker-compose.staging.yml build",
+    "staging:up": "docker compose --env-file .env.staging -f docker-compose.staging.yml up -d",
+    "staging:down": "docker compose --env-file .env.staging -f docker-compose.staging.yml down",
+    "staging:logs": "docker compose --env-file .env.staging -f docker-compose.staging.yml logs -f",
+    "staging:migrate": "docker compose --env-file .env.staging -f docker-compose.staging.yml run --rm api npm --workspace @ega/db exec prisma migrate deploy --schema packages/db/prisma/schema.prisma",
     "db:generate": "npm --workspace @ega/db run generate",
     "db:migrate": "npm --workspace @ega/db run migrate:dev",
     "db:format": "npm --workspace @ega/db run format",
     "db:validate": "npm --workspace @ega/db run validate",
-    "db:seed": "npm --workspace @ega/db run seed"
+    "db:seed": "npm --workspace @ega/db run seed",
+    "db:seed:lms-demo": "npm --workspace @ega/db run seed:lms-demo",
+    "seed:beta": "npm --workspace @ega/db run seed:beta"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { AcademicStaffGroup, AcademicStaffMember } from "../lib/academic-staff";
+import { isDirectVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 
 type StaffMarqueeProps = {
   group: AcademicStaffGroup;
@@ -57,6 +58,54 @@ function StaffCard({ member }: { member: AcademicStaffMember }) {
   );
 }
 
+function StaffIntroVideo({ group }: { group: AcademicStaffGroup }) {
+  const title = group.introVideoTitle?.trim() || `${group.label} tanıtım videosu`;
+  const videoUrl = group.introVideoUrl?.trim();
+  const normalizedVideoUrl = videoUrl ? normalizeVideoEmbedUrl(videoUrl) : "";
+
+  if (!videoUrl) {
+    return (
+      <div className="ega-staff-video-box" data-has-video="false">
+        <div className="ega-staff-video-box__placeholder">
+          <span className="ega-staff-video-box__eyebrow">Video</span>
+          <strong>{title}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (group.introVideoSourceType === "DIRECT" || isDirectVideoUrl(normalizedVideoUrl)) {
+    return (
+      <div className="ega-staff-video-box" data-has-video="true">
+        <video
+          className="ega-staff-video-box__media"
+          controls
+          playsInline
+          preload="metadata"
+          poster={group.introVideoPosterUrl}
+        >
+          <source src={normalizedVideoUrl} />
+          Tarayıcınız bu videoyu oynatamıyor.
+        </video>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ega-staff-video-box" data-has-video="true">
+      <iframe
+        className="ega-staff-video-box__media"
+        src={normalizedVideoUrl}
+        title={title}
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  );
+}
+
 export function StaffMarquee({ group }: StaffMarqueeProps) {
   const { left, right } = splitMembers(group.members);
   const leftLoop = [...left, ...left];
@@ -69,6 +118,8 @@ export function StaffMarquee({ group }: StaffMarqueeProps) {
         <h2>{group.label}</h2>
         <p>{group.description}</p>
       </div>
+
+      <StaffIntroVideo group={group} />
 
       <div className="ega-staff-showcase__frame">
         <div className="ega-staff-marquee">

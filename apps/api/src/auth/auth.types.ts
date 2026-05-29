@@ -25,4 +25,14 @@ export type AuthenticatedRequestContext = {
   sessionFamily: string;
   roleKeys: string[];
   permissionKeys: string[];
+  organizationId?: string | null;
+  primaryBranchId?: string | null;
+  branchIds: string[];
+  isSuperAdmin: boolean;
+  branchRoles: Array<{
+    organizationId: string;
+    branchId: string;
+    roleKey: string;
+    isPrimary: boolean;
+  }>;
 };

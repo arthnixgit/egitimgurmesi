@@ -48,6 +48,10 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException("Bu işlem için personel yetkisi gereklidir.");
     }
 
+    if (auth.isSuperAdmin) {
+      return true;
+    }
+
     const missingPermission = requiredPermissions.find(
       (permission) => !auth.permissionKeys.includes(permission)
     );

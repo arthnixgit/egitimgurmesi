@@ -13,6 +13,7 @@ import { CurrentAuth } from "../auth/current-auth.decorator";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LinkUnikazanAccountDto } from "./dto/link-unikazan-account.dto";
+import { StartOrderCheckoutDto } from "./dto/start-order-checkout.dto";
 import { OrdersService } from "./orders.service";
 
 @Controller("orders")
@@ -53,11 +54,13 @@ export class OrdersController {
   startCheckout(
     @CurrentAuth() auth: AuthenticatedRequestContext,
     @Param("orderNumber") orderNumber: string,
+    @Body() payload: StartOrderCheckoutDto,
     @Ip() ipAddress: string,
     @Headers("x-forwarded-for") forwardedFor: string | undefined,
     @Headers("user-agent") userAgent: string | undefined
   ) {
     return this.ordersService.startCheckout(auth, orderNumber, {
+      ...payload,
       ipAddress: forwardedFor ?? ipAddress,
       userAgent
     });

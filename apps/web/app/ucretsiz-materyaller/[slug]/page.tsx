@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ButtonLink } from "@ega/ui";
 import { ExamCountdownGrid } from "../../../components/exam-countdown-grid";
+import { ExamCountdownRings } from "../../../components/exam-countdown-rings";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getCountdownPageBySlug, getFreeMaterialsContent } from "../../../lib/public-content-api";
+
+const legacyCountdownRedirects: Record<string, string> = {
+  "2026-yks-kac-gun-kaldi": "/ucretsiz-materyaller/yks-kac-gun-kaldi"
+};
 
 export async function generateStaticParams() {
   const { countdownPages } = await getFreeMaterialsContent();
@@ -42,8 +47,14 @@ export default async function FreeMaterialCountdownPage({
   const page = await getCountdownPageBySlug(slug);
 
   if (!page) {
+    if (legacyCountdownRedirects[slug]) {
+      redirect(legacyCountdownRedirects[slug]);
+    }
+
     notFound();
   }
+
+  const useRingCounter = page.countdowns.length === 1 && Boolean(page.countdowns[0]?.targetIso);
 
   return (
     <PublicPageLayout>
@@ -56,7 +67,11 @@ export default async function FreeMaterialCountdownPage({
             <div className="ega-exam-hero__update">{page.updatedLabel}</div>
           </div>
 
-          <ExamCountdownGrid countdowns={page.countdowns} />
+          {useRingCounter ? (
+            <ExamCountdownRings countdown={page.countdowns[0]} />
+          ) : (
+            <ExamCountdownGrid countdowns={page.countdowns} />
+          )}
         </div>
       </section>
 
@@ -64,7 +79,6 @@ export default async function FreeMaterialCountdownPage({
         <div className="ega-exam-stack">
           <section className="ega-exam-surface ega-exam-surface--video">
             <div className="ega-free-block__head ega-free-block__head--tight">
-              <span className="ega-free-section-head__eyebrow">Motivasyon Videosu</span>
               <h2>{page.videoTitle}</h2>
               <p>{page.videoNote}</p>
             </div>
@@ -80,18 +94,13 @@ export default async function FreeMaterialCountdownPage({
                 <source src="" type="video/mp4" />
                 Tarayıcınız video oynatmayı desteklemiyor.
               </video>
-              <div className="ega-exam-video-meta">
-                <strong>Yakında video anlatım eklenecek</strong>
-                <span>Bu alanda sınava özel kısa motivasyon ve hazırlık videoları yayınlanacak.</span>
-              </div>
             </div>
           </section>
 
           <section className="ega-exam-surface">
             <div className="ega-free-block__head ega-free-block__head--tight">
-              <span className="ega-free-section-head__eyebrow">Resmî Bağlantılar</span>
-              <h2>Kurumsal sayfaları tek yerde tut</h2>
-              <p>Tarih, saat, başvuru ve kılavuz kontrolü için resmî bağlantılar burada toplandı.</p>
+              <h2>Resmi bağlantılar ve kaynaklar</h2>
+              <p>Sınav tarihi, başvuru, giriş belgesi ve tercih araştırması için takip edilmesi gereken sayfalar.</p>
             </div>
 
             <div className="ega-exam-link-grid">
@@ -115,9 +124,8 @@ export default async function FreeMaterialCountdownPage({
 
           <section className="ega-exam-surface ega-exam-surface--articles">
             <div className="ega-free-block__head ega-free-block__head--tight">
-              <span className="ega-free-section-head__eyebrow">Bilmeniz Gerekenler</span>
-              <h2>Sınav tarihi, saatler ve hazırlık düzeni hakkında kısa açıklamalar</h2>
-              <p>En çok merak edilen başlıklar tek tek cevaplanır; böylece öğrenci tarih ve süreç bilgisini dağılmadan bulur.</p>
+              <h2>Sınav tarihi, sayaç ve hazırlık rehberi</h2>
+              <p>Kalan süreyi nasıl yorumlayacağını ve hazırlık planını nasıl güncelleyeceğini kısa başlıklarla incele.</p>
             </div>
 
             <div className="ega-faq-accordion ega-exam-accordion">
@@ -128,14 +136,6 @@ export default async function FreeMaterialCountdownPage({
                 </details>
               ))}
             </div>
-          </section>
-
-          <section className="ega-exam-surface ega-exam-surface--note">
-            <span className="ega-free-section-head__eyebrow">Açık Erişim</span>
-            <h2>Bu içerik herkese açık tutuldu.</h2>
-            <p>
-              Sayaçlar, duyurular ve temel rehber içerikler giriş zorunluluğu olmadan erişilebilir; öğrencinin ihtiyaç duyduğu bilgiye hızlıca ulaşması hedeflenir.
-            </p>
           </section>
         </div>
       </section>

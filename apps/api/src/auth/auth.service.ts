@@ -5,9 +5,11 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { AuthActorType, StaffStatus, UserStatus } from "@ega/db";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { appEnv } from "../config/env";
 import { AuthSessionsRepository } from "../data-access/auth-sessions.repository";
+import { EmailVerificationCodesRepository } from "../data-access/email-verification-codes.repository";
+import { PasswordResetTokensRepository } from "../data-access/password-reset-tokens.repository";
 import { StaffUsersRepository, type StaffUserWithAccess } from "../data-access/staff-users.repository";
 import { UsersRepository, type UserWithProfile } from "../data-access/users.repository";
 import type {
@@ -16,18 +18,34 @@ import type {
   RefreshTokenPayload
 } from "./auth.types";
 import { normalizeEmail, normalizePhone } from "./auth.utils";
+import { AuthNotificationsService, type AuthDeliveryResult } from "./auth-notifications.service";
+import { AuthTokenService } from "./auth-token.service";
+import { PasswordService } from "./password.service";
+import { ConfirmPasswordResetDto } from "./dto/confirm-password-reset.dto";
 import { LoginStaffDto } from "./dto/login-staff.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { RequestEmailVerificationDto } from "./dto/request-email-verification.dto";
+import { RequestPasswordResetDto } from "./dto/request-password-reset.dto";
 import { UpdateCurrentUserProfileDto } from "./dto/update-current-user-profile.dto";
-import { PasswordService } from "./password.service";
-import { AuthTokenService } from "./auth-token.service";
+import { VerifyEmailDto } from "./dto/verify-email.dto";
 
 type RequestMeta = {
   ipAddress?: string;
   userAgent?: string;
 };
+
+type AuthDeliveryResponse = {
+  success: true;
+  message: string;
+  email?: string;
+  emailVerificationRequired?: boolean;
+  previewUrl?: string;
+};
+
+const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
+const PASSWORD_RESET_TTL_MS = 1000 * 60 * 60 * 2;
 
 @Injectable()
 export class AuthService {
@@ -35,8 +53,11 @@ export class AuthService {
     private readonly usersRepository: UsersRepository,
     private readonly staffUsersRepository: StaffUsersRepository,
     private readonly authSessionsRepository: AuthSessionsRepository,
+    private readonly emailVerificationCodesRepository: EmailVerificationCodesRepository,
+    private readonly passwordResetTokensRepository: PasswordResetTokensRepository,
     private readonly passwordService: PasswordService,
-    private readonly authTokenService: AuthTokenService
+    private readonly authTokenService: AuthTokenService,
+    private readonly authNotificationsService: AuthNotificationsService
   ) {}
 
   async registerUser(dto: RegisterUserDto, meta: RequestMeta) {
@@ -69,7 +90,7 @@ export class AuthService {
       email,
       phone,
       passwordHash,
-      status: UserStatus.ACTIVE,
+      status: UserStatus.PENDING_VERIFICATION,
       profile: {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
@@ -93,7 +114,15 @@ export class AuthService {
           : undefined
     });
 
-    return this.createAuthResponseForUser(user, meta);
+    const delivery = await this.issueEmailVerification(user);
+
+    return {
+      success: true,
+      emailVerificationRequired: true,
+      email: user.email,
+      message: "Kaydın oluşturuldu. Giriş yapmadan önce e-posta adresini doğrulamalısın.",
+      ...delivery
+    };
   }
 
   async loginUser(dto: LoginUserDto, meta: RequestMeta) {
@@ -102,6 +131,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException("E-posta veya şifre hatalı.");
+    }
+
+    if (user.status === UserStatus.PENDING_VERIFICATION) {
+      throw new UnauthorizedException("E-posta doğrulaması gerekli. Gelen kutundaki bağlantıyı kullan.");
     }
 
     if (user.status === UserStatus.SUSPENDED) {
@@ -146,7 +179,12 @@ export class AuthService {
     const payload = await this.authTokenService.verifyRefreshToken(dto.refreshToken);
     const session = await this.authSessionsRepository.findActiveBySessionFamily(payload.sessionFamily);
 
-    if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
+    if (
+      !session ||
+      session.revokedAt ||
+      session.expiresAt.getTime() <= Date.now() ||
+      session.actorType !== payload.actorType
+    ) {
       throw new UnauthorizedException("Oturum yenileme isteği geçersiz.");
     }
 
@@ -157,22 +195,111 @@ export class AuthService {
     }
 
     if (payload.actorType === AuthActorType.USER) {
+      if (session.userId !== payload.sub) {
+        throw new UnauthorizedException("Oturum kullanıcı eşleşmesi geçersiz.");
+      }
+
       const user = await this.usersRepository.findById(payload.sub);
 
-      if (!user) {
+      if (!user || user.status !== UserStatus.ACTIVE) {
         throw new UnauthorizedException("Kullanıcı bulunamadı.");
       }
 
       return this.rotateSessionForUser(user, payload, meta);
     }
 
+    if (session.staffUserId !== payload.sub) {
+      throw new UnauthorizedException("Personel oturumu eşleşmesi geçersiz.");
+    }
+
     const staffUser = await this.staffUsersRepository.findByIdWithAccess(payload.sub);
 
-    if (!staffUser) {
-      throw new UnauthorizedException("Personel hesabı bulunamadı.");
+    if (!staffUser || staffUser.status !== StaffStatus.ACTIVE) {
+      throw new UnauthorizedException("Personel hesabı aktif değil.");
     }
 
     return this.rotateSessionForStaff(staffUser, payload, meta);
+  }
+
+  async requestEmailVerification(dto: RequestEmailVerificationDto): Promise<AuthDeliveryResponse> {
+    const email = normalizeEmail(dto.email);
+    const user = await this.usersRepository.findByEmail(email);
+
+    if (user && !user.emailVerifiedAt && user.status === UserStatus.PENDING_VERIFICATION) {
+      const delivery = await this.issueEmailVerification(user);
+
+      return {
+        success: true,
+        email,
+        message: "Doğrulama bağlantısı gönderildi.",
+        ...delivery
+      };
+    }
+
+    return {
+      success: true,
+      email,
+      message: "Bu e-posta adresi uygunsa yeni doğrulama bağlantısı gönderildi."
+    };
+  }
+
+  async confirmEmailVerification(dto: VerifyEmailDto) {
+    const tokenHash = this.hashOpaqueToken(dto.token);
+    const record = await this.emailVerificationCodesRepository.findActiveByHash(tokenHash);
+
+    if (!record) {
+      throw new BadRequestException("Doğrulama bağlantısı geçersiz veya süresi dolmuş.");
+    }
+
+    await this.usersRepository.markEmailVerified(record.userId);
+    await this.emailVerificationCodesRepository.consume(record.id);
+
+    return {
+      success: true,
+      message: "E-posta adresin doğrulandı. Artık giriş yapabilirsin."
+    };
+  }
+
+  async requestPasswordReset(dto: RequestPasswordResetDto): Promise<AuthDeliveryResponse> {
+    const email = normalizeEmail(dto.email);
+    const user = await this.usersRepository.findByEmail(email);
+
+    if (user) {
+      const delivery = await this.issuePasswordReset(user);
+
+      return {
+        success: true,
+        email,
+        message: "Şifre yenileme bağlantısı gönderildi.",
+        ...delivery
+      };
+    }
+
+    return {
+      success: true,
+      email,
+      message: "Bu e-posta adresi kayıtlıysa şifre yenileme bağlantısı gönderildi."
+    };
+  }
+
+  async confirmPasswordReset(dto: ConfirmPasswordResetDto) {
+    const tokenHash = this.hashOpaqueToken(dto.token);
+    const record = await this.passwordResetTokensRepository.findActiveByHash(tokenHash);
+
+    if (!record) {
+      throw new BadRequestException("Şifre yenileme bağlantısı geçersiz veya süresi dolmuş.");
+    }
+
+    const passwordHash = await this.passwordService.hash(dto.password);
+
+    await this.usersRepository.updatePasswordHash(record.userId, passwordHash);
+    await this.passwordResetTokensRepository.consume(record.id);
+    await this.authSessionsRepository.revokeAllForUser(record.userId);
+
+    return {
+      success: true,
+      message: "Şifren güncellendi. Yeni şifrenle tekrar giriş yapabilirsin."
+    };
   }
 
   async logout(context: AuthenticatedRequestContext) {
@@ -526,6 +653,62 @@ export class AuthService {
       status: staffUser.status,
       roleKeys,
       permissionKeys
+    };
+  }
+
+  private async issueEmailVerification(user: UserWithProfile) {
+    await this.emailVerificationCodesRepository.deleteActiveForUser(user.id);
+
+    const token = this.createOpaqueToken();
+    const codeHash = this.hashOpaqueToken(token);
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+
+    await this.emailVerificationCodesRepository.create(user.id, codeHash, expiresAt);
+
+    const verificationUrl = `${appEnv.publicAppUrl()}/eposta-dogrula?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
+    const delivery = await this.authNotificationsService.sendEmailVerification({
+      email: user.email,
+      firstName: user.profile?.firstName ?? user.email,
+      verificationUrl
+    });
+
+    return this.mapDeliveryResult(delivery);
+  }
+
+  private async issuePasswordReset(user: UserWithProfile) {
+    await this.passwordResetTokensRepository.deleteActiveForUser(user.id);
+
+    const token = this.createOpaqueToken();
+    const tokenHash = this.hashOpaqueToken(token);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+
+    await this.passwordResetTokensRepository.create(user.id, tokenHash, expiresAt);
+
+    const resetUrl = `${appEnv.publicAppUrl()}/sifre-sifirla?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
+    const delivery = await this.authNotificationsService.sendPasswordReset({
+      email: user.email,
+      firstName: user.profile?.firstName ?? user.email,
+      resetUrl
+    });
+
+    return this.mapDeliveryResult(delivery);
+  }
+
+  private createOpaqueToken() {
+    return randomBytes(32).toString("hex");
+  }
+
+  private hashOpaqueToken(value: string) {
+    return createHash("sha256").update(value).digest("hex");
+  }
+
+  private mapDeliveryResult(delivery: AuthDeliveryResult) {
+    if (delivery.mode !== "preview" || process.env.NODE_ENV === "production") {
+      return {};
+    }
+
+    return {
+      previewUrl: delivery.previewUrl
     };
   }
 }

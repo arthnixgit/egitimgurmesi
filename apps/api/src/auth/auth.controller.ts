@@ -3,11 +3,15 @@ import { CurrentAuth } from "./current-auth.decorator";
 import type { AuthenticatedRequestContext } from "./auth.types";
 import { AccessTokenGuard } from "./access-token.guard";
 import { AuthService } from "./auth.service";
+import { ConfirmPasswordResetDto } from "./dto/confirm-password-reset.dto";
 import { LoginStaffDto } from "./dto/login-staff.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { RequestEmailVerificationDto } from "./dto/request-email-verification.dto";
+import { RequestPasswordResetDto } from "./dto/request-password-reset.dto";
 import { UpdateCurrentUserProfileDto } from "./dto/update-current-user-profile.dto";
+import { VerifyEmailDto } from "./dto/verify-email.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -59,6 +63,26 @@ export class AuthController {
       ipAddress,
       userAgent
     });
+  }
+
+  @Post("email-verification/request")
+  requestEmailVerification(@Body() dto: RequestEmailVerificationDto) {
+    return this.authService.requestEmailVerification(dto);
+  }
+
+  @Post("email-verification/confirm")
+  confirmEmailVerification(@Body() dto: VerifyEmailDto) {
+    return this.authService.confirmEmailVerification(dto);
+  }
+
+  @Post("password-reset/request")
+  requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
+    return this.authService.requestPasswordReset(dto);
+  }
+
+  @Post("password-reset/confirm")
+  confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
+    return this.authService.confirmPasswordReset(dto);
   }
 
   @UseGuards(AccessTokenGuard)

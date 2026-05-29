@@ -2,15 +2,17 @@ import {
   AuditActorType,
   ContentStatus,
   Currency,
+  EnrollmentStatus,
   ExternalProvider,
   ExternalProviderOrderStatus,
   OrderStatus,
+  PERMISSION_KEYS,
   PaymentAttemptStatus,
   PaymentAttemptType,
   PaymentStatus,
   Prisma
 } from "@ega/db";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
 import {
@@ -321,7 +323,11 @@ export class AdminCommerceService {
           accentColor: payload.accentColor,
           seoTitle: payload.seoTitle,
           seoDescription: payload.seoDescription,
-          coverImageUrl: payload.coverImageUrl
+          coverImageUrl: payload.coverImageUrl,
+          introVideoSourceType: payload.introVideoSourceType ?? null,
+          introVideoUrl: payload.introVideoUrl ?? null,
+          introVideoPosterUrl: payload.introVideoPosterUrl ?? null,
+          introVideoTitle: payload.introVideoTitle ?? null
         }
       });
 
@@ -374,7 +380,11 @@ export class AdminCommerceService {
           accentColor: payload.accentColor,
           seoTitle: payload.seoTitle,
           seoDescription: payload.seoDescription,
-          coverImageUrl: payload.coverImageUrl
+          coverImageUrl: payload.coverImageUrl,
+          introVideoSourceType: payload.introVideoSourceType ?? null,
+          introVideoUrl: payload.introVideoUrl ?? null,
+          introVideoPosterUrl: payload.introVideoPosterUrl ?? null,
+          introVideoTitle: payload.introVideoTitle ?? null
         }
       });
 
@@ -539,7 +549,11 @@ export class AdminCommerceService {
             accentColor: product.accentColor,
             seoTitle: product.seoTitle,
             seoDescription: product.seoDescription,
-            coverImageUrl: product.coverImageUrl
+            coverImageUrl: product.coverImageUrl,
+            introVideoSourceType: product.introVideoSourceType ?? null,
+            introVideoUrl: product.introVideoUrl ?? null,
+            introVideoPosterUrl: product.introVideoPosterUrl ?? null,
+            introVideoTitle: product.introVideoTitle ?? null
           }
         });
 
@@ -613,13 +627,32 @@ export class AdminCommerceService {
     validateOrderStatusTransition(order.status, payload.status);
 
     const primaryPayment = order.payments[0] ?? null;
+    const nextPaymentStatus =
+      payload.paymentStatus ??
+      derivePaymentStatusFromOrderStatus(payload.status, primaryPayment?.status ?? null);
+    const changesPaymentState =
+      Boolean(primaryPayment) && Boolean(nextPaymentStatus) && nextPaymentStatus !== primaryPayment?.status;
+    const changesExternalState = Boolean(payload.externalStatus);
+    const changesRefundState =
+      payload.status === OrderStatus.REFUNDED || nextPaymentStatus === PaymentStatus.REFUNDED;
+
+    if (
+      (changesPaymentState || changesExternalState) &&
+      !auth.permissionKeys.includes(PERMISSION_KEYS.paymentsReconcile)
+    ) {
+      throw new ForbiddenException(
+        "Ödeme veya harici provider statüsü değiştirmek için uzlaştırma yetkisi gerekir."
+      );
+    }
+
+    if (changesRefundState && !auth.permissionKeys.includes(PERMISSION_KEYS.paymentsRefund)) {
+      throw new ForbiddenException("İade durumuna geçiş için ödeme iade yetkisi gerekir.");
+    }
+
     const now = new Date();
 
     await this.prisma.$transaction(async (tx) => {
       const nextNote = payload.note !== undefined ? payload.note.trim() || null : undefined;
-      const nextPaymentStatus =
-        payload.paymentStatus ??
-        derivePaymentStatusFromOrderStatus(payload.status, primaryPayment?.status ?? null);
 
       await tx.order.update({
         where: { id: order.id },
@@ -687,6 +720,13 @@ export class AdminCommerceService {
           data: externalUpdateData
         });
       }
+
+      await syncOrderEnrollmentsForStatus(tx, {
+        userId: order.userId,
+        orderId: order.id,
+        status: payload.status,
+        now
+      });
     });
 
     await recordAuditLog(this.prisma, auth, {
@@ -1084,6 +1124,10 @@ function normalizeProduct(
     seoTitle: product.seoTitle,
     seoDescription: product.seoDescription,
     coverImageUrl: product.coverImageUrl,
+    introVideoSourceType: product.introVideoSourceType,
+    introVideoUrl: product.introVideoUrl,
+    introVideoPosterUrl: product.introVideoPosterUrl,
+    introVideoTitle: product.introVideoTitle,
     variants: product.variants.map((variant) => {
       const externalLink = product.externalProviderLinks.find(
         (link) => link.variantId === variant.id
@@ -1276,6 +1320,104 @@ function buildExternalOrderUpdateData(status: ExternalProviderOrderStatus, now: 
   }
 
   return data;
+}
+
+async function syncOrderEnrollmentsForStatus(
+  tx: TransactionClient,
+  input: {
+    userId: string;
+    orderId: string;
+    status: OrderStatus;
+    now: Date;
+  }
+) {
+  const orderItems = await tx.orderItem.findMany({
+    where: {
+      orderId: input.orderId
+    },
+    include: {
+      product: {
+        include: {
+          courseLinks: {
+            include: {
+              course: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const linkedCourses = orderItems.flatMap((orderItem) =>
+    orderItem.product.courseLinks.map((courseLink) => ({
+      orderItemId: orderItem.id,
+      productId: orderItem.productId,
+      courseId: courseLink.courseId
+    }))
+  );
+
+  if (!linkedCourses.length) {
+    return;
+  }
+
+  if (input.status === OrderStatus.PAID) {
+    for (const link of linkedCourses) {
+      const existing = await tx.enrollment.findFirst({
+        where: {
+          userId: input.userId,
+          orderItemId: link.orderItemId,
+          courseId: link.courseId
+        }
+      });
+
+      if (existing) {
+        await tx.enrollment.update({
+          where: { id: existing.id },
+          data: {
+            status: EnrollmentStatus.ACTIVE,
+            revokedAt: null,
+            accessStartsAt: existing.accessStartsAt ?? input.now,
+            accessEndsAt: null
+          }
+        });
+      } else {
+        await tx.enrollment.create({
+          data: {
+            userId: input.userId,
+            productId: link.productId,
+            courseId: link.courseId,
+            orderItemId: link.orderItemId,
+            status: EnrollmentStatus.ACTIVE,
+            progressPercent: 0,
+            accessStartsAt: input.now,
+            grantedAt: input.now
+          }
+        });
+      }
+    }
+
+    return;
+  }
+
+  if (
+    input.status === OrderStatus.CANCELLED ||
+    input.status === OrderStatus.REFUNDED ||
+    input.status === OrderStatus.FAILED
+  ) {
+    await tx.enrollment.updateMany({
+      where: {
+        userId: input.userId,
+        orderItemId: {
+          in: linkedCourses.map((entry) => entry.orderItemId)
+        },
+        status: EnrollmentStatus.ACTIVE
+      },
+      data: {
+        status: EnrollmentStatus.CANCELLED,
+        revokedAt: input.now
+      }
+    });
+  }
 }
 
 function buildOrderTimeline(

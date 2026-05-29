@@ -1,7 +1,8 @@
-import {
+﻿import {
   AuthActorType,
   ContentStatus,
   Currency,
+  EnrollmentStatus,
   ExternalProvider,
   ExternalProviderOrderStatus,
   OrderStatus,
@@ -24,6 +25,8 @@ import { PrismaService } from "../database/prisma.service";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { LinkUnikazanAccountDto } from "./dto/link-unikazan-account.dto";
+import { RecordOrderReturnDto } from "./dto/record-order-return.dto";
+import { PaytrAdapterService } from "./paytr-adapter.service";
 import { UnikazanAdapterService } from "./unikazan-adapter.service";
 
 const orderInclude = {
@@ -94,7 +97,8 @@ type TransactionClient = Prisma.TransactionClient;
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly unikazanAdapterService: UnikazanAdapterService
+    private readonly unikazanAdapterService: UnikazanAdapterService,
+    private readonly paytrAdapterService: PaytrAdapterService
   ) {}
 
   async createOrder(auth: AuthenticatedRequestContext, payload: CreateOrderDto) {
@@ -336,6 +340,12 @@ export class OrdersService {
     auth: AuthenticatedRequestContext,
     orderNumber: string,
     input: {
+      identityNumber?: string;
+      billingAddress?: string;
+      billingCity?: string;
+      billingDistrict?: string;
+      billingZipCode?: string;
+      billingCountry?: string;
       ipAddress?: string;
       userAgent?: string;
     }
@@ -370,33 +380,133 @@ export class OrdersService {
     }
 
     if (firstItem.provider === ExternalProvider.LOCAL) {
-      await this.prisma.paymentAttempt.create({
-        data: {
-          paymentId: firstPayment.id,
-          attemptType: PaymentAttemptType.CHECKOUT_INITIATED,
-          status: PaymentAttemptStatus.PENDING,
-          requestPayload: {
-            provider: appPaymentProvider(),
-            userAgent: input.userAgent ?? null
+      const localExternalOrder =
+        order.externalOrders.find((entry) => entry.provider === ExternalProvider.LOCAL) ?? null;
+
+      if (appPaymentProvider() !== "paytr" || !this.paytrAdapterService.isConfigured()) {
+        await this.prisma.paymentAttempt.create({
+          data: {
+            paymentId: firstPayment.id,
+            attemptType: PaymentAttemptType.CHECKOUT_INITIATED,
+            status: PaymentAttemptStatus.PENDING,
+            requestPayload: {
+              provider: appPaymentProvider(),
+              userAgent: input.userAgent ?? null
+            }
           }
-        }
+        });
+
+        await this.prisma.payment.update({
+          where: { id: firstPayment.id },
+          data: {
+            status: PaymentStatus.PENDING
+          }
+        });
+
+        return {
+          status: "gateway_pending" as const,
+          mode: "local" as const,
+          orderNumber: order.orderNumber,
+          paymentProvider: appPaymentProvider(),
+          message: "PayTR için canlı anahtarlar henüz yapılandırılmadı.",
+          checkoutUrl: null
+        };
+      }
+
+      const billingProfile = resolveLocalGatewayBillingProfile(order, input);
+      const checkoutSession = await this.paytrAdapterService.initializeHostedCheckout({
+        merchantOrderId: order.orderNumber,
+        email: order.user.email,
+        userIp: sanitizeUserIp(input.ipAddress),
+        paymentAmount: order.totalAmount.toFixed(2),
+        userName: `${billingProfile.firstName} ${billingProfile.lastName}`,
+        userAddress: billingProfile.address,
+        userPhone: billingProfile.phone,
+        okUrl: `${publicAppUrl()}/odeme/durum?order=${encodeURIComponent(order.orderNumber)}&status=success&provider=paytr`,
+        failUrl: `${publicAppUrl()}/odeme/durum?order=${encodeURIComponent(order.orderNumber)}&status=failure&provider=paytr`,
+        basketItems: order.items.map((item) => ({
+          name: item.titleSnapshot,
+          unitPrice: item.unitPrice.toFixed(2),
+          quantity: item.quantity
+        }))
       });
 
-      await this.prisma.payment.update({
-        where: { id: firstPayment.id },
-        data: {
-          status: PaymentStatus.PENDING
+      await this.prisma.$transaction(async (tx) => {
+        if (localExternalOrder) {
+          await tx.externalProviderOrder.update({
+            where: { id: localExternalOrder.id },
+            data: {
+              status: ExternalProviderOrderStatus.REDIRECT_READY,
+              checkoutUrl: checkoutSession.checkoutUrl,
+              redirectToken: checkoutSession.token,
+              requestPayload: {
+                billingCity: billingProfile.city,
+                billingCountry: billingProfile.country
+              } as Prisma.InputJsonValue,
+              responsePayload: checkoutSession.rawResponse as Prisma.InputJsonValue
+            }
+          });
+        } else {
+          await tx.externalProviderOrder.create({
+            data: {
+              orderId: order.id,
+              orderItemId: firstItem.id,
+            paymentId: firstPayment.id,
+            provider: ExternalProvider.LOCAL,
+            externalProductId: firstItem.product.slug,
+            externalVariantId: firstItem.variant?.sku ?? firstItem.variantId ?? null,
+            status: ExternalProviderOrderStatus.REDIRECT_READY,
+            checkoutUrl: checkoutSession.checkoutUrl,
+            redirectToken: checkoutSession.token,
+            requestPayload: {
+              billingCity: billingProfile.city,
+              billingCountry: billingProfile.country
+            } as Prisma.InputJsonValue,
+            responsePayload: checkoutSession.rawResponse as Prisma.InputJsonValue
+            }
+          });
         }
+
+        await tx.payment.update({
+          where: { id: firstPayment.id },
+          data: {
+            status: PaymentStatus.PENDING,
+            metadata: {
+              provider: "paytr",
+              checkoutToken: checkoutSession.token
+            } as Prisma.InputJsonValue
+          }
+        });
+
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            status: OrderStatus.AWAITING_CONFIRMATION
+          }
+        });
+
+        await tx.paymentAttempt.create({
+          data: {
+            paymentId: firstPayment.id,
+            attemptType: PaymentAttemptType.REDIRECT_CREATED,
+            status: PaymentAttemptStatus.SUCCEEDED,
+            requestPayload: {
+              orderNumber: order.orderNumber,
+              provider: "paytr",
+              userAgent: input.userAgent ?? null
+            },
+            responsePayload: checkoutSession.rawResponse as Prisma.InputJsonValue,
+            completedAt: new Date()
+          }
+        });
       });
 
       return {
-        status: "gateway_pending" as const,
-        mode: "local" as const,
+        status: "redirect_ready" as const,
+        mode: "local_gateway" as const,
+        provider: "PAYTR" as const,
         orderNumber: order.orderNumber,
-        paymentProvider: appPaymentProvider(),
-        message:
-          "Local payment gateway foundation is ready, but the hosted gateway flow is not configured yet.",
-        checkoutUrl: null
+        redirectUrl: `${publicAppUrl()}/odeme/paytr?order=${encodeURIComponent(order.orderNumber)}&token=${encodeURIComponent(checkoutSession.token)}`
       };
     }
 
@@ -562,6 +672,256 @@ export class OrdersService {
     };
   }
 
+  async getPublicOrderStatus(orderNumber: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { orderNumber },
+      include: orderInclude
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found.");
+    }
+
+    return normalizeReturnSyncResult(order);
+  }
+
+  async handlePaytrCallback(
+    orderNumber: string,
+    input: {
+      callbackPayload: Record<string, string | undefined>;
+      ipAddress?: string;
+      userAgent?: string;
+    }
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { orderNumber },
+      include: orderInclude
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found.");
+    }
+
+    const primaryPayment = order.payments[0] ?? null;
+    const externalOrder =
+      order.externalOrders.find((entry) => entry.provider === ExternalProvider.LOCAL) ?? null;
+
+    if (!primaryPayment || !externalOrder) {
+      throw new BadRequestException("Bu sipariş PayTR ödeme akışına bağlı değil.");
+    }
+
+    const result = this.paytrAdapterService.verifyCallback(input.callbackPayload);
+    const paymentSucceeded = result.status === "success";
+    const now = new Date();
+
+    const nextOrderStatus = paymentSucceeded ? OrderStatus.PAID : OrderStatus.FAILED;
+    const nextPaymentStatus = paymentSucceeded ? PaymentStatus.PAID : PaymentStatus.FAILED;
+    const nextExternalStatus = paymentSucceeded
+      ? ExternalProviderOrderStatus.CONFIRMED
+      : ExternalProviderOrderStatus.FAILED;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextOrderStatus,
+          placedAt: order.placedAt ?? now,
+          paidAt: paymentSucceeded ? now : null,
+          cancelledAt: null
+        }
+      });
+
+      await tx.payment.update({
+        where: { id: primaryPayment.id },
+        data: {
+          status: nextPaymentStatus,
+          providerReference: result.merchantOrderId,
+          providerTransactionId: result.merchantOrderId,
+          failureReason: paymentSucceeded ? null : result.failedReasonMessage || "PayTR ödeme başarısız oldu.",
+          metadata: result as Prisma.InputJsonValue,
+          paidAt: paymentSucceeded ? now : null
+        }
+      });
+
+      await tx.externalProviderOrder.update({
+        where: { id: externalOrder.id },
+        data: {
+          externalReference: result.merchantOrderId,
+          status: nextExternalStatus,
+          redirectToken: externalOrder.redirectToken,
+          redirectedAt: externalOrder.redirectedAt ?? now,
+          returnedAt: now,
+          callbackReceivedAt: now,
+          callbackVerified: true,
+          externalStatus: result.status,
+          responsePayload: result as Prisma.InputJsonValue,
+          callbackPayload: {
+            source: "paytr_callback",
+            merchantOrderId: result.merchantOrderId,
+            paymentAmount: result.paymentAmount,
+            totalAmount: result.totalAmount,
+            paymentType: result.paymentType,
+            userAgent: input.userAgent ?? null,
+            userIp: sanitizeUserIp(input.ipAddress),
+            recordedAt: now.toISOString()
+          } as Prisma.InputJsonValue,
+          lastSyncedAt: now
+        }
+      });
+
+      await tx.paymentAttempt.create({
+        data: {
+          paymentId: primaryPayment.id,
+          attemptType: PaymentAttemptType.WEBHOOK,
+          status: paymentSucceeded ? PaymentAttemptStatus.SUCCEEDED : PaymentAttemptStatus.FAILED,
+          requestPayload: {
+            orderNumber,
+            callbackPayload: input.callbackPayload,
+            userAgent: input.userAgent ?? null,
+            userIp: sanitizeUserIp(input.ipAddress)
+          },
+          responsePayload: result as Prisma.InputJsonValue,
+          errorMessage: paymentSucceeded ? null : result.failedReasonMessage ?? "Payment failed",
+          completedAt: now
+        }
+      });
+
+      await syncOrderEnrollmentsForStatus(tx, {
+        userId: order.userId,
+        orderId: order.id,
+        status: nextOrderStatus,
+        now
+      });
+    });
+
+    return "OK";
+  }
+
+  async recordProviderReturn(
+    orderNumber: string,
+    payload: RecordOrderReturnDto,
+    input: {
+      ipAddress?: string;
+      userAgent?: string;
+    }
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { orderNumber },
+      include: orderInclude
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found.");
+    }
+
+    const primaryPayment = order.payments[0] ?? null;
+    const externalOrder = order.externalOrders[0] ?? null;
+
+    if (!primaryPayment || !externalOrder || externalOrder.provider !== ExternalProvider.UNIKAZAN) {
+      throw new BadRequestException("This order is not backed by a Unikazan checkout flow.");
+    }
+
+    if (payload.status === "pending") {
+      return normalizeReturnSyncResult(order);
+    }
+
+    if (
+      order.status === OrderStatus.PAID ||
+      externalOrder.status === ExternalProviderOrderStatus.CONFIRMED
+    ) {
+      return normalizeReturnSyncResult(order);
+    }
+
+    const now = new Date();
+    const isSuccessReturn = payload.status === "success";
+    const nextOrderStatus = isSuccessReturn
+      ? OrderStatus.AWAITING_CONFIRMATION
+      : OrderStatus.FAILED;
+    const nextPaymentStatus = isSuccessReturn ? PaymentStatus.PENDING : PaymentStatus.FAILED;
+    const nextExternalStatus = isSuccessReturn
+      ? ExternalProviderOrderStatus.RETURNED_SUCCESS
+      : ExternalProviderOrderStatus.RETURNED_FAILURE;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextOrderStatus,
+          placedAt: order.placedAt ?? now,
+          paidAt: isSuccessReturn ? order.paidAt : null,
+          cancelledAt: null
+        }
+      });
+
+      await tx.payment.update({
+        where: { id: primaryPayment.id },
+        data: {
+          status: nextPaymentStatus,
+          paidAt: null,
+          failureReason: isSuccessReturn ? null : "Provider returned failure status."
+        }
+      });
+
+      await tx.externalProviderOrder.update({
+        where: { id: externalOrder.id },
+        data: {
+          status: nextExternalStatus,
+          externalReference: payload.externalReference ?? externalOrder.externalReference,
+          externalStatus: payload.rawStatus ?? payload.status,
+          returnedAt: externalOrder.returnedAt ?? now,
+          callbackPayload: {
+            source: "return_url",
+            status: payload.status,
+            rawStatus: payload.rawStatus ?? null,
+            userAgent: input.userAgent ?? null,
+            userIp: sanitizeUserIp(input.ipAddress),
+            recordedAt: now.toISOString()
+          } as Prisma.InputJsonValue
+        }
+      });
+
+      await tx.paymentAttempt.create({
+        data: {
+          paymentId: primaryPayment.id,
+          attemptType: PaymentAttemptType.REDIRECT_RETURN,
+          status: isSuccessReturn
+            ? PaymentAttemptStatus.SUCCEEDED
+            : PaymentAttemptStatus.FAILED,
+          requestPayload: {
+            orderNumber,
+            status: payload.status,
+            externalReference: payload.externalReference ?? null,
+            userAgent: input.userAgent ?? null,
+            userIp: sanitizeUserIp(input.ipAddress)
+          },
+          responsePayload: {
+            rawStatus: payload.rawStatus ?? null
+          },
+          errorMessage: isSuccessReturn ? null : "Provider returned failure status.",
+          completedAt: now
+        }
+      });
+
+      await syncOrderEnrollmentsForStatus(tx, {
+        userId: order.userId,
+        orderId: order.id,
+        status: nextOrderStatus,
+        now
+      });
+    });
+
+    const updatedOrder = await this.prisma.order.findUnique({
+      where: { id: order.id },
+      include: orderInclude
+    });
+
+    if (!updatedOrder) {
+      throw new NotFoundException("The updated order could not be reloaded.");
+    }
+
+    return normalizeReturnSyncResult(updatedOrder);
+  }
+
   private async resolveCoupon(code: string, productIds: string[]) {
     const coupon = await this.prisma.coupon.findUnique({
       where: {
@@ -719,6 +1079,237 @@ function normalizeOrder(
   };
 }
 
+function normalizeReturnSyncResult(
+  order: Prisma.OrderGetPayload<{ include: typeof orderInclude }>
+) {
+  const payment = order.payments[0] ?? null;
+  const externalOrder = order.externalOrders[0] ?? null;
+
+  if (
+    order.status === OrderStatus.PAID ||
+    externalOrder?.status === ExternalProviderOrderStatus.CONFIRMED
+  ) {
+    return {
+      orderNumber: order.orderNumber,
+      orderStatus: order.status,
+      paymentStatus: payment?.status ?? null,
+      externalStatus: externalOrder?.status ?? null,
+      verified: Boolean(externalOrder?.callbackVerified),
+      result: "confirmed" as const,
+      message: "Ödeme doğrulandı. Sipariş aktif olarak işleniyor."
+    };
+  }
+
+  if (
+    order.status === OrderStatus.FAILED ||
+    externalOrder?.status === ExternalProviderOrderStatus.RETURNED_FAILURE
+  ) {
+    return {
+      orderNumber: order.orderNumber,
+      orderStatus: order.status,
+      paymentStatus: payment?.status ?? null,
+      externalStatus: externalOrder?.status ?? null,
+      verified: Boolean(externalOrder?.callbackVerified),
+      result: "failed" as const,
+      message: "Ödeme tamamlanamadı. Siparişi yeniden başlatabilir veya destek alabilirsin."
+    };
+  }
+
+  if (
+    order.status === OrderStatus.AWAITING_CONFIRMATION ||
+    externalOrder?.status === ExternalProviderOrderStatus.RETURNED_SUCCESS ||
+    externalOrder?.status === ExternalProviderOrderStatus.REDIRECT_READY
+  ) {
+    return {
+      orderNumber: order.orderNumber,
+      orderStatus: order.status,
+      paymentStatus: payment?.status ?? null,
+      externalStatus: externalOrder?.status ?? null,
+      verified: Boolean(externalOrder?.callbackVerified),
+      result: "awaiting_confirmation" as const,
+      message: "Ödeme sağlayıcısından dönüş alındı. Kesin ödeme doğrulaması bekleniyor."
+    };
+  }
+
+  return {
+    orderNumber: order.orderNumber,
+    orderStatus: order.status,
+    paymentStatus: payment?.status ?? null,
+    externalStatus: externalOrder?.status ?? null,
+    verified: Boolean(externalOrder?.callbackVerified),
+    result: "pending" as const,
+    message: "Ödeme durumu işleniyor. Lütfen kısa süre sonra tekrar kontrol et."
+  };
+}
+
+async function syncOrderEnrollmentsForStatus(
+  tx: TransactionClient,
+  input: {
+    userId: string;
+    orderId: string;
+    status: OrderStatus;
+    now: Date;
+  }
+) {
+  const orderItems = await tx.orderItem.findMany({
+    where: {
+      orderId: input.orderId
+    },
+    include: {
+      product: {
+        include: {
+          courseLinks: true
+        }
+      }
+    }
+  });
+
+  const linkedCourses = orderItems.flatMap((orderItem) =>
+    orderItem.product.courseLinks.map((courseLink) => ({
+      orderItemId: orderItem.id,
+      productId: orderItem.productId,
+      courseId: courseLink.courseId
+    }))
+  );
+
+  if (!linkedCourses.length) {
+    return;
+  }
+
+  if (input.status === OrderStatus.PAID) {
+    for (const link of linkedCourses) {
+      const existing = await tx.enrollment.findFirst({
+        where: {
+          userId: input.userId,
+          orderItemId: link.orderItemId,
+          courseId: link.courseId
+        }
+      });
+
+      if (existing) {
+        await tx.enrollment.update({
+          where: { id: existing.id },
+          data: {
+            status: EnrollmentStatus.ACTIVE,
+            revokedAt: null,
+            accessStartsAt: existing.accessStartsAt ?? input.now,
+            accessEndsAt: null
+          }
+        });
+      } else {
+        await tx.enrollment.create({
+          data: {
+            userId: input.userId,
+            productId: link.productId,
+            courseId: link.courseId,
+            orderItemId: link.orderItemId,
+            status: EnrollmentStatus.ACTIVE,
+            progressPercent: 0,
+            accessStartsAt: input.now,
+            grantedAt: input.now
+          }
+        });
+      }
+    }
+
+    return;
+  }
+
+  if (
+    input.status === OrderStatus.CANCELLED ||
+    input.status === OrderStatus.REFUNDED ||
+    input.status === OrderStatus.FAILED
+  ) {
+    await tx.enrollment.updateMany({
+      where: {
+        userId: input.userId,
+        orderItemId: {
+          in: linkedCourses.map((entry) => entry.orderItemId)
+        },
+        status: EnrollmentStatus.ACTIVE
+      },
+      data: {
+        status: EnrollmentStatus.CANCELLED,
+        revokedAt: input.now
+      }
+    });
+  }
+}
+
+function resolveLocalGatewayBillingProfile(
+  order: Prisma.OrderGetPayload<{ include: typeof checkoutOrderInclude }>,
+  input: {
+    identityNumber?: string;
+    billingAddress?: string;
+    billingCity?: string;
+    billingDistrict?: string;
+    billingZipCode?: string;
+    billingCountry?: string;
+  }
+) {
+  const firstName = order.user.profile?.firstName?.trim();
+  const lastName = order.user.profile?.lastName?.trim();
+
+  if (!firstName || !lastName) {
+    throw new BadRequestException("Ödeme için öğrenci ad ve soyad bilgisi gerekli.");
+  }
+
+  if (!input.identityNumber?.trim()) {
+    throw new BadRequestException("PayTR ödemesi için T.C. Kimlik No gerekli.");
+  }
+
+  const address = input.billingAddress?.trim();
+  const city = input.billingCity?.trim() || order.user.profile?.city?.trim() || "";
+  const district = input.billingDistrict?.trim() || order.user.profile?.district?.trim() || "";
+  const country = input.billingCountry?.trim() || "Türkiye";
+  const zipCode = input.billingZipCode?.trim() || "34000";
+  const phoneCandidate =
+    order.user.phone?.trim() || order.user.profile?.parentPhone?.trim() || "";
+
+  if (!address) {
+    throw new BadRequestException("PayTR ödemesi için fatura adresi gerekli.");
+  }
+
+  if (!city) {
+    throw new BadRequestException("PayTR ödemesi için il bilgisi gerekli.");
+  }
+
+  const phone = normalizePhoneForGateway(phoneCandidate);
+
+  if (!phone) {
+    throw new BadRequestException("PayTR ödemesi için geçerli telefon numarası gerekli.");
+  }
+
+  return {
+    firstName,
+    lastName,
+    identityNumber: input.identityNumber.trim(),
+    address: district ? `${address}, ${district}` : address,
+    city,
+    country,
+    zipCode,
+    phone
+  };
+}
+
+function normalizePhoneForGateway(phone: string) {
+  const digits = phone.replace(/\D+/g, "");
+
+  if (digits.length === 10) {
+    return `+90${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return `+90${digits.slice(1)}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("90")) {
+    return `+${digits}`;
+  }
+
+  return null;
+}
+
 function sanitizeUserIp(ipAddress?: string) {
   if (!ipAddress || ipAddress === "::1" || ipAddress === "127.0.0.1") {
     return "11.111.111.111";
@@ -750,3 +1341,6 @@ function inferStudyTrackFromOrder(
 
   return null;
 }
+
+
+

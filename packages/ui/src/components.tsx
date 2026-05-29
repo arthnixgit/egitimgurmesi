@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 type SectionHeadingProps = {
   eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
 };
 
 type ButtonLinkProps = {
@@ -12,6 +12,7 @@ type ButtonLinkProps = {
   variant?: "primary" | "ghost";
   target?: "_blank" | "_self";
   rel?: string;
+  className?: string;
 };
 
 type MetricCardProps = {
@@ -55,13 +56,17 @@ type QuoteCardProps = {
   icon?: ReactNode;
 };
 
-function buttonClassName(variant: ButtonLinkProps["variant"] = "primary") {
-  return variant === "ghost" ? "ega-button ega-button--ghost" : "ega-button";
+function buttonClassName(
+  variant: ButtonLinkProps["variant"] = "primary",
+  className?: string
+) {
+  const base = variant === "ghost" ? "ega-button ega-button--ghost" : "ega-button";
+  return className ? `${base} ${className}` : base;
 }
 
-export function ButtonLink({ href, label, variant = "primary", target, rel }: ButtonLinkProps) {
+export function ButtonLink({ href, label, variant = "primary", target, rel, className }: ButtonLinkProps) {
   return (
-    <a className={buttonClassName(variant)} href={href} target={target} rel={rel}>
+    <a className={buttonClassName(variant, className)} href={href} target={target} rel={rel}>
       {label}
     </a>
   );
@@ -74,9 +79,9 @@ export function SectionHeading({
 }: SectionHeadingProps) {
   return (
     <div className="ega-section-heading">
-      <div className="ega-pill">{eyebrow}</div>
+      {eyebrow ? <div className="ega-pill">{eyebrow}</div> : null}
       <h2 className="ega-section-heading__title">{title}</h2>
-      <p className="ega-section-heading__description">{description}</p>
+      {description ? <p className="ega-section-heading__description">{description}</p> : null}
     </div>
   );
 }

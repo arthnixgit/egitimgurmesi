@@ -5,17 +5,30 @@ dist
 coverage
 .tmp
 .env
+.env.staging
+.env.production
+.env.development
 .env.local
+.env.*.local
 .env.development.local
 .env.test.local
 .env.production.local
 apps/*/.next
 apps/*/node_modules
+apps/web/out/
 packages/*/node_modules
 packages/db/generated
+deploy/cpanel-web-static/
+deploy/cpanel-web-standalone/
+deploy/*.zip
+logs/
 unikazan api/EGITIM_GURMESI_API.md
+packages/db/prisma/unikazan-package-content.local.json
 *.tsbuildinfo
 .codex-logs/
 *.log
 Logos/
 WhatsApp Image*.jpeg
+playwright-report/
+test-results/
+e2e/.auth/

@@ -54,6 +54,10 @@ export type AdminCatalogProduct = {
   seoTitle?: string | null;
   seoDescription?: string | null;
   coverImageUrl?: string | null;
+  introVideoSourceType?: "DIRECT" | "EMBED" | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
   variants: AdminCatalogVariant[];
   features: AdminCatalogFeature[];
 };

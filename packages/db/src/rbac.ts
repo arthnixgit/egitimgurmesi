@@ -1,6 +1,10 @@
 export const ROLE_KEYS = {
   superAdmin: "super-admin",
   admin: "admin",
+  branchAdmin: "branch-admin",
+  instructor: "instructor",
+  coach: "coach",
+  accountant: "accountant",
   accounting: "accounting",
   technician: "technician"
 } as const;
@@ -28,6 +32,19 @@ export const PERMISSION_KEYS = {
   whatsappExport: "whatsapp.export",
   staffManage: "staff.manage",
   rolesManage: "roles.manage",
+  organizationsRead: "organizations.read",
+  organizationsManage: "organizations.manage",
+  branchesRead: "branches.read",
+  branchesManage: "branches.manage",
+  classesRead: "classes.read",
+  classesManage: "classes.manage",
+  assignmentsRead: "assignments.read",
+  assignmentsManage: "assignments.manage",
+  instructorDashboardRead: "instructor.dashboard.read",
+  coachDashboardRead: "coach.dashboard.read",
+  accountingDashboardRead: "accounting.dashboard.read",
+  simulationsManage: "simulations.manage",
+  aiLearningManage: "ai-learning.manage",
   auditRead: "audit.read",
   maintenanceManage: "maintenance.manage"
 } as const;
@@ -65,6 +82,19 @@ const {
   whatsappExport,
   staffManage,
   rolesManage,
+  organizationsRead,
+  organizationsManage,
+  branchesRead,
+  branchesManage,
+  classesRead,
+  classesManage,
+  assignmentsRead,
+  assignmentsManage,
+  instructorDashboardRead,
+  coachDashboardRead,
+  accountingDashboardRead,
+  simulationsManage,
+  aiLearningManage,
   auditRead,
   maintenanceManage
 } = PERMISSION_KEYS;
@@ -92,6 +122,19 @@ export const DEFAULT_PERMISSIONS = [
   { key: whatsappExport, name: "WhatsApp lead disa aktarma", description: "Lead verilerini disa aktarir." },
   { key: staffManage, name: "Personel yonetimi", description: "Personel hesaplarini yonetir." },
   { key: rolesManage, name: "Rol yonetimi", description: "Rol ve yetki atamalarini yonetir." },
+  { key: organizationsRead, name: "Kurum goruntuleme", description: "Organizasyon ve egitim merkezi kayitlarini goruntuler." },
+  { key: organizationsManage, name: "Kurum yonetimi", description: "Organizasyon ve egitim merkezi kayitlarini yonetir." },
+  { key: branchesRead, name: "Sube goruntuleme", description: "Sube kayitlarini ve sube kapsamlarini goruntuler." },
+  { key: branchesManage, name: "Sube yonetimi", description: "Sube, sube personeli ve sube ayarlarini yonetir." },
+  { key: classesRead, name: "Sinif/grup goruntuleme", description: "Sinif ve calisma gruplarini goruntuler." },
+  { key: classesManage, name: "Sinif/grup yonetimi", description: "Sinif ve calisma gruplarini yonetir." },
+  { key: assignmentsRead, name: "Atama goruntuleme", description: "Ogrenci, ogretmen ve koc atamalarini goruntuler." },
+  { key: assignmentsManage, name: "Atama yonetimi", description: "Ogrenci, ogretmen ve koc atamalarini yonetir." },
+  { key: instructorDashboardRead, name: "Ogretmen paneli", description: "Ogretmen paneli ve atanmis ders/ogrenci verilerini goruntuler." },
+  { key: coachDashboardRead, name: "Koc paneli", description: "Koc paneli ve atanmis ogrenci takip verilerini goruntuler." },
+  { key: accountingDashboardRead, name: "Muhasebe paneli", description: "Muhasebe paneli ve finansal ozetleri goruntuler." },
+  { key: simulationsManage, name: "Simulasyon yonetimi", description: "Maarif simulasyonlarini ve iliskili meta veriyi yonetir." },
+  { key: aiLearningManage, name: "AI ogrenme yonetimi", description: "AI ogrenme sistemi ayarlarini ve onerilerini yonetir." },
   { key: auditRead, name: "Audit log goruntuleme", description: "Audit ve degisiklik kayitlarini goruntuler." },
   { key: maintenanceManage, name: "Bakim yonetimi", description: "Bakim modu ve teknik operasyon aksiyonlarini yonetir." }
 ] as const;
@@ -119,10 +162,79 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       paymentsRead,
       usersRead,
       usersManage,
+      organizationsRead,
+      branchesRead,
+      branchesManage,
+      classesRead,
+      classesManage,
+      assignmentsRead,
+      assignmentsManage,
       lmsManage,
       integrationsRead,
       whatsappRead,
       whatsappExport,
+      auditRead
+    ]
+  },
+  {
+    key: ROLE_KEYS.branchAdmin,
+    name: "Branch Admin",
+    description: "Kendi subesinin ogrenci, ekip, grup ve rapor sureclerini yonetir.",
+    permissions: [
+      dashboardRead,
+      branchesRead,
+      classesRead,
+      classesManage,
+      assignmentsRead,
+      assignmentsManage,
+      usersRead,
+      usersManage,
+      staffManage,
+      productsManage,
+      ordersRead,
+      paymentsRead,
+      reportsFinancialExport,
+      whatsappRead,
+      lmsManage
+    ]
+  },
+  {
+    key: ROLE_KEYS.instructor,
+    name: "Instructor",
+    description: "Atanmis sinif, ders, materyal ve ogrenci ilerleme sureclerini yonetir.",
+    permissions: [
+      dashboardRead,
+      instructorDashboardRead,
+      classesRead,
+      assignmentsRead,
+      usersRead,
+      lmsManage
+    ]
+  },
+  {
+    key: ROLE_KEYS.coach,
+    name: "Coach",
+    description: "Atanmis ogrencilerin kocluk plani ve takip sureclerini yonetir.",
+    permissions: [
+      dashboardRead,
+      coachDashboardRead,
+      assignmentsRead,
+      usersRead
+    ]
+  },
+  {
+    key: ROLE_KEYS.accountant,
+    name: "Accountant",
+    description: "Sube veya platform finans, tahsilat, mutabakat ve rapor sureclerini yonetir.",
+    permissions: [
+      dashboardRead,
+      accountingDashboardRead,
+      ordersRead,
+      paymentsRead,
+      paymentsReconcile,
+      paymentsRefund,
+      reportsFinancialExport,
+      usersRead,
       auditRead
     ]
   },

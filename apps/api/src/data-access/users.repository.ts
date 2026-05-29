@@ -12,6 +12,16 @@ const userProfileInclude = {
       externalEmail: true,
       linkedAt: true
     }
+  },
+  branchMemberships: {
+    where: {
+      status: "ACTIVE"
+    },
+    select: {
+      branchId: true,
+      organizationId: true,
+      isPrimary: true
+    }
   }
 } satisfies Prisma.UserInclude;
 
@@ -114,6 +124,27 @@ export class UsersRepository {
       data: {
         lastLoginAt: new Date()
       }
+    });
+  }
+
+  markEmailVerified(id: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        status: UserStatus.ACTIVE,
+        emailVerifiedAt: new Date()
+      },
+      include: userProfileInclude
+    });
+  }
+
+  updatePasswordHash(id: string, passwordHash: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        passwordHash
+      },
+      include: userProfileInclude
     });
   }
 

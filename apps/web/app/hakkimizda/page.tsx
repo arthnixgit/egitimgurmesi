@@ -3,10 +3,22 @@ import { PublicPageLayout } from "../../components/public-page-layout";
 import { getMarketingPageContent } from "../../lib/public-content-api";
 
 const values = [
-  "Öğrenci deneyimini keşiften öğrenme erişimine kadar koparmadan kurmak",
-  "Koçluk ürünleri ile yerel video ürünlerini net biçimde ayırmak",
-  "Yönetim yüzeyini teknik olmayan ekipler için de kolay öğrenilir tutmak",
-  "Yerel kullanıcı, sipariş ve öğrenci kayıtlarını temiz ve izlenebilir tutmak"
+  {
+    title: "Planlı ilerleme",
+    body: "Öğrencinin haftalık çalışma düzeni, deneme analizi ve konu tekrarları görünür bir akış içinde takip edilir."
+  },
+  {
+    title: "Kişiye özel yönlendirme",
+    body: "Her öğrencinin seviyesi, hedefi ve çalışma temposu farklıdır. Bu yüzden paket ve koçluk akışı tek tip değil, ihtiyaç odaklı planlanır."
+  },
+  {
+    title: "Dijital erişim",
+    body: "Video dersler, kayıtlı içerikler ve öğrenci paneli sayesinde süreç yalnızca görüşme anına bağlı kalmaz."
+  },
+  {
+    title: "Veli ve öğrenci şeffaflığı",
+    body: "Çalışma düzeni, hedefler ve ilerleme notları anlaşılır biçimde tutulur; böylece süreç belirsiz kalmaz."
+  }
 ] as const;
 
 export default async function AboutPage() {
@@ -15,57 +27,39 @@ export default async function AboutPage() {
 
   return (
     <PublicPageLayout>
-      <section className="ega-page-banner">
-        <div className="ega-container ega-page-banner__inner">
-          <div className="ega-page-banner__copy">
-            <span className="ega-eyebrow">{intro?.eyebrow ?? "Yaklaşımımız"}</span>
-            <h1>{intro?.title ?? "Koçluk, içerik ve öğrenci düzenini aynı sistemde topluyoruz."}</h1>
-            <p>
-              {intro?.body ??
-                "Platform; düzen, görünür takip ve kayıt sonrasında parçalanmayan kontrollü öğrenci akışı üzerine kurulur."}
-            </p>
-          </div>
-
-          <div className="ega-page-banner__panel">
-            <span>Kurgu ilkesi</span>
-            <strong>Tek deneyim, net sınırlar</strong>
-            <p>Öğrenci için tek yüz, ekip için temiz operasyon ayrımı.</p>
-          </div>
-        </div>
-      </section>
-
       <section className="ega-section ega-container">
         <SectionHeading
-          eyebrow="Yapı Mantığı"
-          title="Satış akışı, öğrenci paneli ve dış sağlayıcı sınırları baştan tanımlı"
-          description="Öğrencinin gördüğü deneyim ile ekiplerin yönettiği operasyon alanı birbirine karışmadan aynı sistem içinde ilerler."
+          title={intro?.title ?? "Eğitim Gürmesi Akademi hakkında"}
+          description={
+            intro?.body ??
+            "Eğitim Gürmesi Akademi; öğrencinin paket seçimini, koçluk takibini, canlı ders erişimini ve çalışma düzenini daha anlaşılır hale getiren bir hazırlık platformudur."
+          }
         />
 
         <div className="ega-story-grid ega-story-grid--two">
           <article className="ega-highlight-card ega-highlight-card--primary">
-            <span className="ega-pill ega-pill--dark">Misyon</span>
-            <h3>Öğrenciyi karar anından çalışma düzenine kadar dağılmadan taşımak</h3>
+            <h2>Öğrenciye yalnızca içerik değil, düzen kazandırmayı hedefliyoruz</h2>
             <p>
-              Kullanıcı paketleri incelerken, hesap oluştururken, video erişimi alırken ve koçluk akışına girerken tek
-              parça bir ürün deneyimi hissetmelidir.
+              Sınav hazırlığında kaynak çokluğu tek başına yeterli değildir. Öğrencinin hangi derse
+              ne zaman döneceğini, deneme sonucunu nasıl yorumlayacağını ve eksiklerini hangi sırayla
+              kapatacağını bilmesi gerekir.
             </p>
           </article>
 
           <article className="ega-highlight-card">
-            <span className="ega-pill ega-pill--warm">Operasyon</span>
-            <h3>Arka tarafta ise her akış kendi sınırını korur</h3>
+            <h2>Koçluk, canlı ders ve dijital panel aynı hedefe çalışır</h2>
             <p>
-              Video ürünleri yerel platformda kalır. Koçluk ürünleri yerelde anlatılır, yerelde izlenir ve ardından
-              kontrollü bir dış ödeme/sağlayıcı adımına yönlendirilir.
+              Eğitim Gürmesi Akademi'de koçluk görüşmeleri, video içerikleri, paket erişimi ve öğrenci
+              paneli birbirinden kopuk parçalar olarak değil, tek hazırlık deneyimi olarak kurgulanır.
             </p>
           </article>
         </div>
 
         <div className="ega-values-grid">
           {values.map((value) => (
-            <article key={value} className="ega-team-card">
-              <div className="ega-team-card__badge">Temel İlke</div>
-              <p>{value}</p>
+            <article key={value.title} className="ega-team-card">
+              <h3>{value.title}</h3>
+              <p>{value.body}</p>
             </article>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import type { AcademicStaffGroup } from "./academic-staff";
 import { academicStaffGroups } from "./academic-staff";
+import { resolveApiBaseUrl } from "./api-base-url";
 import type { ExamCountdownPage, ExamCountdownTarget, ResourceLink } from "./free-materials";
 import {
   examCountdownPages,
@@ -11,8 +12,6 @@ import {
 } from "./free-materials";
 import type { PublicNavItem, PublicMegaMenuColumn, PublicNavLeaf } from "./navigation";
 import { publicNavigationItems } from "./navigation";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
 
 const fallbackHomePage = {
   key: "home",
@@ -26,11 +25,43 @@ const fallbackHomePage = {
     {
       sectionKey: "showcase-hero",
       eyebrow: "Eğitim Gurmesi Akademi",
-      title: "Öğrencinin kayıt, paket ve çalışma düzenini tek akışta toplayan açılış alanı",
-      body: "Bu bölüm, markanın satış vitrini ile öğrenci deneyimini aynı sahnede birleştirir.",
+      title: "Başarıya giden yolu ilk ekranda sadeleştiriyoruz",
+      body: "Öğrenciye doğru paket, net takip ve güven veren çalışma düzenini tek vitrin içinde anlatır.",
       variantKey: "showcase-hero",
       sortOrder: 10,
       payload: {
+        slides: [
+          {
+            id: "showcase-plan",
+            label: "Başarıya Hazırlık",
+            title: "Başarı planı ilk günden hazır",
+            description: "Kayıttan sonra öğrenci; hedefe uygun paket, haftalık çalışma ritmi ve takip ekranı ile ne yapacağını net biçimde görür.",
+            tone: "amber",
+            mediaType: "IMAGE",
+            mediaUrl: "/homepage/showcase-plan.png",
+            mediaAlt: "Düzenli çalışan başarılı öğrenci"
+          },
+          {
+            id: "showcase-coach",
+            label: "Birebir Yönlendirme",
+            title: "Koçlukla karar süreci sadeleşir",
+            description: "Öğrenci ve veli; hedefleri, eksikleri ve doğru çalışma temposunu anlaşılır bir görüşme akışıyla netleştirir.",
+            tone: "teal",
+            mediaType: "IMAGE",
+            mediaUrl: "/homepage/showcase-coach.png",
+            mediaAlt: "Koçluk desteğiyle hedef belirleyen başarılı öğrenci"
+          },
+          {
+            id: "showcase-library",
+            label: "Dijital Çalışma Alanı",
+            title: "Ders arşivi tek panelde hazır",
+            description: "Canlı ders, video tekrar ve kaynak erişimi aynı hesapta toplanır; öğrenci kaldığı yerden güvenle devam eder.",
+            tone: "blue",
+            mediaType: "IMAGE",
+            mediaUrl: "/homepage/showcase-library.png",
+            mediaAlt: "Online ders izleyen başarılı öğrenci"
+          }
+        ],
         ctaPrimary: { label: "Paketleri İncele", href: "/paketlerimiz" },
         ctaSecondary: { label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" }
       }
@@ -48,9 +79,9 @@ const fallbackHomePage = {
     },
     {
       sectionKey: "package-surface",
-      eyebrow: "Paket yapısı",
-      title: "Koçluk ve video ürünlerini ayrıştıran katalog alanı",
-      body: "Kategori bazlı yönlendirme, öğrenciyi doğru ürün akışına alır.",
+      eyebrow: "",
+      title: "Sana En Uygun Paketi Seç",
+      body: "",
       variantKey: "packages-surface",
       sortOrder: 30,
       payload: {
@@ -76,6 +107,38 @@ const fallbackAboutPage = {
       body: "Marka yaklaşımı; düzen, görünür takip ve kontrollü öğrenci akışı üzerine kurulur.",
       variantKey: "about-intro",
       sortOrder: 10,
+      payload: {}
+    }
+  ]
+} as const;
+
+const fallbackPackagesPage = {
+  key: "packages",
+  slug: "paketlerimiz",
+  title: "Paketlerimiz",
+  excerpt: "Kategori ve alt kategori bazlı ürün dizini.",
+  description: "Koçluk, kamp, özel ders ve video paketi içerikleri.",
+  seoTitle: "Paketlerimiz",
+  seoDescription: "Koçluk, kamp ve video paketlerini kategori bazında inceleyin.",
+  sections: [
+    {
+      sectionKey: "packages-directory-intro",
+      eyebrow: "Katalog",
+      title: "Sana En Uygun Paketi Seç",
+      body: "",
+      variantKey: "directory-intro",
+      sortOrder: 10,
+      isActive: true,
+      payload: {}
+    },
+    {
+      sectionKey: "packages-guarantee-ribbon",
+      eyebrow: "Güvence",
+      title: "Memnun Kalmazsan %100 İade Garantisi Sağlıyoruz!",
+      body: "",
+      variantKey: "guarantee-ribbon",
+      sortOrder: 20,
+      isActive: true,
       payload: {}
     }
   ]
@@ -155,6 +218,10 @@ type StaffProfileGroupResponse = {
   label: string;
   eyebrow: string;
   description: string;
+  introVideoSourceType?: "DIRECT" | "EMBED" | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
   profiles: StaffProfileResponse[];
 };
 
@@ -227,6 +294,7 @@ type MarketingPageSectionResponse = {
   variantKey: string | null;
   payload: Record<string, unknown> | null;
   sortOrder: number;
+  isActive?: boolean;
 };
 
 type MarketingPageResponse = {
@@ -274,6 +342,7 @@ export type MarketingPageSection = {
   variantKey?: string;
   payload: Record<string, unknown>;
   sortOrder: number;
+  isActive: boolean;
 };
 
 export type MarketingPageContent = {
@@ -302,7 +371,7 @@ export type SuccessStoryContent = {
 };
 
 async function requestJson<T>(path: string) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
     cache: "no-store",
     headers: {
       "Content-Type": "application/json"
@@ -364,6 +433,10 @@ function normalizeStaffGroup(group: StaffProfileGroupResponse): AcademicStaffGro
     label: group.label,
     eyebrow: group.eyebrow,
     description: group.description,
+    introVideoSourceType: group.introVideoSourceType ?? undefined,
+    introVideoUrl: group.introVideoUrl ?? undefined,
+    introVideoPosterUrl: group.introVideoPosterUrl ?? undefined,
+    introVideoTitle: group.introVideoTitle ?? undefined,
     members: group.profiles.map((profile) => ({
       id: profile.id,
       name: profile.fullName,
@@ -440,7 +513,8 @@ function normalizeMarketingPage(page: MarketingPageResponse): MarketingPageConte
         body: section.body ?? undefined,
         variantKey: section.variantKey ?? undefined,
         payload: section.payload ?? {},
-        sortOrder: section.sortOrder
+        sortOrder: section.sortOrder,
+        isActive: section.isActive ?? true
       }))
   };
 }
@@ -467,6 +541,10 @@ function getFallbackMarketingPage(slug: string) {
 
   if (slug === "hakkimizda" || slug === "about") {
     return fallbackAboutPage;
+  }
+
+  if (slug === "paketlerimiz" || slug === "packages") {
+    return fallbackPackagesPage;
   }
 
   return null;

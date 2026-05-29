@@ -33,80 +33,112 @@ export type ExamCountdownPage = {
   articleSections: readonly ExamArticleSection[];
 };
 
-export const freeTools: readonly ResourceLink[] = [
+const yksOfficialLinks: readonly ResourceLink[] = [
   {
-    title: "2026 YKS'ye Kaç Gün Kaldı?",
-    type: "Ücretsiz",
-    summary: "2026 YKS oturum tarihlerini ve saatlerini tek ekranda takip etmek isteyenler için canlı geri sayım.",
-    href: "/ucretsiz-materyaller/2026-yks-kac-gun-kaldi",
-    buttonLabel: "Ücretsiz Aç",
-    countdownSlug: "2026-yks-kac-gun-kaldi"
-  },
-  {
-    title: "2027 YKS'ye Kaç Gün Kaldı?",
-    type: "Ücretsiz",
-    summary: "2027 YKS için resmî takvim açıklamasını bekleyen öğrenciler adına güncel durum sayfası.",
-    href: "/ucretsiz-materyaller/2027-yks-kac-gun-kaldi",
-    buttonLabel: "Ücretsiz Aç",
-    countdownSlug: "2027-yks-kac-gun-kaldi"
-  },
-  {
-    title: "2026 LGS'ye Kaç Gün Kaldı?",
-    type: "Ücretsiz",
-    summary: "2026 LGS tarih ve saatlerini oturum bazında takip etmek isteyen öğrenciler için geri sayım alanı.",
-    href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
-    buttonLabel: "Ücretsiz Aç",
-    countdownSlug: "2026-lgs-kac-gun-kaldi"
-  },
-  {
-    title: "YKS Puan Hesapla",
-    type: "Ücretsiz",
-    summary: "YKS hedefi için net ve bölüm araştırmasını destekleyen ücretsiz resmî kaynaklara yönlen.",
-    href: "https://yokatlas.yok.gov.tr/netler-tablo.php?b=10103",
-    buttonLabel: "Aracı Aç"
-  },
-  {
-    title: "YKS Atlas",
-    type: "Ücretsiz",
-    summary: "Bölüm ve üniversite araştırmasını resmî atlas verileri üzerinden yürütmek isteyenler için.",
-    href: "https://yokatlas.yok.gov.tr/",
-    buttonLabel: "Resmî Sayfaya Git"
-  },
-  {
-    title: "Maarif Simülasyonları",
-    type: "Ücretsiz",
-    summary: "EBA üzerinden erişilebilen eğitici simülasyonlarla ders konularını daha etkileşimli incele.",
-    href: "https://www.eba.gov.tr/",
-    buttonLabel: "İçeriği Aç"
-  }
-] as const;
-
-export const usefulLinks: readonly ResourceLink[] = [
-  {
-    title: "MEB",
-    type: "Resmî Kaynak",
-    summary: "Millî Eğitim Bakanlığı duyuruları, takvimleri ve resmî eğitim bilgileri.",
-    href: "https://www.meb.gov.tr/",
-    buttonLabel: "Resmî Sayfaya Git"
-  },
-  {
-    title: "ÖSYM",
-    type: "Resmî Kaynak",
-    summary: "Sınav takvimi, kılavuzlar ve resmî duyurular için temel kaynak.",
-    href: "https://www.osym.gov.tr/",
-    buttonLabel: "Resmî Sayfaya Git"
+    title: "ÖSYM Takvim",
+    type: "Resmi Kaynak",
+    summary: "YKS oturum tarihleri, başvuru dönemleri ve güncel sınav duyuruları için ana kaynak.",
+    href: "https://www.osym.gov.tr/oms/",
+    buttonLabel: "Takvimi Aç"
   },
   {
     title: "ÖSYM AİS",
     type: "Aday İşlemleri",
-    summary: "Başvuru, sınav giriş belgesi ve sonuç işlemleri için aday girişi.",
+    summary: "Başvuru, sınav giriş belgesi ve sonuç işlemleri için aday giriş sistemi.",
     href: "https://ais.osym.gov.tr/",
     buttonLabel: "Sisteme Git"
   },
   {
     title: "YÖK Atlas",
     type: "Tercih Aracı",
-    summary: "Program, üniversite ve tercih araştırmasını resmî verilerle yürütmek isteyenler için.",
+    summary: "Üniversite, bölüm, başarı sırası ve tercih araştırması için resmi veri ekranı.",
+    href: "https://yokatlas.yok.gov.tr/",
+    buttonLabel: "Atlası Aç"
+  }
+] as const;
+
+export const freeTools: readonly ResourceLink[] = [
+  {
+    title: "TYT",
+    type: "Ücretsiz",
+    summary: "2026 TYT için canlı geri sayım, resmi oturum saati ve son hafta çalışma önerileri.",
+    href: "/ucretsiz-materyaller/tyt-kac-gun-kaldi",
+    buttonLabel: "TYT Sayacını Aç",
+    countdownSlug: "tyt-kac-gun-kaldi"
+  },
+  {
+    title: "AYT",
+    type: "Ücretsiz",
+    summary: "2026 AYT için ayrı geri sayım, alan dersleri odaklı kapanış planı ve resmi bağlantılar.",
+    href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
+    buttonLabel: "AYT Sayacını Aç",
+    countdownSlug: "ayt-kac-gun-kaldi"
+  },
+  {
+    title: "YDT",
+    type: "Ücretsiz",
+    summary: "2026 YDT için oturum saatine göre çalışan sayaç ve dil sınavı son gün hazırlık notları.",
+    href: "/ucretsiz-materyaller/ydt-kac-gun-kaldi",
+    buttonLabel: "YDT Sayacını Aç",
+    countdownSlug: "ydt-kac-gun-kaldi"
+  },
+  {
+    title: "2026 LGS'ye Kaç Gün Kaldı?",
+    type: "Ücretsiz",
+    summary: "2026 LGS için sözel ve sayısal oturum saatlerini resmi takvime göre takip et.",
+    href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
+    buttonLabel: "LGS Sayacını Aç",
+    countdownSlug: "2026-lgs-kac-gun-kaldi"
+  },
+  {
+    title: "YKS Puan Hesapla",
+    type: "Ücretsiz",
+    summary: "TYT, AYT, OBP ve tercih hedefini daha doğru yorumlamak için puan hesaplama rehberi.",
+    href: "/ucretsiz-materyaller/puan-hesaplama",
+    buttonLabel: "Puan Rehberini Aç"
+  },
+  {
+    title: "YKS Atlas",
+    type: "Ücretsiz",
+    summary: "Bölüm, üniversite ve başarı sırası araştırmasını YÖK Atlas verileriyle planla.",
+    href: "/ucretsiz-materyaller/yks-atlas",
+    buttonLabel: "Atlas Rehberini Aç"
+  },
+  {
+    title: "Maarif Simülasyonları",
+    type: "Ücretsiz",
+    summary: "Fizik, kimya ve fen kavramlarını etkileşimli simülasyonlarla daha görünür hale getir.",
+    href: "/ucretsiz-materyaller/maarif-simulasyonlari",
+    buttonLabel: "Simülasyon Rehberini Aç"
+  }
+] as const;
+
+export const usefulLinks: readonly ResourceLink[] = [
+  {
+    title: "MEB",
+    type: "Resmi Kaynak",
+    summary: "Milli Eğitim Bakanlığı duyuruları, sınav açıklamaları, takvimler ve kılavuzlar.",
+    href: "https://www.meb.gov.tr/",
+    buttonLabel: "Resmi Sayfaya Git"
+  },
+  {
+    title: "ÖSYM",
+    type: "Resmi Kaynak",
+    summary: "YKS, KPSS ve diğer merkezi sınavlar için duyuru, takvim ve kılavuz merkezi.",
+    href: "https://www.osym.gov.tr/",
+    buttonLabel: "Resmi Sayfaya Git"
+  },
+  {
+    title: "ÖSYM AİS",
+    type: "Aday İşlemleri",
+    summary: "Başvuru, sınav giriş belgesi, tercih ve sonuç işlemleri için aday giriş ekranı.",
+    href: "https://ais.osym.gov.tr/",
+    buttonLabel: "Sisteme Git"
+  },
+  {
+    title: "YÖK Atlas",
+    type: "Tercih Aracı",
+    summary: "Üniversite programlarını, taban başarı sıralarını ve kontenjanları inceleme ekranı.",
     href: "https://yokatlas.yok.gov.tr/",
     buttonLabel: "Atlası Aç"
   }
@@ -115,31 +147,31 @@ export const usefulLinks: readonly ResourceLink[] = [
 export const pdfDocuments: readonly ResourceLink[] = [
   {
     title: "TYT Çalışma Planı PDF",
-    type: "PDF Döküman",
-    summary: "Haftalık ders bloklarını, tekrar zamanlarını ve deneme günlerini birlikte planlamak isteyenler için düzenli TYT çalışma şablonu.",
-    href: "/ucretsiz-materyaller/2026-yks-kac-gun-kaldi",
-    buttonLabel: "İçeriği İncele"
+    type: "PDF Doküman",
+    summary: "Türkçe, temel matematik, sosyal ve fen çalışmalarını haftalık bloklara ayırmak için plan şablonu.",
+    href: "/ucretsiz-materyaller/pdf-dokumanlar",
+    buttonLabel: "PDF Alanını Aç"
   },
   {
     title: "AYT Tekrar Çizelgesi PDF",
-    type: "PDF Döküman",
-    summary: "Konu tekrarlarını haftalara ayırarak ilerlemek isteyen öğrenciler için sade ve takip edilebilir AYT çizelgesi.",
-    href: "/ucretsiz-materyaller/2026-yks-kac-gun-kaldi",
-    buttonLabel: "İçeriği İncele"
+    type: "PDF Doküman",
+    summary: "Alan derslerinde konu tekrarını, deneme analizini ve son hafta önceliklerini takip etmek için çizelge.",
+    href: "/ucretsiz-materyaller/pdf-dokumanlar",
+    buttonLabel: "PDF Alanını Aç"
   },
   {
     title: "Deneme Analiz Formu PDF",
-    type: "PDF Döküman",
-    summary: "Deneme sonrası netleri, süre kullanımını ve eksik konuları tek tabloda değerlendirmek için pratik analiz formu.",
-    href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
-    buttonLabel: "İçeriği İncele"
+    type: "PDF Doküman",
+    summary: "Net, süre, yanlış türü ve kazanım eksiğini tek tabloda görerek deneme sonrası aksiyon almak için form.",
+    href: "/ucretsiz-materyaller/pdf-dokumanlar",
+    buttonLabel: "PDF Alanını Aç"
   },
   {
     title: "Hedef Takip Sayfası PDF",
-    type: "PDF Döküman",
-    summary: "Aylık hedefleri, tamamlanan görevleri ve dönem sonu notlarını düzenli biçimde kaydetmek için takip sayfası.",
-    href: "/ucretsiz-materyaller/2027-yks-kac-gun-kaldi",
-    buttonLabel: "İçeriği İncele"
+    type: "PDF Doküman",
+    summary: "Aylık hedef, tamamlanan görev ve koçluk notlarını düzenli kaydetmek için takip sayfası.",
+    href: "/ucretsiz-materyaller/pdf-dokumanlar",
+    buttonLabel: "PDF Alanını Aç"
   }
 ] as const;
 
@@ -147,63 +179,133 @@ export const guidanceContent: readonly ResourceLink[] = [
   {
     title: "Blog",
     type: "Rehberlik İçeriği",
-    summary: "Sınav dönemi, motivasyon ve çalışma düzeni odaklı yazı alanı.",
-    href: "/ucretsiz-materyaller/2026-yks-kac-gun-kaldi",
-    buttonLabel: "Yazıyı Aç"
+    summary: "Sınav dönemi, motivasyon, deneme analizi ve çalışma planı hakkında SEO odaklı rehber yazılar.",
+    href: "/ucretsiz-materyaller/blog",
+    buttonLabel: "Blogu Aç"
   },
   {
     title: "Ücretsiz Araçlarımız",
     type: "Rehberlik İçeriği",
-    summary: "Araçların nasıl kullanılacağına dair yönlendirici giriş alanı.",
+    summary: "Sayaç, puan hesaplama, atlas, deneme ve simülasyon araçlarının hangi amaçla kullanılacağını öğren.",
     href: "/ucretsiz-materyaller",
-    buttonLabel: "Alanı Aç"
+    buttonLabel: "Araçları Aç"
   },
   {
     title: "Ücretsiz Kamplar",
     type: "Rehberlik İçeriği",
-    summary: "Sömestr, yaz ve tekrar dönemleri için hazırlanmış kamp düzenlerini tanıtan rehber içerikler.",
-    href: "/ucretsiz-materyaller/2026-yks-kac-gun-kaldi",
-    buttonLabel: "İçeriği Aç"
+    summary: "Yaz, ara tatil ve sınav öncesi tekrar dönemlerinde ücretsiz içerikleri nasıl kullanacağını planla.",
+    href: "/ucretsiz-materyaller/blog",
+    buttonLabel: "Rehberi Aç"
   },
   {
     title: "Çalışma Tüyoları",
     type: "Rehberlik İçeriği",
-    summary: "Rutin, tempo ve odak geliştirmek isteyen öğrencilere yönelik pratik içerikler.",
-    href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
-    buttonLabel: "İçeriği Aç"
+    summary: "Konu tamamlama, soru çözümü, deneme takibi ve motivasyon dengesini kurmak için kısa öneriler.",
+    href: "/ucretsiz-materyaller/blog",
+    buttonLabel: "Tüyoları Oku"
   }
 ] as const;
 
 export const speedReading: ResourceLink = {
   title: "Hızlı Okuma Egzersizleri",
   type: "Ücretsiz",
-  summary:
-    "Okuma hızını, dikkatini ve paragraf ritmini geliştirmek isteyen öğrenciler için doğrudan egzersiz bağlantısı.",
+  summary: "Paragraf sorularında hız, dikkat ve anlama ritmini geliştirmek isteyen öğrenciler için egzersiz bağlantısı.",
   href: "https://www.m5bilisim.com/tr/hizli-okuma/",
-  buttonLabel: "Egzersizi Aç"
+  buttonLabel: "Egzersizi Aç",
+  opensInNewTab: true
 };
 
 export const examCountdownPages: readonly ExamCountdownPage[] = [
   {
-    slug: "2026-yks-kac-gun-kaldi",
-    eyebrow: "2026 YKS Geri Sayım",
-    title: "2026 YKS oturumlarına kaç ay, kaç gün, kaç saat kaldı?",
+    slug: "tyt-kac-gun-kaldi",
+    eyebrow: "2026 TYT Sayacı",
+    title: "TYT'ye kaç gün kaldı?",
     description:
-      "TYT, AYT ve YDT oturumlarını ayrı ayrı takip et. Tarih ve saatler resmî ÖSYM kaynaklarına göre işlendi.",
-    updatedLabel: "Son güncelleme: 9 Mayıs 2026 itibarıyla resmî ÖSYM duyuruları esas alındı",
+      "2026 TYT için canlı geri sayımı takip et; sınav tarihi, başlangıç saati, süre yönetimi ve son hafta hazırlık notlarını tek sayfada gör.",
+    updatedLabel: "Resmi ÖSYM açıklamalarına göre güncellenmiştir.",
     countdowns: [
       {
         label: "TYT",
         targetIso: "2026-06-20T10:15:00+03:00",
         dateLabel: "20 Haziran 2026 Cumartesi, 10:15",
         note: "1. oturum: Temel Yeterlilik Testi"
+      }
+    ],
+    videoTitle: "TYT motivasyon ve son hafta odak videosu",
+    videoNote: "Paragraf, problem, deneme analizi ve sınav sabahı ritmini korumaya yardımcı kısa video alanı.",
+    officialLinks: yksOfficialLinks,
+    articleSections: [
+      {
+        title: "2026 TYT ne zaman yapılacak?",
+        body:
+          "2026 YKS'nin ilk oturumu olan TYT, 20 Haziran 2026 Cumartesi günü saat 10.15'te uygulanacaktır. Eğitim Gürmesi Akademi TYT sayacı, kalan süreyi gün, saat, dakika ve saniye olarak gösterir."
       },
+      {
+        title: "TYT sayacı nasıl kullanılmalı?",
+        body:
+          "Sayaç yalnızca kalan zamanı göstermek için değil, çalışma fazını belirlemek için kullanılmalıdır. Kalan süre azaldıkça konu öğrenme, tekrar, deneme ve yanlış analizi oranları yeniden düzenlenmelidir."
+      },
+      {
+        title: "TYT hazırlığında son hafta nelere odaklanılmalı?",
+        body:
+          "Son hafta yeni ve ağır konu yüklemek yerine paragraf, problem, temel fen-sosyal tekrarları, deneme analizi ve uyku düzeni öncelik olmalıdır. Amaç sınav sabahına yorgun değil, kontrollü girmektir."
+      },
+      {
+        title: "TYT için hangi resmi kaynaklar takip edilmeli?",
+        body:
+          "Tarih, başvuru ve sınav giriş belgesi için ÖSYM duyuruları ve AİS ekranı takip edilmelidir. Tercih dönemini şimdiden planlayan öğrenciler YÖK Atlas verilerini de düzenli inceleyebilir."
+      }
+    ]
+  },
+  {
+    slug: "ayt-kac-gun-kaldi",
+    eyebrow: "2026 AYT Sayacı",
+    title: "AYT'ye kaç gün kaldı?",
+    description:
+      "2026 AYT oturumuna kalan süreyi resmi sınav saatine göre takip et; alan dersleri için kapanış planını ve tekrar önceliklerini netleştir.",
+    updatedLabel: "Resmi ÖSYM açıklamalarına göre güncellenmiştir.",
+    countdowns: [
       {
         label: "AYT",
         targetIso: "2026-06-21T10:15:00+03:00",
         dateLabel: "21 Haziran 2026 Pazar, 10:15",
         note: "2. oturum: Alan Yeterlilik Testleri"
+      }
+    ],
+    videoTitle: "AYT tekrar planı ve kapanış temposu videosu",
+    videoNote: "Alan dersleri, deneme sıklığı ve konu kapatma stratejisi için motivasyon ve planlama video alanı.",
+    officialLinks: yksOfficialLinks,
+    articleSections: [
+      {
+        title: "2026 AYT ne zaman yapılacak?",
+        body:
+          "2026 AYT, 21 Haziran 2026 Pazar günü saat 10.15'te uygulanacaktır. Eğitim Gürmesi Akademi AYT sayacı, geri sayımı doğrudan bu oturum başlangıcına göre hesaplar."
       },
+      {
+        title: "AYT sayacı TYT sayacından neden ayrı olmalı?",
+        body:
+          "AYT, bilgi derinliği ve alan dersleriyle ölçülür. TYT'de hız ve temel yeterlilik öne çıkarken AYT'de konu hakimiyeti belirleyicidir; bu yüzden tekrar planı ayrı sayaçla yönetilmelidir."
+      },
+      {
+        title: "AYT'ye son haftalarda nasıl çalışılmalı?",
+        body:
+          "Son haftalarda alan denemesi, çıkmış soru, formül/kavram haritası ve yanlış defteri birlikte ilerlemelidir. Her deneme sonrasında sadece net değil, hangi kazanımın tekrar istediği de incelenmelidir."
+      },
+      {
+        title: "AYT sonrası tercih araştırması ne zaman başlamalı?",
+        body:
+          "Tercih araştırması sınavdan sonraya bırakılmamalıdır. YÖK Atlas üzerinden bölüm kontenjanları, başarı sıraları ve üniversite seçenekleri erken dönemde incelenirse hedef daha somut hale gelir."
+      }
+    ]
+  },
+  {
+    slug: "ydt-kac-gun-kaldi",
+    eyebrow: "2026 YDT Sayacı",
+    title: "YDT'ye kaç gün kaldı?",
+    description:
+      "2026 YDT için ayrı geri sayımı takip et; dil oturumu öncesi kelime, okuma ve dikkat ritmini doğru zamanda toparla.",
+    updatedLabel: "Resmi ÖSYM açıklamalarına göre güncellenmiştir.",
+    countdowns: [
       {
         label: "YDT",
         targetIso: "2026-06-21T15:45:00+03:00",
@@ -211,194 +313,116 @@ export const examCountdownPages: readonly ExamCountdownPage[] = [
         note: "3. oturum: Yabancı Dil Testi"
       }
     ],
-    videoTitle: "YKS motivasyon ve son düzlüğe giriş videosu",
-    videoNote:
-      "TYT, AYT ve YDT öncesi son haftalarda odak, moral ve çalışma düzenini korumaya yardımcı kısa motivasyon videosu bu alanda yer alır.",
-    officialLinks: [
-      {
-        title: "ÖSYM Takvim / OMS",
-        type: "Resmî Kaynak",
-        summary: "2026-YKS oturum tarihleri ÖSYM takvim görünümünde yer alır.",
-        href: "https://www.osym.gov.tr/oms/",
-        buttonLabel: "Takvimi Aç"
-      },
-      {
-        title: "2026-YKS Başvuru Duyurusu",
-        type: "Resmî Kaynak",
-        summary: "20-21 Haziran 2026 sınav düzeni ÖSYM duyurusunda açıklandı.",
-        href: "https://www.osym.gov.tr/TR,33850/2026-yks-basvurularin-alinmasi-06022026.html",
-        buttonLabel: "Duyuruyu Aç"
-      },
-      {
-        title: "ÖSYM AİS",
-        type: "Aday İşlemleri",
-        summary: "Başvuru ve aday işlemleri için resmî giriş sistemi.",
-        href: "https://ais.osym.gov.tr/",
-        buttonLabel: "Sisteme Git"
-      },
-      {
-        title: "YÖK Atlas",
-        type: "Tercih Aracı",
-        summary: "Bölüm ve üniversite araştırmasını resmî atlas verileriyle desteklemek için.",
-        href: "https://yokatlas.yok.gov.tr/",
-        buttonLabel: "Atlası Aç"
-      }
-    ],
+    videoTitle: "YDT son oturum odak videosu",
+    videoNote: "Kelime tekrarı, okuma temposu ve sınav günü enerji yönetimi için kısa video alanı.",
+    officialLinks: yksOfficialLinks,
     articleSections: [
       {
-        title: "2026 YKS ne zaman yapılacak?",
+        title: "2026 YDT ne zaman yapılacak?",
         body:
-          "ÖSYM'nin 6 Şubat 2026 tarihli duyurusuna göre 2026 YKS, 20-21 Haziran 2026 tarihlerinde uygulanacak. TYT 20 Haziran 2026 Cumartesi günü, AYT ve YDT ise 21 Haziran 2026 Pazar günü yapılacak."
+          "2026 YDT, 21 Haziran 2026 Pazar günü saat 15.45'te uygulanacaktır. YKS'nin son oturumu olduğu için gün içi enerji ve odak yönetimi ayrıca planlanmalıdır."
       },
       {
-        title: "2026 YKS saat kaçta başlayacak?",
+        title: "YDT için geri sayım neden ayrı takip edilmeli?",
         body:
-          "ÖSYM'nin 26 Mart 2026 tarihli açıklamasında TYT'nin 20 Haziran 2026 Cumartesi günü saat 10.15'te, AYT'nin 21 Haziran 2026 Pazar günü saat 10.15'te ve YDT'nin aynı gün saat 15.45'te başlayacağı belirtildi. Bu sayaç alanı doğrudan bu saatlere göre hesaplanır."
+          "YDT aynı gün içinde AYT'den sonra yapılır. Bu nedenle mola, beslenme, zihinsel toparlanma ve son tekrar akışı diğer oturumlardan farklıdır."
       },
       {
-        title: "2026 YKS geri sayımı neden oturum bazında takip edilmeli?",
+        title: "YDT hazırlığında son gün stratejisi nasıl olmalı?",
         body:
-          "TYT, AYT ve YDT farklı oturumlar olduğu için tek sayaç öğrenciyi yanıltır. Son ay, son hafta ve son gün planı her oturumun ağırlığına göre değişir; deneme sıklığı, tekrar sırası ve uyku düzeni buna göre ayarlanmalıdır."
-      },
-      {
-        title: "2026 YKS için hangi resmî sayfalar izlenmeli?",
-        body:
-          "ÖSYM'nin takvim ve duyuru sayfaları tarih, saat, sınav giriş belgesi ve sonuç akışı için temel kaynaktır. Aday işlemleri için AİS; bölüm ve tercih araştırması için YÖK Atlas düzenli olarak izlenmelidir. Aşağıdaki bağlantılar doğrudan resmî kurumlara gider."
+          "Son günlerde ağır gramer yükü yerine kelime tekrarları, okuma parçaları, çıkmış sorular ve süreli mini denemeler daha verimli olur. Amaç ritmi korumak ve sınav diline alışık kalmaktır."
       }
     ]
   },
   {
     slug: "2027-yks-kac-gun-kaldi",
     eyebrow: "2027 YKS Geri Sayım",
-    title: "2027 YKS için resmî tarih açıklandı mı?",
+    title: "2027 YKS tarihi açıklandı mı?",
     description:
-      "ÖSYM'nin 2027 YKS için resmî sınav tarihi ve saati henüz açıklanmadıysa, tahmin değil resmî güncelleme beklemek gerekir.",
-    updatedLabel: "Son güncelleme: 9 Mayıs 2026 itibarıyla 2027 YKS için resmî tarih ilanı görünmüyor",
+      "2027 YKS takvimi netleştiğinde sayaç güncellenecek. Tarih açıklanana kadar planlama rehberiyle hazırlığınızı sürdürebilirsiniz.",
+    updatedLabel: "Resmi ÖSYM takvimi takip edilmektedir.",
     countdowns: [
       {
-        label: "Resmî Tarih Bekleniyor",
-        dateLabel: "ÖSYM 2027 takvimi henüz ilan edilmedi",
-        note: "Tahmini tarih kullanılmadı; resmî açıklama beklenecek."
+        label: "Resmi Tarih Bekleniyor",
+        dateLabel: "ÖSYM 2027 takvimi ilan edildiğinde güncellenecek",
+        note: "Tahmini tarih kullanılmaz; resmi açıklama esas alınır."
       }
     ],
-    videoTitle: "2027 YKS için uzun vadeli motivasyon videosu",
-    videoNote:
-      "Tarih açıklanmadan önce düzenli hazırlık kurmak isteyen öğrenciler için uzun vadeli çalışma disiplini ve planlama önerileri bu alanda paylaşılır.",
-    officialLinks: [
-      {
-        title: "ÖSYM Duyurular",
-        type: "Resmî Kaynak",
-        summary: "2027 YKS ile ilgili resmî açıklama geldiğinde ilk takip edilmesi gereken yer.",
-        href: "https://www.osym.gov.tr/duyurular/",
-        buttonLabel: "Duyurulara Git"
-      },
-      {
-        title: "ÖSYM Takvim",
-        type: "Resmî Kaynak",
-        summary: "Yeni sınav takvimi yayımlandığında YKS tarihleri bu sayfada görünür.",
-        href: "https://www.osym.gov.tr/TR,8797/takvim.html",
-        buttonLabel: "Takvimi Aç"
-      },
-      {
-        title: "ÖSYM AİS",
-        type: "Aday İşlemleri",
-        summary: "Başvuru dönemi açıldığında aday işlemleri buradan yürütülür.",
-        href: "https://ais.osym.gov.tr/",
-        buttonLabel: "Sisteme Git"
-      }
-    ],
+    videoTitle: "2027 YKS uzun vadeli hazırlık videosu",
+    videoNote: "Temel güçlendirme, kaynak seçimi ve düzenli çalışma sistemi için uzun vadeli motivasyon alanı.",
+    officialLinks: yksOfficialLinks,
     articleSections: [
       {
-        title: "2027 YKS tarihi neden şu an geri sayıma bağlanmadı?",
+        title: "2027 YKS için hazırlık ne zaman başlamalı?",
         body:
-          "9 Mayıs 2026 itibarıyla ÖSYM'nin 2027 YKS için resmî sınav tarihi ve saatini ilan ettiğine dair doğrulanmış bir kayıt görünmüyor. Bu yüzden tahmini sayaç yerine resmî açıklama bekleyen durum kartı kullanıldı."
+          "Resmi tarih açıklanmadan önce yapılacak en doğru hazırlık, temel dersleri güçlendirmek ve sürdürülebilir haftalık rutin kurmaktır. Erken başlayan öğrenci, son yıl yalnızca konu yetiştirmeye sıkışmaz."
       },
       {
-        title: "2027 YKS hazırlığı tarih açıklanmadan nasıl planlanmalı?",
+        title: "Tarih açıklanmadan nasıl plan yapılır?",
         body:
-          "Tarih açıklanmadan önce yapılması gereken şey agresif takvim üretmek değil, ders düzeni ve net artışı üstüne sistem kurmaktır. Bu dönem temel güçlendirme, kaynak seçimi ve haftalık rutin oturtma için en verimli alandır."
-      },
-      {
-        title: "2027 YKS için hangi resmî kanallar takip edilmeli?",
-        body:
-          "ÖSYM duyurular sayfası ve sınav takvimi, tarih ve başvuru süreci belli olduğunda en güncel bilgiyi verir. Aday işlemleri açıldığında AİS devreye girer. Tercih ve bölüm araştırması içinse YÖK Atlas şimdiden kullanılabilir."
+          "Plan kesin sınav gününe değil, dönem hedeflerine göre kurulmalıdır. İlk faz temel kazanım, ikinci faz konu tamamlama, üçüncü faz deneme ve analiz düzeni olarak ilerleyebilir."
       }
     ]
   },
   {
     slug: "2026-lgs-kac-gun-kaldi",
     eyebrow: "2026 LGS Geri Sayım",
-    title: "2026 LGS oturumlarına kaç ay, kaç gün, kaç saat kaldı?",
+    title: "2026 LGS'ye kaç gün kaldı?",
     description:
-      "2026 LGS için güncellenen tarih ve oturum saatlerini tek ekranda takip et. Sözel ve sayısal bölümler ayrı sayaçlarla gösterilir.",
-    updatedLabel: "Son güncelleme: 6 Nisan 2026 tarihli MEB güncellemesi ve 2026 kılavuzu esas alındı",
+      "2026 LGS için sözel ve sayısal oturumlara kalan süreyi takip et; sınav tarihi, oturum saatleri ve hazırlık notlarını tek sayfada gör.",
+    updatedLabel: "Resmi MEB açıklamalarına göre güncellenmiştir.",
     countdowns: [
       {
         label: "Sözel Bölüm",
         targetIso: "2026-06-13T09:30:00+03:00",
         dateLabel: "13 Haziran 2026 Cumartesi, 09:30",
-        note: "1. oturum"
+        note: "1. oturum: 50 soru / 75 dakika"
       },
       {
         label: "Sayısal Bölüm",
         targetIso: "2026-06-13T11:30:00+03:00",
         dateLabel: "13 Haziran 2026 Cumartesi, 11:30",
-        note: "2. oturum"
+        note: "2. oturum: 40 soru / 80 dakika"
       }
     ],
     videoTitle: "LGS motivasyon ve sınav sabahı odak videosu",
-    videoNote:
-      "Sınav sabahında dikkat, tempo ve sakinliği korumaya yardımcı kısa LGS hazırlık videosu burada izlenir.",
+    videoNote: "Sözel ve sayısal oturumlar arasında tempo, dikkat ve sakinlik yönetimi için video alanı.",
     officialLinks: [
       {
-        title: "MEB Güncel Tarih Duyurusu",
-        type: "Resmî Kaynak",
-        summary: "LGS tarihinin 13 Haziran 2026 olarak güncellendiği resmî açıklama.",
-        href: "https://www.meb.gov.tr/basin-aciklamasi//haber/40315/tr",
-        buttonLabel: "Duyuruyu Aç"
-      },
-      {
-        title: "2026 LGS Kılavuzu",
-        type: "Kılavuz",
-        summary: "2026 LGS başvuru ve uygulama kılavuzu; oturum saatleri ve sınav akışı burada yer alır.",
-        href: "https://www.meb.gov.tr/meb_iys_dosyalar/2026_04/03170012_LGS_Basvuru_ve_Uygulama_Kilavuzu_2026_.pdf",
-        buttonLabel: "PDF Aç"
-      },
-      {
         title: "MEB",
-        type: "Resmî Kaynak",
-        summary: "Millî Eğitim Bakanlığı ana sayfası ve duyuruları.",
+        type: "Resmi Kaynak",
+        summary: "LGS tarihleri, duyurular ve sınav süreci için Milli Eğitim Bakanlığı ana kaynağı.",
         href: "https://www.meb.gov.tr/",
-        buttonLabel: "Resmî Sayfaya Git"
+        buttonLabel: "MEB'e Git"
       },
       {
         title: "e-Okul",
         type: "Aday İşlemleri",
-        summary: "Başvuru ve öğrenci işlemleri için kullanılan sistem.",
+        summary: "Öğrenci bilgileri, başvuru süreci ve sınav giriş işlemleri için kullanılan sistem.",
         href: "https://eokul.meb.gov.tr/",
-        buttonLabel: "Sisteme Git"
+        buttonLabel: "e-Okul'a Git"
       }
     ],
     articleSections: [
       {
         title: "2026 LGS ne zaman yapılacak?",
         body:
-          "MEB'in 6 Nisan 2026 tarihli basın açıklamasına göre 2026 LGS merkezî sınavı 13 Haziran 2026 Cumartesi günü yapılacak. Bu bilgi önemlidir; çünkü daha önce duyurulan 14 Haziran 2026 tarihi daha sonra güncellendi."
+          "2026 LGS merkezi sınavı, MEB takvimine göre 13 Haziran 2026 Cumartesi günü iki oturum halinde uygulanacaktır. Eğitim Gürmesi Akademi LGS sayacı ilk oturum başlangıcına göre çalışır."
       },
       {
-        title: "2026 LGS saat kaçta başlayacak?",
+        title: "LGS kaç oturumdan oluşur?",
         body:
-          "2026 LGS kılavuzuna göre birinci oturum olan Sözel Bölüm saat 09.30'da, ikinci oturum olan Sayısal Bölüm ise saat 11.30'da başlayacak. Bu geri sayım kartları doğrudan bu saatlere göre hesaplanır."
+          "LGS'de sözel bölüm saat 09.30'da, sayısal bölüm saat 11.30'da başlar. Sözel bölüm Türkçe, inkılap tarihi, din kültürü ve yabancı dil; sayısal bölüm matematik ve fen bilimleri kazanımlarını ölçer."
       },
       {
-        title: "2026 LGS geri sayımı neden iki ayrı oturum olarak veriliyor?",
+        title: "LGS sayacı çalışma planında nasıl kullanılmalı?",
         body:
-          "Sözel ve sayısal bölüm aynı gün içinde farklı saatlerde başladığı için tek sayaç kullanmak doğru değildir. Özellikle sınav sabahı rutinini planlamak, beslenme ve mola akışını ayarlamak için iki ayrı sayaç daha işlevseldir."
+          "Kalan süre azaldıkça haftalık deneme, yanlış analizi ve kazanım tekrarı daha görünür hale gelmelidir. Sayaç, sadece zaman göstergesi değil; çalışma temposunu ayarlayan pratik bir kontrol alanıdır."
       },
       {
-        title: "2026 LGS için hangi resmî kaynaklar izlenmeli?",
+        title: "LGS'ye son ay kala nelere dikkat edilmeli?",
         body:
-          "MEB duyuruları ve uygulama kılavuzu tarih, saat ve süreç değişiklikleri için temel kaynaktır. Öğrenci işlemleri ve sınav sürecinin takibi için e-Okul da düzenli izlenmelidir. Bu sayfadaki bağlantılar doğrudan resmî kaynaklara yönlenir."
+          "Son ayda MEB örnek soruları, çıkmış soru tarzı, süreli denemeler ve uyku rutini öncelik kazanır. Öğrenci hem sözel dikkatini hem de sayısal problem çözme dayanıklılığını birlikte korumalıdır."
       }
     ]
   }

@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PublicNavbar } from "../../components/public-navbar";
 import { loginUser, registerUser, saveUserTokens } from "../../lib/auth-client";
 import { gradeOptions, studyTrackOptions } from "../../lib/student-profile-options";
 
@@ -9,8 +11,17 @@ type AuthPageClientProps = {
   redirectHref: string;
 };
 
+type AuthMode = "login" | "register";
+
+const authHighlights = [
+  "Video paketlerine tek hesapla eriş.",
+  "Siparişlerini ve panel girişini aynı yerden yönet.",
+  "Mini Quiz, ücretsiz ön görüşme ve LMS akışına hazır hesap oluştur."
+] as const;
+
 export function AuthPageClient({ redirectHref }: AuthPageClientProps) {
   const router = useRouter();
+  const [mode, setMode] = useState<AuthMode>("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -73,9 +84,7 @@ export function AuthPageClient({ redirectHref }: AuthPageClientProps) {
         studyTrack: form.studyTrack || undefined
       });
 
-      saveUserTokens(response);
-      setRegisterSuccess("Kayıt tamamlandı. Hesabın açıldı, yönlendiriliyorsun.");
-      router.push(redirectHref);
+      setRegisterSuccess(response.message);
     } catch (submissionError) {
       setRegisterError(
         submissionError instanceof Error
@@ -88,279 +97,325 @@ export function AuthPageClient({ redirectHref }: AuthPageClientProps) {
   }
 
   return (
-    <main className="ega-auth-shell ega-auth-shell--wide">
-      <div className="ega-auth-page-head">
-        <div className="ega-pill ega-pill--warm">Öğrenci hesabı</div>
-        <h1>Giriş yap veya yeni hesap oluştur</h1>
-        <p>
-          Aynı sayfada oturum açabilir ya da yeni öğrenci hesabı oluşturabilirsin.
-          Satın alma ve öğrenci paneli erişimi bu hesap üzerinden ilerler.
-        </p>
-      </div>
+    <main className="ega-page">
+      <PublicNavbar />
 
-      <section className="ega-auth-split">
-        <section className="ega-auth-card ega-auth-card--compact">
-          <div className="ega-pill">Öğrenci girişi</div>
-          <h2>Mevcut hesabına giriş yap</h2>
-          <p>
-            Satın aldığın ürünleri, sipariş durumunu ve öğrenci panelini buradan
-            açarsın.
-          </p>
+      <section className="ega-auth-stage">
+        <div className="ega-auth-stage__inner">
+          <section className="ega-auth-showcase">
+            <div className="ega-auth-showcase__badge">Öğrenci Hesabı</div>
 
-          <form className="ega-form" onSubmit={handleLogin}>
-            <div className="ega-field">
-              <label htmlFor="login-email">E-posta</label>
-              <input
-                id="login-email"
-                className="ega-input"
-                type="email"
-                value={loginEmail}
-                onChange={(event) => setLoginEmail(event.target.value)}
-                required
-              />
+            <div className="ega-auth-showcase__copy">
+              <h1>Giriş yap, hesabını oluştur ve akışı tek panelde yönet.</h1>
+              <p>
+                Eğitim Gurmesi hesabın; paket erişimi, sipariş takibi, mini quiz akışı ve
+                öğrenci paneli bağlantısını tek yerde toplar.
+              </p>
             </div>
 
-            <div className="ega-field">
-              <label htmlFor="login-password">Şifre</label>
-              <input
-                id="login-password"
-                className="ega-input"
-                type="password"
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-                required
-              />
+            <div className="ega-auth-showcase__highlights">
+              {authHighlights.map((item) => (
+                <div key={item} className="ega-auth-highlight-card">
+                  <span className="ega-auth-highlight-card__dot" />
+                  <strong>{item}</strong>
+                </div>
+              ))}
             </div>
 
-            {loginError ? <div className="ega-message ega-message--error">{loginError}</div> : null}
-
-            <button className="ega-button" type="submit" disabled={loginLoading}>
-              {loginLoading ? "Giriş yapılıyor..." : "Giriş Yap"}
-            </button>
-          </form>
-
-          <div className="ega-auth-card__footer-note">
-            İlk kez geliyorsan sağdaki karttan hesabını oluşturup doğrudan ödeme
-            akışına devam edebilirsin.
-          </div>
-        </section>
-
-        <section className="ega-auth-card">
-          <div className="ega-pill">Yeni hesap</div>
-          <h2>Kayıt ol ve hesabını oluştur</h2>
-          <p>
-            Video paketleri, sipariş geçmişi ve ileride açılacak LMS erişimleri için
-            kullanıcı hesabı burada oluşturulur.
-          </p>
-
-          <form className="ega-form" onSubmit={handleRegister}>
-            <div className="ega-form-grid">
-              <div className="ega-field">
-                <label htmlFor="firstName">Ad</label>
-                <input
-                  id="firstName"
-                  className="ega-input"
-                  value={form.firstName}
-                  onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
-                  required
-                />
+            <div className="ega-auth-showcase__stats">
+              <div className="ega-auth-showcase__stat">
+                <strong>Tek Hesap</strong>
+                <span>Video, koçluk ve sipariş düzeni tek yerde.</span>
               </div>
-
-              <div className="ega-field">
-                <label htmlFor="lastName">Soyad</label>
-                <input
-                  id="lastName"
-                  className="ega-input"
-                  value={form.lastName}
-                  onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="email">E-posta</label>
-                <input
-                  id="email"
-                  className="ega-input"
-                  type="email"
-                  value={form.email}
-                  onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="phone">Telefon</label>
-                <input
-                  id="phone"
-                  className="ega-input"
-                  value={form.phone}
-                  onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-                  placeholder="5XXXXXXXXX"
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="password">Şifre</label>
-                <input
-                  id="password"
-                  className="ega-input"
-                  type="password"
-                  value={form.password}
-                  onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-                  required
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="schoolName">Okul</label>
-                <input
-                  id="schoolName"
-                  className="ega-input"
-                  value={form.schoolName}
-                  onChange={(event) => setForm((current) => ({ ...current, schoolName: event.target.value }))}
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="city">Şehir</label>
-                <input
-                  id="city"
-                  className="ega-input"
-                  value={form.city}
-                  onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="district">İlçe</label>
-                <input
-                  id="district"
-                  className="ega-input"
-                  value={form.district}
-                  onChange={(event) => setForm((current) => ({ ...current, district: event.target.value }))}
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="gradeLevel">Sınıf düzeyi</label>
-                <select
-                  id="gradeLevel"
-                  className="ega-select"
-                  value={form.gradeLevel}
-                  onChange={(event) => setForm((current) => ({ ...current, gradeLevel: event.target.value }))}
-                >
-                  {gradeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="studyTrack">Alan</label>
-                <select
-                  id="studyTrack"
-                  className="ega-select"
-                  value={form.studyTrack}
-                  onChange={(event) => setForm((current) => ({ ...current, studyTrack: event.target.value }))}
-                >
-                  {studyTrackOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="targetExamYear">Hedef sınav yılı</label>
-                <input
-                  id="targetExamYear"
-                  className="ega-input"
-                  type="number"
-                  min={2026}
-                  value={form.targetExamYear}
-                  onChange={(event) => setForm((current) => ({ ...current, targetExamYear: event.target.value }))}
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="parentName">Veli adı</label>
-                <input
-                  id="parentName"
-                  className="ega-input"
-                  value={form.parentName}
-                  onChange={(event) => setForm((current) => ({ ...current, parentName: event.target.value }))}
-                />
-              </div>
-
-              <div className="ega-field">
-                <label htmlFor="parentPhone">Veli telefonu</label>
-                <input
-                  id="parentPhone"
-                  className="ega-input"
-                  value={form.parentPhone}
-                  onChange={(event) => setForm((current) => ({ ...current, parentPhone: event.target.value }))}
-                />
+              <div className="ega-auth-showcase__stat">
+                <strong>Güvenli Giriş</strong>
+                <span>E-posta doğrulama ve şifre sıfırlama akışı hazır.</span>
               </div>
             </div>
+          </section>
 
-            <div className="ega-checklist">
-              <label className="ega-check">
-                <input
-                  type="checkbox"
-                  checked={form.kvkkConsent}
-                  onChange={(event) => setForm((current) => ({ ...current, kvkkConsent: event.target.checked }))}
-                  required
-                />
-                <span>KVKK aydınlatma metnini okudum ve onaylıyorum.</span>
-              </label>
-
-              <label className="ega-check">
-                <input
-                  type="checkbox"
-                  checked={form.termsAccepted}
-                  onChange={(event) => setForm((current) => ({ ...current, termsAccepted: event.target.checked }))}
-                  required
-                />
-                <span>Kullanım koşullarını kabul ediyorum.</span>
-              </label>
-
-              <label className="ega-check">
-                <input
-                  type="checkbox"
-                  checked={form.distanceSalesAccepted}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      distanceSalesAccepted: event.target.checked
-                    }))
-                  }
-                  required
-                />
-                <span>Mesafeli satış ve üyelik süreci koşullarını kabul ediyorum.</span>
-              </label>
-
-              <label className="ega-check">
-                <input
-                  type="checkbox"
-                  checked={form.marketingConsent}
-                  onChange={(event) => setForm((current) => ({ ...current, marketingConsent: event.target.checked }))}
-                />
-                <span>Kampanya ve bilgilendirme mesajları almak istiyorum.</span>
-              </label>
+          <section className="ega-auth-panel">
+            <div className="ega-auth-panel__head">
+              <div className="ega-auth-panel__badge">{mode === "login" ? "Öğrenci Girişi" : "Yeni Hesap"}</div>
+              <h2>{mode === "login" ? "Mevcut hesabına giriş yap" : "Hızlıca yeni hesap oluştur"}</h2>
+              <p>
+                {mode === "login"
+                  ? "Ürünlerine, sipariş durumuna ve öğrenci paneline tek yerden eriş."
+                  : "Video paketlerin, sipariş geçmişin ve öğrenci panelin için hızlıca hesap oluştur."}
+              </p>
             </div>
 
-            {registerError ? <div className="ega-message ega-message--error">{registerError}</div> : null}
-            {registerSuccess ? <div className="ega-message ega-message--success">{registerSuccess}</div> : null}
+            <div className="ega-auth-mode-switch" role="tablist" aria-label="Kimlik doğrulama modu">
+              <button
+                type="button"
+                className="ega-auth-mode-switch__tab"
+                data-active={mode === "login"}
+                onClick={() => setMode("login")}
+              >
+                Giriş Yap
+              </button>
+              <button
+                type="button"
+                className="ega-auth-mode-switch__tab"
+                data-active={mode === "register"}
+                onClick={() => setMode("register")}
+              >
+                Hızlı Kayıt
+              </button>
+            </div>
 
-            <button className="ega-button" type="submit" disabled={registerLoading}>
-              {registerLoading ? "Kayıt oluşturuluyor..." : "Hesabı Oluştur"}
-            </button>
-          </form>
-        </section>
+            {mode === "login" ? (
+              <form className="ega-form ega-auth-form" onSubmit={handleLogin}>
+                <div className="ega-field">
+                  <label htmlFor="login-email">E-posta</label>
+                  <input
+                    id="login-email"
+                    className="ega-input"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(event) => setLoginEmail(event.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="ega-field">
+                  <label htmlFor="login-password">Şifre</label>
+                  <input
+                    id="login-password"
+                    className="ega-input"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(event) => setLoginPassword(event.target.value)}
+                    required
+                  />
+                </div>
+
+                {loginError ? <div className="ega-message ega-message--error">{loginError}</div> : null}
+
+                <div className="ega-inline-links ega-inline-links--stacked">
+                  <Link href="/eposta-dogrula">E-posta doğrulama</Link>
+                  <Link href="/sifremi-unuttum">Şifremi unuttum</Link>
+                </div>
+
+                <button className="ega-button" type="submit" disabled={loginLoading}>
+                  {loginLoading ? "Giriş yapılıyor..." : "Giriş Yap"}
+                </button>
+              </form>
+            ) : (
+              <form className="ega-form ega-auth-form" onSubmit={handleRegister}>
+                <div className="ega-form-grid ega-form-grid--auth">
+                  <div className="ega-field">
+                    <label htmlFor="firstName">Ad</label>
+                    <input
+                      id="firstName"
+                      className="ega-input"
+                      value={form.firstName}
+                      onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="lastName">Soyad</label>
+                    <input
+                      id="lastName"
+                      className="ega-input"
+                      value={form.lastName}
+                      onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="email">E-posta</label>
+                    <input
+                      id="email"
+                      className="ega-input"
+                      type="email"
+                      value={form.email}
+                      onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="phone">Telefon</label>
+                    <input
+                      id="phone"
+                      className="ega-input"
+                      value={form.phone}
+                      onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                      placeholder="5XXXXXXXXX"
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="password">Şifre</label>
+                    <input
+                      id="password"
+                      className="ega-input"
+                      type="password"
+                      value={form.password}
+                      onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="schoolName">Okul</label>
+                    <input
+                      id="schoolName"
+                      className="ega-input"
+                      value={form.schoolName}
+                      onChange={(event) => setForm((current) => ({ ...current, schoolName: event.target.value }))}
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="city">Şehir</label>
+                    <input
+                      id="city"
+                      className="ega-input"
+                      value={form.city}
+                      onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="district">İlçe</label>
+                    <input
+                      id="district"
+                      className="ega-input"
+                      value={form.district}
+                      onChange={(event) => setForm((current) => ({ ...current, district: event.target.value }))}
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="gradeLevel">Sınıf düzeyi</label>
+                    <select
+                      id="gradeLevel"
+                      className="ega-select"
+                      value={form.gradeLevel}
+                      onChange={(event) => setForm((current) => ({ ...current, gradeLevel: event.target.value }))}
+                    >
+                      {gradeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="studyTrack">Alan</label>
+                    <select
+                      id="studyTrack"
+                      className="ega-select"
+                      value={form.studyTrack}
+                      onChange={(event) => setForm((current) => ({ ...current, studyTrack: event.target.value }))}
+                    >
+                      {studyTrackOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="targetExamYear">Hedef sınav yılı</label>
+                    <input
+                      id="targetExamYear"
+                      className="ega-input"
+                      type="number"
+                      min={2026}
+                      value={form.targetExamYear}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, targetExamYear: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="parentName">Veli adı</label>
+                    <input
+                      id="parentName"
+                      className="ega-input"
+                      value={form.parentName}
+                      onChange={(event) => setForm((current) => ({ ...current, parentName: event.target.value }))}
+                    />
+                  </div>
+
+                  <div className="ega-field">
+                    <label htmlFor="parentPhone">Veli telefonu</label>
+                    <input
+                      id="parentPhone"
+                      className="ega-input"
+                      value={form.parentPhone}
+                      onChange={(event) => setForm((current) => ({ ...current, parentPhone: event.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="ega-checklist">
+                  <label className="ega-check">
+                    <input
+                      type="checkbox"
+                      checked={form.kvkkConsent}
+                      onChange={(event) => setForm((current) => ({ ...current, kvkkConsent: event.target.checked }))}
+                      required
+                    />
+                    <span>KVKK aydınlatma metnini okudum ve onaylıyorum.</span>
+                  </label>
+
+                  <label className="ega-check">
+                    <input
+                      type="checkbox"
+                      checked={form.termsAccepted}
+                      onChange={(event) => setForm((current) => ({ ...current, termsAccepted: event.target.checked }))}
+                      required
+                    />
+                    <span>Kullanım koşullarını kabul ediyorum.</span>
+                  </label>
+
+                  <label className="ega-check">
+                    <input
+                      type="checkbox"
+                      checked={form.distanceSalesAccepted}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          distanceSalesAccepted: event.target.checked
+                        }))
+                      }
+                      required
+                    />
+                    <span>Mesafeli satış ve üyelik süreci koşullarını kabul ediyorum.</span>
+                  </label>
+
+                  <label className="ega-check">
+                    <input
+                      type="checkbox"
+                      checked={form.marketingConsent}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, marketingConsent: event.target.checked }))
+                      }
+                    />
+                    <span>Kampanya ve bilgilendirme mesajları almak istiyorum.</span>
+                  </label>
+                </div>
+
+                {registerError ? <div className="ega-message ega-message--error">{registerError}</div> : null}
+                {registerSuccess ? <div className="ega-message ega-message--success">{registerSuccess}</div> : null}
+
+                <button className="ega-button" type="submit" disabled={registerLoading}>
+                  {registerLoading ? "Kayıt oluşturuluyor..." : "Hesabı Oluştur"}
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
       </section>
     </main>
   );

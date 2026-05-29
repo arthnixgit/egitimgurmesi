@@ -1,3 +1,25 @@
+function resolveApiBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (typeof window !== "undefined") {
+    const isLocalDev =
+      window.location.protocol === "http:" &&
+      (window.location.port === "3000" || window.location.port === "3001");
+
+    if (isLocalDev) {
+      return (configured || "http://localhost:4000/v1").replace(/\/+$/, "");
+    }
+
+    return `${window.location.origin}/v1`;
+  }
+
+  if (configured && /^https?:\/\//i.test(configured)) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  return "http://localhost:4000/v1";
+}
+
 export type StaffAuthResponse = {
   accessToken: string;
   refreshToken: string;
@@ -100,6 +122,10 @@ export type AdminStaffProfileGroup = {
   label: string;
   eyebrow?: string | null;
   description?: string | null;
+  introVideoSourceType?: "DIRECT" | "EMBED" | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
   sortOrder?: number;
   publishStatus?: string;
   profiles: AdminStaffProfile[];
@@ -200,7 +226,7 @@ export type AdminFreeMaterialsDocument = {
   countdownPages: AdminCountdownPage[];
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
+const API_BASE_URL = resolveApiBaseUrl();
 const ACCESS_TOKEN_KEY = "ega_staff_access_token";
 const REFRESH_TOKEN_KEY = "ega_staff_refresh_token";
 
@@ -317,6 +343,42 @@ export async function requestWithStaffToken<T>(path: string, init?: StaffRequest
       headers: {
         Authorization: `Bearer ${token}`,
         ...headers
+      }
+    });
+
+  const response = await performFetch(accessToken);
+
+  if (response.status === 401) {
+    const refreshed = await refreshStaffToken();
+    const retryResponse = await performFetch(refreshed.accessToken);
+
+    if (!retryResponse.ok) {
+      await parseError(retryResponse);
+    }
+
+    return (await retryResponse.json()) as T;
+  }
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function requestFormWithStaffToken<T>(path: string, formData: FormData) {
+  const accessToken = getStaffAccessToken();
+
+  if (!accessToken) {
+    throw new Error("Staff session is missing.");
+  }
+
+  const performFetch = (token: string) =>
+    fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`
       }
     });
 

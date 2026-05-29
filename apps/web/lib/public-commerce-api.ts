@@ -1,14 +1,14 @@
 import type {
   PackageCategory,
+  PackageFeatureSpec,
   PackageProduct,
   PackTone
 } from "./package-catalog";
+import { resolveApiBaseUrl } from "./api-base-url";
 import {
   packageCategories as fallbackCategories,
   packageProducts as fallbackProducts
 } from "./package-catalog";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
 
 type PublicCommerceCategoryResponse = {
   id: string;
@@ -27,13 +27,25 @@ type PublicCommerceProductResponse = {
   title: string;
   subtitle: string;
   price: string;
+  compareAtPrice?: string | null;
+  hasInstallments?: boolean;
+  installmentLabel?: string | null;
   badge: string;
   features: string[];
+  featureDetails?: Array<{
+    title: string;
+    description?: string | null;
+    iconKey?: string | null;
+  }>;
   tone: string;
   categoryId: string;
   subcategoryId: string;
   provider: "local" | "redirect";
   defaultVariantId?: string | null;
+  introVideoSourceType?: "DIRECT" | "EMBED" | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
 };
 
 type PublicCommerceCatalogResponse = {
@@ -42,7 +54,7 @@ type PublicCommerceCatalogResponse = {
 };
 
 async function requestJson<T>(path: string) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
     cache: "no-store",
     headers: {
       "Content-Type": "application/json"
@@ -84,13 +96,28 @@ function normalizeProduct(product: PublicCommerceProductResponse): PackageProduc
     title: product.title,
     subtitle: product.subtitle,
     price: product.price,
+    compareAtPrice: product.compareAtPrice ?? null,
+    hasInstallments: product.hasInstallments ?? false,
+    installmentLabel: product.installmentLabel ?? null,
     badge: product.badge,
     features: product.features,
+    featureDetails: product.featureDetails?.map(
+      (feature) =>
+        ({
+          title: feature.title,
+          description: feature.description ?? undefined,
+          iconKey: feature.iconKey ?? null
+        }) satisfies PackageFeatureSpec
+    ),
     tone: normalizeTone(product.tone),
     categoryId: product.categoryId as PackageProduct["categoryId"],
     subcategoryId: product.subcategoryId as PackageProduct["subcategoryId"],
     provider: product.provider,
-    defaultVariantId: product.defaultVariantId ?? null
+    defaultVariantId: product.defaultVariantId ?? null,
+    introVideoSourceType: product.introVideoSourceType ?? null,
+    introVideoUrl: product.introVideoUrl ?? null,
+    introVideoPosterUrl: product.introVideoPosterUrl ?? null,
+    introVideoTitle: product.introVideoTitle ?? null
   };
 }
 

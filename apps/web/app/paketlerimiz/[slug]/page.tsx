@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PublicPageLayout } from "../../../components/public-page-layout";
+import { ProductIntroVideo } from "../../../components/product-intro-video";
 import {
   buildPackagesPageHref,
   getPackageCategoryById,
@@ -10,6 +11,14 @@ import {
   getPackageCatalogContent,
   getPackageProductBySlug
 } from "../../../lib/public-commerce-api";
+
+export async function generateStaticParams() {
+  const catalog = await getPackageCatalogContent();
+
+  return catalog.products.map((product) => ({
+    slug: product.slug
+  }));
+}
 
 export default async function PackageDetailPage({
   params
@@ -33,51 +42,47 @@ export default async function PackageDetailPage({
       .flatMap((entry) => entry.subcategories)
       .find((entry) => entry.id === product.subcategoryId) ??
     getPackageSubcategoryById(product.subcategoryId);
+  const featureEntries = product.featureDetails?.length
+    ? product.featureDetails
+    : product.features.map((feature) => ({ title: feature, description: undefined }));
 
   return (
     <PublicPageLayout>
-      <section className="ega-page-banner ega-page-banner--detail">
-        <div className="ega-container ega-page-banner__inner">
-          <div className="ega-page-banner__copy">
-            <span className="ega-eyebrow">{category?.label ?? "Paket Detayı"}</span>
-            <h1>{product.title}</h1>
-            <p>{product.subtitle}</p>
-          </div>
-
-          <div className="ega-page-banner__panel">
-            <span>{subcategory?.label ?? "Alt kategori"}</span>
-            <strong>{product.price}</strong>
-            <p>
-              {product.provider === "redirect"
-                ? "Koçluk yönlendirmeli ödeme"
-                : "Yerel satın alma akışı"}
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section className="ega-section ega-container">
         <div className="ega-detail-layout">
           <div className="ega-detail-main ega-highlight-card ega-highlight-card--primary">
-            <span className="ega-pill ega-pill--dark">{product.badge}</span>
-            <h3>Bu paket neyi çözüyor?</h3>
-            <p>
-              {product.provider === "redirect"
-                ? "Koçluk ürünleri bu sitede açıklanır, sipariş kaydı yerel olarak tutulur ve ödeme dış sağlayıcıya yönlendirilir."
-                : "Video, kamp veya kulüp ürünleri yerel akış içinde satılır ve öğrenci hesabına düzenli şekilde bağlanır."}
-            </p>
+            <ProductIntroVideo product={product} variant="detail" />
+            <div className="ega-detail-main__body">
+              <h1>{product.title}</h1>
+              <p>{product.subtitle}</p>
+              <h2>{category?.label ?? "Paket"} programı kimler için uygun?</h2>
+              <p>
+                {product.description ??
+                  "Bu paket; hedefini netleştirmek, haftalık çalışma düzenini görünür hale getirmek ve sınav hazırlığını daha kontrollü yürütmek isteyen öğrenciler için tasarlanmıştır."}
+              </p>
+            </div>
           </div>
 
           <div className="ega-detail-side ega-auth-card">
             <SectionHeading
-              eyebrow="İçerik Başlıkları"
-              title="Kart içinde göreceğin temel kazanımlar"
-              description="İnceleme sayfası sade tutuldu. İleride admin panelden yönetilecek ürün detay blokları burada genişletilebilir."
+              title={subcategory?.label ? `${subcategory.label} kazanımları` : "Paket kazanımları"}
+              description="Paket içeriğini, görüşme düzenini, erişim detaylarını ve öğrencinin süreç içinde ne kazanacağını aşağıdan inceleyebilirsin."
             />
+            <div className="ega-filter-summary">
+              <strong>{product.price}</strong>
+              <span>
+                {product.provider === "redirect"
+                  ? "Başvuru ve yönlendirmeli ödeme akışı"
+                  : "Yerel satın alma ve öğrenci paneli erişimi"}
+              </span>
+            </div>
 
             <ul className="ega-pack-card__features ega-pack-card__features--detail">
-              {product.features.map((feature) => (
-                <li key={feature}>{feature}</li>
+              {featureEntries.map((feature) => (
+                <li key={feature.title}>
+                  <strong>{feature.title}</strong>
+                  {feature.description ? <span>{feature.description}</span> : null}
+                </li>
               ))}
             </ul>
 

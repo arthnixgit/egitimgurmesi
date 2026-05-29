@@ -1,4 +1,10 @@
 export type PackTone = "amber" | "teal" | "blue";
+export type ProductIntroVideoSourceType = "DIRECT" | "EMBED";
+export type PackageFeatureSpec = {
+  title: string;
+  description?: string;
+  iconKey?: string | null;
+};
 
 export type PackageCategoryId =
   | "online-coaching"
@@ -41,14 +47,25 @@ export type PackageProduct = {
   slug: string;
   title: string;
   subtitle: string;
+  description?: string;
   price: string;
+  compareAtPrice?: string | null;
+  hasInstallments?: boolean;
+  installmentLabel?: string | null;
   badge: string;
   features: readonly string[];
+  featureDetails?: readonly PackageFeatureSpec[];
   tone: PackTone;
   categoryId: PackageCategoryId;
   subcategoryId: PackageSubcategoryId;
   provider: "local" | "redirect";
   defaultVariantId?: string | null;
+  introVideoSourceType?: ProductIntroVideoSourceType | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
+  externalProductId?: string | null;
+  externalVariantId?: string | null;
 };
 
 const coachingTracks: readonly PackageSubcategory[] = [
@@ -110,19 +127,234 @@ export const packageCategories: readonly PackageCategory[] = [
   }
 ] as const;
 
+const unikazanYks2026FeatureDetails = [
+  {
+    title: "⭐️ 2025 YKS 1. 2. ve 3.sünden özel taktikleri alma imkanı",
+    description: ""
+  },
+  {
+    title: "✔️ Koçunla her hafta 2 birebir görüşme",
+    description:
+      "Sınav yalnız geçilmez. Alanında uzman koçunla haftada iki kez birebir görüşme yap, hedeflerine özel yol haritanı birlikte oluştur."
+  },
+  {
+    title: "📅 Kişiye özel günlük program",
+    description:
+      "Her gün ne yapacağını bilmek özgürlüktür. Zaman yönetimini senin yerine biz planlıyoruz, sen sadece uygulamaya odaklanıyorsun."
+  },
+  {
+    title:
+      "📚 Canlı ders ve kayıt erişimi → Orijinal, Bilgi Sarmal, Orbital, Coğrafya'nın Gurmesi, Biyotik ve daha fazlası",
+    description:
+      "Yayınların en iyileri, şimdi ekranında. Orijinal, Orbital, Biyotik, Bilgi Sarmal gibi yayınların yazarlarından canlı dersler ve tekrar kayıtları elinin altında."
+  },
+  {
+    title: "🧠 Türkçe, Matematik, Geometri ve Fizik her hafta canlı ders",
+    description:
+      "Temel derslerde haftalık destek. Her hafta düzenli yapılan canlı derslerle konuları sağlamlaştır, eksiklerini anında kapat."
+  },
+  {
+    title: "🔄 Sınırsız soru çözdürme hakkı",
+    description:
+      "Takıldığın her soru, çözülmeyi bekler. İster koçuna, ister yapay zekaya sor. Cevapsız soru kalmaz."
+  },
+  {
+    title: "📄 100+ deneme PDF'ine erişim",
+    description:
+      "Hazır mısın? Deneyerek gör. Yüzlerce denemeye anında eriş, farklı yayınlardan farklı tarz sorularla sınav pratiği kazan."
+  },
+  {
+    title: "🎙️ Derece öğrencileriyle soru-cevap yayınları",
+    description:
+      "Türkiye derecesinden birebir deneyim aktarımı. En başarılı öğrencilerle canlı yayınlarda buluş, taktiklerini dinle, motivasyonunu artır."
+  },
+  {
+    title: "🏆 Son Viraj Kampı Hediye",
+    description:
+      "Şampiyonlar Kampı kapsamında özel dersler, canlı anlatımlar ve strateji odaklı içeriklere ücretsiz erişim sağlanır. Sınav sürecini doğru planla, eksiklerini bilinçli şekilde kapat."
+  },
+  {
+    title: "🌟 Hem PDR hem derece öğrencileriyle rehberlik",
+    description:
+      "Rehberlik hizmetimizde hem Psikolojik Danışmanlık ve Rehberlik (PDR) alanında uzman koçlarımız hem de derece yapmış öğrencilerimizle, sınav sürecinde ihtiyaç duyduğun akademik ve motivasyonel destek bir arada sunulmaktadır."
+  },
+  {
+    title: "♾️ Derece öğrencilerine sınırsız soru sorma hakkı",
+    description:
+      "Çözemediğin sorular seni durdurmasın! Derece yapmış öğrenciler, takıldığın her soruyu senin için adım adım çözüyor."
+  },
+  {
+    title: "🏆 Şampiyonlar Kampı Ve Özel Ders Kayıtlarına Erişim",
+    description:
+      "Şampiyonlar Kampı kapsamındaki özel ders kayıtlarına, canlı anlatımlara ve strateji odaklı içeriklere ücretsiz erişim sağlarsın. Sınav sürecini doğru planlayarak eksiklerini bilinçli şekilde kapatabilirsin."
+  }
+] satisfies readonly PackageFeatureSpec[];
+
+const unikazanYks2027FeatureDetails = [
+  ...unikazanYks2026FeatureDetails.slice(0, 8),
+  {
+    title: "📦 15'li Kurumsal Deneme Paketi",
+    description:
+      "Gerçek sınav ortamı deneyimi. Evine kadar gönderilen denemelerle kendini ölç, eksiklerini belirle, her çözüme ulaş."
+  },
+  unikazanYks2026FeatureDetails[9],
+  unikazanYks2026FeatureDetails[10],
+  {
+    title: "🎁 Deneme Kulübü ve Sanal Dershane Hediyesi",
+    description:
+      "Evinden çıkmadan, seviyene ve hedefine özel hazırlanmış sanal dershaneye ücretsiz erişim! Hedef odaklı kaynaklar, ders programı ve takip sistemiyle tam destek."
+  }
+] satisfies readonly PackageFeatureSpec[];
+
+const unikazanMaarifYillikFeatureDetails = [
+  {
+    title: "✔️ Koçunla her hafta 2 birebir görüşme",
+    description:
+      "Sınav yalnız geçilmez. Alanında uzman koçunla haftada iki kez birebir görüşme yap, hedeflerine özel yol haritanı birlikte oluştur."
+  },
+  {
+    title: "📅 Kişiye özel günlük program",
+    description:
+      "Her gün ne yapacağını bilmek özgürlüktür. Zaman yönetimini senin yerine biz planlıyoruz, sen sadece uygulamaya odaklanıyorsun."
+  },
+  {
+    title: "🔄 Sınırsız soru çözdürme hakkı",
+    description:
+      "Takıldığın her soru, çözülmeyi bekler. İster koçuna, ister yapay zekaya sor. Cevapsız soru kalmaz."
+  },
+  {
+    title: "📄 100+ özel PDF'e erişim",
+    description:
+      "Hazır mısın? Deneyerek gör. Yüzlerce denemeye anında eriş, farklı yayınlardan farklı tarz sorularla sınav pratiği kazan."
+  },
+  {
+    title: "🎙️ Derece öğrencileriyle soru-cevap",
+    description:
+      "Türkiye derecesinden birebir deneyim aktarımı. En başarılı öğrencilerle canlı yayınlarda buluş, taktiklerini dinle, motivasyonunu artır."
+  },
+  {
+    title: "🌟 Hem PDR hem derece öğrencileriyle rehberlik",
+    description:
+      "Rehberlik hizmetimizde hem Psikolojik Danışmanlık ve Rehberlik (PDR) alanında uzman koçlarımız hem de derece yapmış öğrencilerimizle, sınav sürecinde ihtiyaç duyduğun akademik ve motivasyonel destek bir arada sunulmaktadır."
+  },
+  {
+    title: "♾️ Derece öğrencilerine sınırsız soru sorma hakkı",
+    description:
+      "Çözemediğin sorular seni durdurmasın! Derece yapmış öğrenciler, takıldığın her soruyu senin için adım adım çözüyor."
+  }
+] satisfies readonly PackageFeatureSpec[];
+
+const unikazanGrade11FeatureDetails = [
+  {
+    title: "✔️ Koçunla her hafta 2 birebir görüşme",
+    description:
+      "Sınav yalnız geçilmez. Alanında uzman koçunla haftada iki kez birebir görüşme yap, hedeflerine özel yol haritanı birlikte oluştur."
+  },
+  {
+    title: "📅 Kişiye özel günlük program",
+    description:
+      "Her gün ne yapacağını bilmek özgürlüktür. Zaman yönetimini senin yerine biz planlıyoruz, sen sadece uygulamaya odaklanıyorsun."
+  },
+  {
+    title: "📚 Canlı ders ve kayıt erişimi → Orijinal, Bilgi Sarmal, Orbital, Coğrafya'nın Gurmesi, Biyotik ve daha fazlası",
+    description:
+      "Yayınların en iyileri, şimdi ekranında. Orijinal, Orbital, Biyotik, Bilgi Sarmal gibi yayınların yazarlarından canlı dersler ve tekrar kayıtları elinin altında."
+  },
+  {
+    title: "🧠 Türkçe, Matematik, Geometri ve Fizik her hafta canlı ders",
+    description:
+      "Temel derslerde haftalık destek. Her hafta düzenli yapılan canlı derslerle konuları sağlamlaştır, eksiklerini anında kapat."
+  },
+  {
+    title: "🔄 Sınırsız soru çözdürme hakkı",
+    description:
+      "Takıldığın her soru, çözülmeyi bekler. İster koçuna, ister yapay zekaya sor. Cevapsız soru kalmaz."
+  },
+  {
+    title: "📄 100+ deneme PDF'ine erişim",
+    description:
+      "Hazır mısın? Deneyerek gör. Yüzlerce denemeye anında eriş, farklı yayınlardan farklı tarz sorularla sınav pratiği kazan."
+  },
+  {
+    title: "🎙️ Derece öğrencileriyle soru-cevap",
+    description:
+      "Türkiye derecesinden birebir deneyim aktarımı. En başarılı öğrencilerle canlı yayınlarda buluş, taktiklerini dinle, motivasyonunu artır."
+  },
+  {
+    title: "🌟 Hem PDR hem derece öğrencileriyle rehberlik",
+    description:
+      "Rehberlik hizmetimizde hem Psikolojik Danışmanlık ve Rehberlik (PDR) alanında uzman koçlarımız hem de derece yapmış öğrencilerimizle, sınav sürecinde ihtiyaç duyduğun akademik ve motivasyonel destek bir arada sunulmaktadır."
+  },
+  {
+    title: "♾️ Derece öğrencilerine sınırsız soru sorma hakkı",
+    description:
+      "Çözemediğin sorular seni durdurmasın! Derece yapmış öğrenciler, takıldığın her soruyu senin için adım adım çözüyor."
+  }
+] satisfies readonly PackageFeatureSpec[];
+
+const unikazanKpssAylikFeatureDetails = [
+  { title: "🤝 Koçunla Her Hafta 2 Birebir Görüşme", description: "" },
+  { title: "🗓️ Her Hafta Size Özel Hazırlanacak Ders Çalışma Programı", description: "" },
+  {
+    title: "📊 Deneme sonuçlarını koçunla analiz etme, deneme sonuçlarına göre yönlendirme",
+    description: ""
+  },
+  { title: "📝 Sınırsız Soru Çözdürme Hakkı", description: "" },
+  { title: "💬 WhatsApp Soru Çözüm Grubu", description: "" },
+  { title: "🔥 Çalışmalarda Motivasyon Sağlama ve Kaygı Yönetimini Destekleme", description: "" },
+  { title: "📚 Planlı ve Disiplinli Çalışma Alışkanlığı Kazandırma", description: "" }
+] satisfies readonly PackageFeatureSpec[];
+
 export const packageProducts: readonly PackageProduct[] = [
   {
-    id: "pkg-online-yks-core",
-    slug: "online-yks-kocluk-baslangic",
-    title: "Online YKS Koçluk Başlangıç",
-    subtitle: "Haftalık plan, çevrim içi görüşme ve video takibi ile düzen kuran temel paket.",
-    price: "Yönlendirmeli ödeme",
+    id: "pkg-unikazan-yks-2026-full",
+    slug: "yks-sinava-kadar-full-paket",
+    title: "YKS Sınava Kadar Full Paket",
+    subtitle:
+      "Haftada 2 birebir görüşme, kişiye özel günlük program, canlı ders ve kayıt erişimiyle YKS hazırlık paketi.",
+    description:
+      "Unikazan YKS koçluk paketi; birebir görüşme, kişiye özel günlük program, canlı ders kayıtları, deneme PDF erişimi, derece öğrencileriyle soru-cevap yayınları ve rehberlik desteğini tek pakette toplar.",
+    price: "3.599 TRY",
+    compareAtPrice: "4.800 TRY",
+    hasInstallments: true,
+    installmentLabel: "12 Aya Varan Taksit",
     badge: "Koçluk paketi",
-    features: ["Haftalık takip görüşmesi", "Yerel öğrenci hesabı", "Dış ödeme yönlendirmesi"],
+    features: unikazanYks2026FeatureDetails.map((feature) => feature.title),
+    featureDetails: unikazanYks2026FeatureDetails,
     tone: "teal",
     categoryId: "online-coaching",
     subcategoryId: "yks",
-    provider: "redirect"
+    provider: "redirect",
+    defaultVariantId: "pkg-unikazan-yks-2026-full-standard",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "YKS Sınava Kadar Full Paket tanıtım videosu",
+    externalProductId: "11",
+    externalVariantId: "standard"
+  },
+  {
+    id: "pkg-unikazan-yks-2027-full",
+    slug: "2027-yks-sinava-kadar-full-paket",
+    title: "2027 YKS Sınava Kadar Full Paket",
+    subtitle:
+      "2027 YKS süreci için birebir koçluk, günlük program, canlı ders, deneme ve sanal dershane desteği.",
+    description:
+      "Unikazan 2027 YKS koçluk paketi; haftalık birebir koçluk, kişiye özel günlük program, canlı ders kayıtları, 15'li kurumsal deneme paketi, deneme kulübü ve sanal dershane hediyesiyle uzun dönem hazırlık akışı sunar.",
+    price: "49.999 TRY",
+    compareAtPrice: "74.999 TRY",
+    hasInstallments: true,
+    installmentLabel: "12 Aya Varan Taksit",
+    badge: "Koçluk paketi",
+    features: unikazanYks2027FeatureDetails.map((feature) => feature.title),
+    featureDetails: unikazanYks2027FeatureDetails,
+    tone: "blue",
+    categoryId: "online-coaching",
+    subcategoryId: "yks",
+    provider: "redirect",
+    defaultVariantId: "pkg-unikazan-yks-2027-full-standard",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "2027 YKS Sınava Kadar Full Paket tanıtım videosu",
+    externalProductId: "25",
+    externalVariantId: "standard"
   },
   {
     id: "pkg-online-lgs-core",
@@ -135,46 +367,74 @@ export const packageProducts: readonly PackageProduct[] = [
     tone: "blue",
     categoryId: "online-coaching",
     subcategoryId: "lgs",
-    provider: "redirect"
+    provider: "redirect",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "Online LGS Koçluk Düzeni tanıtım videosu",
+    externalProductId: "13",
+    externalVariantId: "media"
   },
   {
     id: "pkg-online-910-core",
     slug: "online-9-10-sinif-kocluk",
-    title: "Online 9. ve 10. Sınıf Koçluk",
-    subtitle: "Erken dönemde temel güçlendirme ve çalışma alışkanlığı inşa etmek isteyenler için.",
-    price: "Yönlendirmeli ödeme",
+    title: "Maarif Eğitim Modeli (Yıllık Koçluk Paketi)",
+    subtitle: "En Çok Tercih Edilen · Sınava Kadar",
+    price: "3.599 TRY",
+    compareAtPrice: "4.800 TRY",
+    hasInstallments: true,
+    installmentLabel: "12 Aya Varan Taksit",
     badge: "Koçluk paketi",
-    features: ["Rutin kurma desteği", "Sınav ve okul dengesi", "Ders arşivi ile paralel takip"],
+    features: unikazanMaarifYillikFeatureDetails.map((feature) => feature.title),
+    featureDetails: unikazanMaarifYillikFeatureDetails,
     tone: "amber",
     categoryId: "online-coaching",
     subcategoryId: "grade-9-10",
-    provider: "redirect"
+    provider: "redirect",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "Online 9. ve 10. Sınıf Koçluk tanıtım videosu",
+    externalProductId: "21",
+    externalVariantId: "media"
   },
   {
     id: "pkg-online-11-core",
     slug: "online-11-sinif-yks-gecis",
-    title: "Online 11. Sınıf YKS Geçiş Programı",
-    subtitle: "11. sınıfta YKS düzenine erken geçmek isteyen öğrenciler için ara model.",
-    price: "Yönlendirmeli ödeme",
+    title: "11.Sınıf Senelik Full Paket",
+    subtitle: "✦ 2026 YKS · Sınava Kadar",
+    price: "3.599 TRY",
+    compareAtPrice: "4.800 TRY",
+    hasInstallments: true,
+    installmentLabel: "12 Aya Varan Taksit",
     badge: "Koçluk paketi",
-    features: ["TYT geçiş planı", "11. sınıf konu takibi", "Verimli haftalık bloklar"],
+    features: unikazanGrade11FeatureDetails.map((feature) => feature.title),
+    featureDetails: unikazanGrade11FeatureDetails,
     tone: "teal",
     categoryId: "online-coaching",
     subcategoryId: "grade-11",
-    provider: "redirect"
+    provider: "redirect",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "Online 11. Sınıf YKS Geçiş Programı tanıtım videosu",
+    externalProductId: "18",
+    externalVariantId: "media"
   },
   {
     id: "pkg-online-kpss-core",
     slug: "online-kpss-kocluk-destegi",
-    title: "Online KPSS Koçluk Desteği",
-    subtitle: "Yoğun iş veya okul temposuyla birlikte ilerleyen yetişkin öğrenciler için plan desteği.",
-    price: "Yönlendirmeli ödeme",
+    title: "KPSS Aylık Paket",
+    subtitle: "1 Aylık Koçluk · Aylık",
+    price: "3.599 TRY",
+    compareAtPrice: "4.800 TRY",
+    hasInstallments: false,
+    installmentLabel: null,
     badge: "Koçluk paketi",
-    features: ["Haftaya göre esnek plan", "Günlük görev listesi", "Takip odaklı yönlendirme"],
+    features: unikazanKpssAylikFeatureDetails.map((feature) => feature.title),
+    featureDetails: unikazanKpssAylikFeatureDetails,
     tone: "blue",
     categoryId: "online-coaching",
     subcategoryId: "kpss",
-    provider: "redirect"
+    provider: "redirect",
+    introVideoSourceType: "DIRECT",
+    introVideoTitle: "Online KPSS Koçluk Desteği tanıtım videosu",
+    externalProductId: "23",
+    externalVariantId: "media"
   },
   {
     id: "pkg-inperson-yks-core",

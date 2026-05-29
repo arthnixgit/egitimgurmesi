@@ -7,6 +7,10 @@ type AuthPageProps = {
 };
 
 export default async function AuthPage({ searchParams }: AuthPageProps) {
+  if (process.env.NEXT_STATIC_EXPORT === "1") {
+    return <AuthPageClient redirectHref="/hesabim" />;
+  }
+
   const params = await searchParams;
   const redirectHref =
     params.redirect && params.redirect.startsWith("/") ? params.redirect : "/hesabim";

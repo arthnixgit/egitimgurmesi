@@ -16,6 +16,7 @@ import {
   ExternalProviderOrderStatus,
   OrderStatus,
   PaymentStatus,
+  ProductVideoSourceType,
   ProductType
 } from "@ega/db";
 
@@ -196,6 +197,22 @@ export class SaveProductDto {
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
+
+  @IsOptional()
+  @IsEnum(ProductVideoSourceType)
+  introVideoSourceType?: ProductVideoSourceType | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoPosterUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  introVideoTitle?: string | null;
 
   @IsArray()
   @ValidateNested({ each: true })

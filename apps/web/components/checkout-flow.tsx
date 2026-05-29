@@ -9,6 +9,7 @@ import {
   createCheckoutOrder,
   linkUnikazanAccount,
   startOrderCheckout,
+  type StartCheckoutPayload,
   type StartCheckoutResponse,
   type UserOrder
 } from "../lib/commerce-client";
@@ -17,6 +18,11 @@ type CheckoutFlowProps = {
   product: PackageProduct;
 };
 
+type AuthState =
+  | { status: "loading" }
+  | { status: "authenticated"; user: Awaited<ReturnType<typeof fetchCurrentUser>>["user"] }
+  | { status: "unauthenticated"; message?: string };
+
 export function CheckoutFlow({ product }: CheckoutFlowProps) {
   const pathname = usePathname();
   const authRedirectHref = useMemo(
@@ -24,11 +30,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
     [pathname, product.slug]
   );
 
-  const [authState, setAuthState] = useState<
-    | { status: "loading" }
-    | { status: "authenticated"; user: Awaited<ReturnType<typeof fetchCurrentUser>>["user"] }
-    | { status: "unauthenticated"; message?: string }
-  >({ status: "loading" });
+  const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
   const [order, setOrder] = useState<UserOrder | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [message, setMessage] = useState("");
@@ -39,6 +41,14 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
   const [unikazanCredentials, setUnikazanCredentials] = useState({
     email: "",
     password: ""
+  });
+  const [billingDetails, setBillingDetails] = useState<StartCheckoutPayload>({
+    identityNumber: "",
+    billingAddress: "",
+    billingCity: "",
+    billingDistrict: "",
+    billingZipCode: "",
+    billingCountry: "Türkiye"
   });
 
   useEffect(() => {
@@ -53,6 +63,11 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
         }
 
         setAuthState({ status: "authenticated", user: response.user });
+        setBillingDetails((current) => ({
+          ...current,
+          billingCity: current.billingCity || response.user.profile?.city || "",
+          billingDistrict: current.billingDistrict || response.user.profile?.district || ""
+        }));
       } catch (requestError) {
         if (!active) {
           return;
@@ -87,12 +102,14 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
     try {
       const ensuredOrder =
-        order ??
-        (await createCheckoutOrder(product.defaultVariantId, couponCode.trim() || undefined));
+        order ?? (await createCheckoutOrder(product.defaultVariantId, couponCode.trim() || undefined));
 
       setOrder(ensuredOrder);
 
-      const checkoutResponse = await startOrderCheckout(ensuredOrder.orderNumber);
+      const checkoutResponse = await startOrderCheckout(
+        ensuredOrder.orderNumber,
+        product.provider === "local" ? billingDetails : undefined
+      );
       handleCheckoutResponse(checkoutResponse);
     } catch (requestError) {
       setError(
@@ -176,7 +193,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
           <div className="ega-checkout-summary__meta">
             <div className="ega-summary-row">
               <strong>Akış</strong>
-              <span>{product.provider === "redirect" ? "Unikazan yönlendirme" : "Yerel ödeme hazırlığı"}</span>
+              <span>{product.provider === "redirect" ? "Unikazan yönlendirme" : "PayTR ödeme sayfası"}</span>
             </div>
             <div className="ega-summary-row">
               <strong>Ürün</strong>
@@ -193,11 +210,9 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
         <section className="ega-auth-card ega-checkout-panel">
           <div className="ega-pill">Ödeme Akışı</div>
-          <h2>Satın alma adımlarını bu ekrandan başlat</h2>
+          <h2>Satın alma adımlarını güvenle başlat</h2>
           <p>
-            Öğrenci hesabı zorunludur. Koçluk paketlerinde sipariş kaydı burada oluşur,
-            ödeme ise Unikazan tarafına yönlendirilir. Yerel ürünlerde bu ekran ödeme
-            altyapısının temelini test eder.
+            Koçluk paketlerinde başvuru kaydı oluşturulur; ödeme adımı güvenli yönlendirme ile tamamlanır.
           </p>
 
           {authState.status === "loading" ? (
@@ -256,12 +271,99 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                 />
               </div>
 
+              {product.provider === "local" ? (
+                <div className="ega-checkout-linkbox">
+                  <h3>Fatura Bilgileri</h3>
+                  <p>Yerel ödeme sayfasına geçmeden önce PayTR için gerekli bilgileri tamamla.</p>
+
+                  <div className="ega-form-grid ega-form-grid--compact">
+                    <div className="ega-field">
+                      <label htmlFor="identityNumber">T.C. Kimlik No</label>
+                      <input
+                        id="identityNumber"
+                        className="ega-input"
+                        inputMode="numeric"
+                        maxLength={11}
+                        value={billingDetails.identityNumber ?? ""}
+                        onChange={(event) =>
+                          setBillingDetails((current) => ({
+                            ...current,
+                            identityNumber: event.target.value.replace(/\D+/g, "").slice(0, 11)
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="ega-field">
+                      <label htmlFor="billingCity">İl</label>
+                      <input
+                        id="billingCity"
+                        className="ega-input"
+                        value={billingDetails.billingCity ?? ""}
+                        onChange={(event) =>
+                          setBillingDetails((current) => ({
+                            ...current,
+                            billingCity: event.target.value
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="ega-field ega-field--full">
+                      <label htmlFor="billingAddress">Fatura Adresi</label>
+                      <textarea
+                        id="billingAddress"
+                        className="ega-textarea"
+                        rows={3}
+                        value={billingDetails.billingAddress ?? ""}
+                        onChange={(event) =>
+                          setBillingDetails((current) => ({
+                            ...current,
+                            billingAddress: event.target.value
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="ega-field">
+                      <label htmlFor="billingDistrict">İlçe</label>
+                      <input
+                        id="billingDistrict"
+                        className="ega-input"
+                        value={billingDetails.billingDistrict ?? ""}
+                        onChange={(event) =>
+                          setBillingDetails((current) => ({
+                            ...current,
+                            billingDistrict: event.target.value
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="ega-field">
+                      <label htmlFor="billingZipCode">Posta Kodu</label>
+                      <input
+                        id="billingZipCode"
+                        className="ega-input"
+                        value={billingDetails.billingZipCode ?? ""}
+                        onChange={(event) =>
+                          setBillingDetails((current) => ({
+                            ...current,
+                            billingZipCode: event.target.value
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {message ? <div className="ega-message ega-message--success">{message}</div> : null}
               {error ? <div className="ega-message ega-message--error">{error}</div> : null}
 
               <div className="ega-actions">
                 <button className="ega-button" type="button" onClick={handleCheckoutStart} disabled={submitting}>
-                  {submitting ? "Akış hazırlanıyor..." : "Siparişi Oluştur ve Devam Et"}
+                  {submitting ? "İşleniyor..." : "Siparişi Oluştur ve Devam Et"}
                 </button>
                 <Link className="ega-button ega-button--ghost" href="/hesabim">
                   Öğrenci Paneli
@@ -270,18 +372,20 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
               {product.provider === "redirect" ? (
                 <div className="ega-checkout-note">
-                  Koçluk ürünlerinde Unikazan hesabı bağlantısı ve sınıf/alan bilgisi
-                  tamamlanmış olmalıdır.
+                  Koçluk ürünlerinde Unikazan hesabı bağlantısı ve sınıf/alan bilgisi tamamlanmış olmalıdır.
                 </div>
-              ) : null}
+              ) : (
+                <div className="ega-checkout-note">
+                  Yerel ürünlerde ödeme güvenli PayTR sayfasında tamamlanır.
+                </div>
+              )}
 
               {showLinkForm ? (
                 <div className="ega-checkout-linkbox">
                   <h3>Unikazan hesabını bağla</h3>
                   <p>
-                    Bu koçluk paketi için mevcut Unikazan öğrenci hesabınla bağlantı
-                    kurulmalı. Buradaki bilgiler sadece yönlendirme oturumu oluşturmak için
-                    kullanılır.
+                    Bu koçluk paketi için mevcut Unikazan öğrenci hesabınla bağlantı kurulmalı.
+                    Buradaki bilgiler sadece yönlendirme oturumu oluşturmak için kullanılır.
                   </p>
 
                   <div className="ega-form-grid ega-form-grid--compact">

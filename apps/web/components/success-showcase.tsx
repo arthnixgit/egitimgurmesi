@@ -33,9 +33,8 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
     return (
       <section className="ega-section ega-container">
         <div className="ega-highlight-card">
-          <span className="ega-pill">Başarı Hikâyeleri</span>
-          <h3>Henüz yayınlanmış içerik bulunmuyor.</h3>
-          <p>Bu alan admin panelinden başarı hikâyeleri eklenince dolacak.</p>
+          <h3>Yeni başarı hikayeleri hazırlanıyor.</h3>
+          <p>Öğrenci gelişimleri ve sınav sonuçları bu bölümde paylaşılacak.</p>
         </div>
       </section>
     );
@@ -47,9 +46,9 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
         <div className="ega-success-strip">
           <div className="ega-success-strip__head">
             <span className="ega-pill ega-pill--warm">Başarılarımız</span>
-            <h2>Öğrencilerin süreç dönüşümünü gerçek hikâyelerle görünür kıl</h2>
+            <h2>Öğrenci başarılarını gerçek hikâyelerle keşfedin</h2>
             <p>
-              Bu alan, öğrencinin hangi sınava hazırlandığını, hangi dönüşümü yaşadığını ve sonucun hangi düzenle geldiğini kısa ama güçlü bir yapıda anlatır.
+              Her hikâye; hedefi, çalışma ritmini ve sonucu kısa bir akışla sunar.
             </p>
           </div>
 

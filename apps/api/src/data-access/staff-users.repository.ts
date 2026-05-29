@@ -15,6 +15,17 @@ const staffAccessInclude = {
         }
       }
     }
+  },
+  branchAssignments: {
+    where: {
+      revokedAt: null
+    },
+    select: {
+      branchId: true,
+      organizationId: true,
+      roleKey: true,
+      isPrimary: true
+    }
   }
 } satisfies Prisma.StaffUserInclude;
 

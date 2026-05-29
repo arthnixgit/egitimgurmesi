@@ -9,6 +9,7 @@ export type PublicAuthResponse = {
     email: string;
     phone?: string | null;
     status: string;
+    emailVerifiedAt?: string | null;
     profile?: {
       firstName: string;
       lastName: string;
@@ -33,7 +34,15 @@ export type PublicAuthResponse = {
   };
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/v1";
+export type AuthActionResponse = {
+  success: true;
+  message: string;
+  email?: string;
+  emailVerificationRequired?: boolean;
+  previewUrl?: string;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 const ACCESS_TOKEN_KEY = "ega_user_access_token";
 const REFRESH_TOKEN_KEY = "ega_user_refresh_token";
 
@@ -88,7 +97,7 @@ export function getUserRefreshToken() {
 }
 
 export function registerUser(payload: Record<string, unknown>) {
-  return request<PublicAuthResponse>("/auth/register", {
+  return request<AuthActionResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -96,6 +105,34 @@ export function registerUser(payload: Record<string, unknown>) {
 
 export function loginUser(payload: { email: string; password: string }) {
   return request<PublicAuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function requestEmailVerification(payload: { email: string }) {
+  return request<AuthActionResponse>("/auth/email-verification/request", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function confirmEmailVerification(token: string) {
+  return request<AuthActionResponse>("/auth/email-verification/confirm", {
+    method: "POST",
+    body: JSON.stringify({ token })
+  });
+}
+
+export function requestPasswordReset(payload: { email: string }) {
+  return request<AuthActionResponse>("/auth/password-reset/request", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function confirmPasswordReset(payload: { token: string; password: string }) {
+  return request<AuthActionResponse>("/auth/password-reset/confirm", {
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -224,3 +261,4 @@ export async function logoutUser() {
 
   clearUserTokens();
 }
+import { resolveApiBaseUrl } from "./api-base-url";
