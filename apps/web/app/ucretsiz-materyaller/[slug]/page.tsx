@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ButtonLink } from "@ega/ui";
 import { ExamCountdownGrid } from "../../../components/exam-countdown-grid";
-import { ExamCountdownRings } from "../../../components/exam-countdown-rings";
+import { ExamCountdownRingSessions, ExamCountdownRings } from "../../../components/exam-countdown-rings";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getCountdownPageBySlug, getFreeMaterialsContent } from "../../../lib/public-content-api";
 
@@ -55,6 +55,8 @@ export default async function FreeMaterialCountdownPage({
   }
 
   const useRingCounter = page.countdowns.length === 1 && Boolean(page.countdowns[0]?.targetIso);
+  const useSessionRingCounters =
+    page.countdowns.length > 1 && page.countdowns.every((countdown) => Boolean(countdown.targetIso));
 
   return (
     <PublicPageLayout>
@@ -69,6 +71,8 @@ export default async function FreeMaterialCountdownPage({
 
           {useRingCounter ? (
             <ExamCountdownRings countdown={page.countdowns[0]} />
+          ) : useSessionRingCounters ? (
+            <ExamCountdownRingSessions countdowns={page.countdowns} />
           ) : (
             <ExamCountdownGrid countdowns={page.countdowns} />
           )}

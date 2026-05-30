@@ -5754,6 +5754,71 @@ textarea {
   gap: 18px;
 }
 
+.ega-exam-rings--sessions {
+  gap: 24px;
+}
+
+.ega-exam-rings__sessions {
+  display: grid;
+  gap: 18px;
+}
+
+.ega-exam-rings__session {
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+  border: 1px solid rgba(46, 104, 255, 0.12);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(46, 104, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 255, 0.95));
+  box-shadow: 0 18px 42px rgba(8, 33, 63, 0.08);
+}
+
+.ega-exam-rings__session-head {
+  display: grid;
+  gap: 7px;
+  justify-items: center;
+  text-align: center;
+}
+
+.ega-exam-rings__session-head span {
+  color: var(--ega-teal-700);
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ega-exam-rings__session-head strong {
+  color: var(--ega-blue-900);
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  line-height: 1.06;
+}
+
+.ega-exam-rings__session-head p {
+  margin: 0;
+  color: var(--ega-muted);
+  line-height: 1.6;
+}
+
+.ega-exam-rings__grid--compact {
+  gap: 14px;
+}
+
+.ega-exam-rings__grid--compact .ega-exam-ring__visual {
+  width: min(100%, 172px);
+}
+
+.ega-exam-rings__grid--compact .ega-exam-ring__core {
+  gap: 8px;
+}
+
+.ega-exam-rings__grid--compact .ega-exam-ring__core strong {
+  font-size: clamp(2.25rem, 4vw, 3.2rem);
+}
+
 .ega-exam-ring {
   display: flex;
   justify-content: center;
@@ -5828,6 +5893,31 @@ textarea {
 .ega-exam-rings__meta span {
   color: var(--ega-muted);
   line-height: 1.65;
+}
+
+@media (max-width: 960px) {
+  .ega-exam-rings__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .ega-exam-rings {
+    padding: 24px 18px;
+  }
+
+  .ega-exam-rings__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-exam-ring__visual,
+  .ega-exam-rings__grid--compact .ega-exam-ring__visual {
+    width: min(100%, 210px);
+  }
+
+  .ega-exam-rings__session {
+    padding: 20px 16px;
+  }
 }
 
 .ega-exam-video-shell {
