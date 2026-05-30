@@ -7,20 +7,13 @@ type PackageCardProps = {
 };
 
 export function PackageCard({ product }: PackageCardProps) {
-  const featureEntries = product.featureDetails?.length
-    ? product.featureDetails
-    : product.features.map((feature) => ({ title: feature, description: undefined }));
-
-  const packageSpecs = [
-    { label: "Kategori", value: product.badge },
-    { label: "Teslim", value: product.provider === "redirect" ? "Koçluk yönlendirmesi" : "Yerel erişim" },
-    { label: "Erişim", value: product.provider === "redirect" ? "Başvuru + ödeme akışı" : "Hesaba tanımlanır" }
-  ];
+  const featureTitles = product.featureDetails?.length
+    ? product.featureDetails.map((feature) => feature.title)
+    : product.features;
 
   return (
     <article className="ega-pack-card" data-tone={product.tone}>
       <div className="ega-pack-card__top">
-        <span className="ega-pack-card__badge">{product.badge}</span>
         <span className="ega-pack-card__price-group">
           {product.compareAtPrice ? (
             <span className="ega-pack-card__compare-price">{product.compareAtPrice}</span>
@@ -37,20 +30,10 @@ export function PackageCard({ product }: PackageCardProps) {
 
       <ProductIntroVideo product={product} />
 
-      <div className="ega-pack-card__specs">
-        {packageSpecs.map((spec) => (
-          <div key={spec.label} className="ega-pack-card__spec">
-            <span>{spec.label}</span>
-            <strong>{spec.value}</strong>
-          </div>
-        ))}
-      </div>
-
       <ul className="ega-pack-card__features">
-        {featureEntries.map((feature) => (
-          <li key={feature.title}>
-            <strong>{feature.title}</strong>
-            {feature.description ? <span>{feature.description}</span> : null}
+        {featureTitles.map((feature) => (
+          <li key={feature}>
+            <strong>{feature}</strong>
           </li>
         ))}
       </ul>
