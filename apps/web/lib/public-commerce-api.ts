@@ -127,10 +127,12 @@ export async function getPackageCatalogContent(): Promise<{
 }> {
   try {
     const payload = await requestJson<PublicCommerceCatalogResponse>("/public-commerce/catalog");
+    const categories = payload.categories.map(normalizeCategory);
+    const products = payload.products.map(normalizeProduct);
 
     return {
-      categories: payload.categories.map(normalizeCategory),
-      products: payload.products.map(normalizeProduct)
+      categories: categories.length > 0 ? categories : fallbackCategories,
+      products: products.length > 0 ? products : fallbackProducts
     };
   } catch {
     return {

@@ -566,7 +566,8 @@ export async function getNavigationItems() {
 export async function getAcademicStaffGroups() {
   try {
     const groups = await requestJson<CollectionPayload<StaffProfileGroupResponse>>("/public/academic-staff");
-    return unwrapCollection(groups).map(normalizeStaffGroup);
+    const normalized = unwrapCollection(groups).map(normalizeStaffGroup);
+    return normalized.some((group) => group.members.length > 0) ? normalized : academicStaffGroups;
   } catch {
     return academicStaffGroups;
   }
