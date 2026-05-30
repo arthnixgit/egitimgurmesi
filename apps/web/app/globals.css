@@ -5084,6 +5084,7 @@ textarea {
   display: grid;
   gap: 8px;
   width: 100%;
+  font: inherit;
   padding: 18px 18px 17px;
   border: 1px solid rgba(11, 52, 102, 0.12);
   border-radius: 26px;
@@ -5405,8 +5406,354 @@ textarea {
   line-height: 1.7;
 }
 
+.ega-free-directory-options {
+  display: grid;
+  gap: 12px;
+}
+
+.ega-free-directory-options__group {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.ega-free-directory-options__group strong {
+  color: var(--ega-blue-900);
+  font-size: 0.92rem;
+}
+
+.ega-free-directory-options__group div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ega-free-directory-options__group a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.08);
+  color: var(--ega-blue-900);
+  font-size: 0.86rem;
+  font-weight: 850;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.ega-free-directory-options__group a:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--ega-blue-900), var(--ega-teal-600));
+  color: #ffffff;
+}
+
 .ega-free-directory-preview__action {
   padding-top: 8px;
+}
+
+.ega-score-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.ega-score-picker-card {
+  display: grid;
+  gap: 18px;
+  min-height: 360px;
+  padding: 30px;
+  border: 1px solid rgba(11, 52, 102, 0.11);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.52), transparent 28%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(239, 248, 255, 0.96));
+  box-shadow: 0 24px 52px rgba(8, 33, 63, 0.12);
+}
+
+.ega-score-picker-card--yks {
+  background:
+    radial-gradient(circle at top right, rgba(255, 184, 82, 0.22), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(236, 248, 255, 0.96));
+}
+
+.ega-score-picker-card--lgs {
+  background:
+    radial-gradient(circle at top right, rgba(29, 184, 178, 0.22), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 251, 247, 0.96));
+}
+
+.ega-score-picker-card > span,
+.ega-score-result-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.08);
+  color: var(--ega-blue-900);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.ega-score-picker-card h2,
+.ega-score-calculator__head h2,
+.ega-score-result-card h2 {
+  margin: 0;
+  color: var(--ega-blue-900);
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.ega-score-picker-card p,
+.ega-score-calculator__head p,
+.ega-score-result-card p,
+.ega-score-result-card small {
+  margin: 0;
+  color: var(--ega-muted);
+  line-height: 1.72;
+}
+
+.ega-score-picker-card__links,
+.ega-score-link-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.ega-score-picker-card__links a,
+.ega-score-link-grid a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 17px;
+  border: 1px solid rgba(11, 52, 102, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ega-blue-900);
+  font-weight: 900;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.ega-score-picker-card__links a:hover,
+.ega-score-link-grid a:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--ega-blue-900), var(--ega-teal-600));
+  color: #ffffff;
+  box-shadow: 0 16px 28px rgba(8, 33, 63, 0.14);
+}
+
+.ega-score-calculator {
+  display: grid;
+  gap: 18px;
+}
+
+.ega-score-calculator__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.ega-score-calculator__form-card,
+.ega-score-result-card {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 52px rgba(8, 33, 63, 0.11);
+}
+
+.ega-score-calculator__head {
+  display: grid;
+  gap: 8px;
+}
+
+.ega-score-subjects {
+  display: grid;
+  gap: 14px;
+}
+
+.ega-score-subject {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.ega-score-subject[data-invalid="true"] {
+  border-color: rgba(220, 72, 72, 0.4);
+  background: rgba(255, 247, 247, 0.96);
+}
+
+.ega-score-subject__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ega-score-subject__title strong {
+  color: var(--ega-blue-900);
+  font-size: 1rem;
+}
+
+.ega-score-subject__title span,
+.ega-score-subject__warning {
+  color: var(--ega-muted);
+  font-size: 0.88rem;
+}
+
+.ega-score-subject__warning {
+  margin: 0;
+  color: #b44242;
+  font-weight: 800;
+}
+
+.ega-score-subject__inputs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ega-score-subject__inputs label,
+.ega-score-subject__net {
+  display: grid;
+  gap: 7px;
+}
+
+.ega-score-subject__inputs label span,
+.ega-score-subject__net span {
+  color: #5e7696;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ega-score-subject__inputs input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid rgba(11, 52, 102, 0.16);
+  border-radius: 15px;
+  background: #ffffff;
+  color: var(--ega-blue-900);
+  font: inherit;
+  font-weight: 850;
+}
+
+.ega-score-subject__net {
+  align-content: center;
+  min-height: 46px;
+  padding: 9px 12px;
+  border-radius: 15px;
+  background: rgba(29, 184, 178, 0.11);
+}
+
+.ega-score-subject__net strong {
+  color: var(--ega-blue-900);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.ega-score-result-card {
+  position: sticky;
+  top: 96px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 184, 82, 0.18), transparent 28%),
+    linear-gradient(180deg, #ffffff, #f3fbff);
+}
+
+.ega-score-result-card__score {
+  display: grid;
+  gap: 6px;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, var(--ega-blue-900), var(--ega-teal-600));
+  color: #ffffff;
+}
+
+.ega-score-result-card__score span,
+.ega-score-result-card__stats span {
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ega-score-result-card__score strong {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 4.4rem);
+  line-height: 0.9;
+}
+
+.ega-score-result-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ega-score-result-card__stats div {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(11, 52, 102, 0.07);
+}
+
+.ega-score-result-card__stats strong {
+  color: var(--ega-blue-900);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+}
+
+.ega-score-result-card__alert {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 184, 82, 0.18);
+  color: #8b5710;
+  font-weight: 850;
+}
+
+.ega-score-reset-button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.09);
+  color: var(--ega-blue-900);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.ega-score-calculator__notice {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 184, 82, 0.3);
+  border-radius: 20px;
+  background: rgba(255, 248, 236, 0.9);
+  color: #6f5b35;
+  line-height: 1.65;
 }
 
 @media (max-width: 1100px) {
@@ -5433,6 +5780,15 @@ textarea {
 
   .ega-free-directory-preview__media {
     min-height: 280px;
+  }
+
+  .ega-score-picker,
+  .ega-score-calculator__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-score-result-card {
+    position: static;
   }
 }
 
@@ -5469,6 +5825,18 @@ textarea {
 
   .ega-free-directory-preview__media {
     min-height: 220px;
+  }
+
+  .ega-score-picker-card,
+  .ega-score-calculator__form-card,
+  .ega-score-result-card {
+    padding: 22px;
+    border-radius: 26px;
+  }
+
+  .ega-score-subject__inputs,
+  .ega-score-result-card__stats {
+    grid-template-columns: 1fr;
   }
 }
 

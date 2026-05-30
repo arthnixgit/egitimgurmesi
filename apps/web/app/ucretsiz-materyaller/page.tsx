@@ -5,6 +5,7 @@ import {
 } from "../../components/free-materials-directory-showcase";
 import { getFreeMaterialsContent } from "../../lib/public-content-api";
 import type { ResourceLink } from "../../lib/free-materials";
+import { scoreCalculatorBasePath, scoreCalculatorLinks } from "../../lib/score-calculators";
 
 function getActionLabel(item: ResourceLink) {
   return item.buttonLabel ?? (item.opensInNewTab || item.href.startsWith("http") ? "Sayfayı Aç" : "İçeriği Aç");
@@ -21,7 +22,6 @@ export default async function FreeMaterialsPage() {
   const aytCountdownLink = freeTools.find((item) => item.countdownSlug === "ayt-kac-gun-kaldi") ?? null;
   const ydtCountdownLink = freeTools.find((item) => item.countdownSlug === "ydt-kac-gun-kaldi") ?? null;
   const lgsCountdownLink = freeTools.find((item) => item.countdownSlug === "2026-lgs-kac-gun-kaldi") ?? null;
-  const yksScoreLink = freeTools.find((item) => item.title === "YKS Puan Hesapla") ?? null;
   const yksAtlasLink = freeTools.find((item) => item.title === "YKS Atlas") ?? null;
   const maarifSimulationLink = freeTools.find((item) => item.title.includes("Maarif")) ?? null;
   const blogLink = guidanceContent.find((item) => item.title === "Blog") ?? guidanceContent[0] ?? null;
@@ -69,21 +69,28 @@ export default async function FreeMaterialsPage() {
           previewLabel: "LGS Sayacı"
         }
       : null,
-    yksScoreLink
-      ? {
-          id: "yks-score",
-          title: "YKS puan hesapla",
-          badge: "Ücretsiz",
-          summary:
-            "TYT, AYT ve OBP verilerini nasıl yorumlayacağını öğren; hedef bölüm için puan ve başarı sırası mantığını kavra.",
-          href: yksScoreLink.href,
-          buttonLabel: getActionLabel(yksScoreLink),
-          opensInNewTab: yksScoreLink.opensInNewTab || yksScoreLink.href.startsWith("http"),
-          links: [yksScoreLink],
-          tone: "teal",
-          previewLabel: "Puan Hesabı"
+    {
+      id: "score-calculator",
+      title: "Puan Hesapla",
+      badge: "Ücretsiz",
+      summary:
+        "LGS, TYT, AYT ve YDT netlerini platform içinde hesapla; tahmini puanını ve ders bazlı netlerini gör.",
+      href: scoreCalculatorBasePath,
+      buttonLabel: "Hesaplayıcıyı Aç",
+      links: scoreCalculatorLinks,
+      optionGroups: [
+        {
+          title: "YKS Puan Hesapla",
+          items: scoreCalculatorLinks.filter((item) => item.type === "YKS")
+        },
+        {
+          title: "LGS Puan Hesapla",
+          items: scoreCalculatorLinks.filter((item) => item.type === "LGS")
         }
-      : null,
+      ],
+      tone: "teal",
+      previewLabel: "Puan Hesabı"
+    },
     yksAtlasLink
       ? {
           id: "yks-atlas",

@@ -25,6 +25,10 @@ export type FreeMaterialsDirectoryCategory = {
   buttonLabel?: string;
   opensInNewTab?: boolean;
   links: readonly ResourceLink[];
+  optionGroups?: readonly {
+    title: string;
+    items: readonly ResourceLink[];
+  }[];
   tone: FreeMaterialsDirectoryCategoryTone;
   previewLabel?: string;
 };
@@ -127,6 +131,28 @@ export function FreeMaterialsDirectoryShowcase({
                 </small>
               </div>
 
+              {activeCategory.optionGroups?.length ? (
+                <div className="ega-free-directory-options" aria-label={`${activeCategory.title} seçenekleri`}>
+                  {activeCategory.optionGroups.map((group) => (
+                    <div key={group.title} className="ega-free-directory-options__group">
+                      <strong>{group.title}</strong>
+                      <div>
+                        {group.items.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            target={item.opensInNewTab ? "_blank" : "_self"}
+                            rel={item.opensInNewTab ? "noreferrer" : undefined}
+                          >
+                            {item.title}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="ega-free-directory-preview__action">
                 <ButtonLink
                   href={activeCategory.href}
@@ -160,22 +186,38 @@ function DirectoryColumn({
 }) {
   return (
     <div className="ega-free-directory-column">
-      {categories.map((category) => (
-        <Link
-          key={category.id}
-          className="ega-free-directory-category"
-          data-active={activeId === category.id}
-          data-tone={category.tone}
-          href={category.href}
-          target={category.opensInNewTab ? "_blank" : "_self"}
-          rel={category.opensInNewTab ? "noreferrer" : undefined}
-          onMouseEnter={() => onSelect(category.id)}
-          onFocus={() => onSelect(category.id)}
-        >
-          <strong>{category.title}</strong>
-          <span>{category.badge}</span>
-        </Link>
-      ))}
+      {categories.map((category) =>
+        category.optionGroups?.length ? (
+          <button
+            key={category.id}
+            type="button"
+            className="ega-free-directory-category"
+            data-active={activeId === category.id}
+            data-tone={category.tone}
+            onClick={() => onSelect(category.id)}
+            onMouseEnter={() => onSelect(category.id)}
+            onFocus={() => onSelect(category.id)}
+          >
+            <strong>{category.title}</strong>
+            <span>{category.badge}</span>
+          </button>
+        ) : (
+          <Link
+            key={category.id}
+            className="ega-free-directory-category"
+            data-active={activeId === category.id}
+            data-tone={category.tone}
+            href={category.href}
+            target={category.opensInNewTab ? "_blank" : "_self"}
+            rel={category.opensInNewTab ? "noreferrer" : undefined}
+            onMouseEnter={() => onSelect(category.id)}
+            onFocus={() => onSelect(category.id)}
+          >
+            <strong>{category.title}</strong>
+            <span>{category.badge}</span>
+          </Link>
+        )
+      )}
     </div>
   );
 }

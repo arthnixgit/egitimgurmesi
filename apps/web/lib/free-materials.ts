@@ -91,11 +91,11 @@ export const freeTools: readonly ResourceLink[] = [
     countdownSlug: "2026-lgs-kac-gun-kaldi"
   },
   {
-    title: "YKS Puan Hesapla",
+    title: "Puan Hesapla",
     type: "Ücretsiz",
-    summary: "TYT, AYT, OBP ve tercih hedefini daha doğru yorumlamak için puan hesaplama rehberi.",
-    href: "/ucretsiz-materyaller/puan-hesaplama",
-    buttonLabel: "Puan Rehberini Aç"
+    summary: "LGS, TYT, AYT ve YDT netlerini platform içinde hesapla; tahmini puanını ve ders bazlı netlerini gör.",
+    href: "/ucretsiz-materyaller/puan-hesapla",
+    buttonLabel: "Puan Hesapla"
   },
   {
     title: "YKS Atlas",

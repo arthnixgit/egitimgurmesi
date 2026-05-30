@@ -81,6 +81,24 @@ async function updateFreeMaterialLinks() {
   });
 
   await prisma.freeMaterialItem.updateMany({
+    where: {
+      OR: [
+        { title: "YKS Puan Hesapla" },
+        { title: "Puan Hesapla" },
+        { href: "/ucretsiz-materyaller/puan-hesaplama" }
+      ]
+    },
+    data: {
+      title: "Puan Hesapla",
+      summary:
+        "LGS, TYT, AYT ve YDT netlerini platform içinde hesapla; tahmini puanını ve ders bazlı netlerini gör.",
+      href: "/ucretsiz-materyaller/puan-hesapla",
+      buttonLabel: "Puan Hesapla",
+      opensInNewTab: false
+    }
+  });
+
+  await prisma.freeMaterialItem.updateMany({
     where: { title: "Blog" },
     data: {
       href: "/ucretsiz-materyaller/blog",
@@ -90,7 +108,7 @@ async function updateFreeMaterialLinks() {
   });
 
   for (const item of freeTools) {
-    if (!["YKS Puan Hesapla", "YKS Atlas", "Maarif Simülasyonları"].includes(item.title)) {
+    if (!["Puan Hesapla", "YKS Atlas", "Maarif Simülasyonları"].includes(item.title)) {
       continue;
     }
 
