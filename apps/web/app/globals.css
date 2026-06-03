@@ -9066,3 +9066,316 @@ textarea {
 .ega-logo-rail-section {
   padding: 2px 0 18px;
 }
+
+/* Mobile UX hardening phase 1: keep public pages touch-first without changing data flow. */
+@media (max-width: 860px) {
+  .ega-mobile-nav__close {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+  }
+
+  .ega-mobile-nav {
+    visibility: hidden;
+  }
+
+  .ega-mobile-nav[data-open="true"] {
+    visibility: visible;
+  }
+
+  .ega-mobile-nav__submenu-title,
+  .ega-mobile-nav__submenu-link {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ega-mobile-nav__submenu-title {
+    padding: 0 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .ega-filter-shell__subcategories {
+    grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  }
+
+  .ega-exam-hero__intro h1 {
+    font-size: clamp(2rem, 5.6vw, 2.4rem);
+    line-height: 1.04;
+  }
+
+  .ega-filter-option--compact {
+    width: 100%;
+    min-height: 68px;
+  }
+
+  .ega-section--packages-directory .ega-section-heading__title {
+    text-wrap: balance;
+  }
+
+  .ega-why-gurmesi__table {
+    overflow: visible;
+    gap: 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ega-why-gurmesi__row--head {
+    display: none;
+  }
+
+  .ega-why-gurmesi__row {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    overflow: hidden;
+    border: 1px solid rgba(11, 52, 102, 0.1);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 30px rgba(8, 33, 63, 0.08);
+  }
+
+  .ega-why-gurmesi__cell {
+    min-height: 0;
+    padding: 14px 16px;
+    border-top: 1px solid rgba(11, 52, 102, 0.07);
+    line-height: 1.45;
+  }
+
+  .ega-why-gurmesi__cell--feature {
+    border-top: 0;
+    background: linear-gradient(135deg, rgba(17, 69, 125, 0.96), rgba(28, 155, 151, 0.92));
+    color: #ffffff;
+    font-size: 1.02rem;
+  }
+
+  .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:not(.ega-why-gurmesi__cell--feature) {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.42fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:not(.ega-why-gurmesi__cell--feature)::before {
+    color: #5c7698;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:nth-child(2)::before {
+    content: "Eğitim Gürmesi";
+  }
+
+  .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:nth-child(3)::before {
+    content: "Dershaneler";
+  }
+
+  .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:nth-child(4)::before {
+    content: "Diğerleri";
+  }
+
+  .ega-contact-bookmark {
+    top: auto;
+    right: 50%;
+    bottom: 92px;
+    min-height: 52px;
+    min-width: 0;
+    padding: 0 18px;
+    border-radius: 999px;
+    transform: translateX(50%);
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    letter-spacing: 0.01em;
+  }
+
+  .ega-contact-bookmark:hover {
+    transform: translateX(50%) translateY(-2px);
+  }
+}
+
+@media (max-width: 780px) {
+  .ega-auth-stage {
+    padding: 14px 0 46px;
+  }
+
+  .ega-auth-stage__inner {
+    width: min(560px, calc(100% - 20px));
+    gap: 14px;
+  }
+
+  .ega-auth-panel {
+    order: 1;
+    gap: 14px;
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .ega-auth-showcase {
+    order: 2;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .ega-auth-showcase__copy {
+    gap: 10px;
+  }
+
+  .ega-auth-showcase__copy h1 {
+    max-width: 15ch;
+    font-size: clamp(2rem, 8.2vw, 2.45rem);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+  }
+
+  .ega-auth-showcase__copy p,
+  .ega-auth-panel__head p {
+    font-size: 0.95rem;
+    line-height: 1.62;
+  }
+
+  .ega-auth-panel__head {
+    gap: 9px;
+  }
+
+  .ega-auth-panel__head h2 {
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    line-height: 1.03;
+  }
+
+  .ega-auth-showcase__highlights,
+  .ega-auth-showcase__stats {
+    gap: 10px;
+  }
+
+  .ega-auth-highlight-card,
+  .ega-auth-showcase__stat {
+    min-height: 0;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .ega-auth-mode-switch {
+    width: 100%;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .ega-auth-mode-switch__tab {
+    min-height: 48px;
+    padding: 0 12px;
+    border-radius: 14px;
+  }
+
+  .ega-form {
+    gap: 14px;
+    margin-top: 14px;
+  }
+
+  .ega-form-grid--auth {
+    gap: 14px;
+  }
+
+  .ega-inline-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .ega-exam-hero {
+    padding: 20px 0 18px;
+  }
+
+  .ega-exam-hero__inner,
+  .ega-exam-stack,
+  .ega-exam-link-grid {
+    gap: 16px;
+  }
+
+  .ega-exam-hero__intro {
+    gap: 10px;
+  }
+
+  .ega-exam-hero__intro h1 {
+    font-size: clamp(2rem, 8.2vw, 2.35rem);
+    line-height: 1.03;
+    letter-spacing: -0.04em;
+  }
+
+  .ega-exam-hero__intro p {
+    font-size: 0.96rem;
+    line-height: 1.65;
+  }
+
+  .ega-exam-rings {
+    gap: 20px;
+    padding: 20px 14px;
+  }
+
+  .ega-exam-rings__heading h2 {
+    font-size: clamp(1.65rem, 7vw, 2.15rem);
+  }
+
+  .ega-exam-ring__visual,
+  .ega-exam-rings__grid--compact .ega-exam-ring__visual {
+    width: min(100%, 176px);
+  }
+
+  .ega-exam-ring__core strong,
+  .ega-exam-rings__grid--compact .ega-exam-ring__core strong {
+    font-size: clamp(2.2rem, 10vw, 3rem);
+  }
+}
+
+@media (max-width: 520px) {
+  .ega-filter-shell {
+    padding: 16px;
+  }
+
+  .ega-filter-shell__mode,
+  .ega-filter-shell__mode--directory {
+    gap: 8px;
+  }
+
+  .ega-filter-mode {
+    flex: 1 1 calc(50% - 8px);
+    min-height: 46px;
+    padding: 0 14px;
+  }
+
+  .ega-filter-shell__subcategories {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-filter-option--compact {
+    min-height: 60px;
+    padding: 12px;
+  }
+
+  .ega-filter-option--compact span {
+    display: none;
+  }
+
+  .ega-contact-bookmark {
+    bottom: 86px;
+    max-width: calc(100vw - 120px);
+    min-height: 48px;
+    padding: 0 16px;
+    font-size: 0.9rem;
+  }
+
+  .ega-showcase-hero__indicator {
+    width: 48px;
+    min-height: 44px;
+    border-radius: 999px;
+    background-clip: content-box;
+    padding-block: 20px;
+  }
+}
