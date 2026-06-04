@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SectionHeading } from "@ega/ui";
 import { PackageCard } from "./package-card";
@@ -76,12 +76,15 @@ const comparisonRows = [
   }
 ] as const;
 
+const MOBILE_COMPARISON_LIMIT = 4;
+
 export function PackagesDirectory({
   categories,
   products,
   ribbonSection,
   introSection
 }: PackagesDirectoryProps) {
+  const [showAllMobileComparison, setShowAllMobileComparison] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -190,6 +193,7 @@ export function PackagesDirectory({
 
           <div
             className="ega-why-gurmesi__table"
+            data-mobile-expanded={showAllMobileComparison}
             role="table"
             aria-label="Neden Eğitim Gürmesi karşılaştırması"
           >
@@ -208,8 +212,13 @@ export function PackagesDirectory({
               </div>
             </div>
 
-            {comparisonRows.map((row) => (
-              <div key={row.feature} className="ega-why-gurmesi__row" role="row">
+            {comparisonRows.map((row, index) => (
+              <div
+                key={row.feature}
+                className="ega-why-gurmesi__row"
+                data-mobile-extra={index >= MOBILE_COMPARISON_LIMIT ? "true" : undefined}
+                role="row"
+              >
                 <div className="ega-why-gurmesi__cell ega-why-gurmesi__cell--feature" role="cell">
                   {row.feature}
                 </div>
@@ -234,6 +243,17 @@ export function PackagesDirectory({
               </div>
             ))}
           </div>
+
+          {comparisonRows.length > MOBILE_COMPARISON_LIMIT ? (
+            <button
+              type="button"
+              className="ega-why-gurmesi__toggle"
+              aria-expanded={showAllMobileComparison}
+              onClick={() => setShowAllMobileComparison((current) => !current)}
+            >
+              {showAllMobileComparison ? "Daha az göster" : "Tüm farkları gör"}
+            </button>
+          ) : null}
         </section>
       </section>
     </PublicPageLayout>

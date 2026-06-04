@@ -124,6 +124,7 @@ export function ExamCountdownRings({ countdown }: { countdown: ExamCountdownTarg
 
 export function ExamCountdownRingSessions({ countdowns }: { countdowns: readonly ExamCountdownTarget[] }) {
   const [nowMs, setNowMs] = useState(0);
+  const [activeSessionIndex, setActiveSessionIndex] = useState(0);
 
   useEffect(() => {
     setNowMs(Date.now());
@@ -134,6 +135,10 @@ export function ExamCountdownRingSessions({ countdowns }: { countdowns: readonly
 
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    setActiveSessionIndex((current) => Math.min(current, Math.max(0, countdowns.length - 1)));
+  }, [countdowns.length]);
 
   const items = useMemo(() => {
     return countdowns.map((countdown) => ({
@@ -149,9 +154,30 @@ export function ExamCountdownRingSessions({ countdowns }: { countdowns: readonly
         <p>Her oturum kendi başlangıç saatine göre gün, saat, dakika ve saniye olarak güncellenir.</p>
       </div>
 
+      {items.length > 1 ? (
+        <div className="ega-exam-rings__session-switcher" role="tablist" aria-label="LGS oturum seçimi">
+          {items.map((countdown, index) => (
+            <button
+              key={countdown.label}
+              type="button"
+              role="tab"
+              aria-selected={activeSessionIndex === index}
+              data-active={activeSessionIndex === index}
+              onClick={() => setActiveSessionIndex(index)}
+            >
+              {countdown.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="ega-exam-rings__sessions">
-        {items.map((countdown) => (
-          <article key={countdown.label} className="ega-exam-rings__session">
+        {items.map((countdown, index) => (
+          <article
+            key={countdown.label}
+            className="ega-exam-rings__session"
+            data-active={activeSessionIndex === index}
+          >
             <div className="ega-exam-rings__session-head">
               <span>{countdown.label}</span>
               <strong>{countdown.dateLabel}</strong>

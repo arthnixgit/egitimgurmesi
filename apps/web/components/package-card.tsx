@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ButtonLink } from "@ega/ui";
 import type { PackageProduct } from "../lib/package-catalog";
 import { ProductIntroVideo } from "./product-intro-video";
@@ -6,10 +9,14 @@ type PackageCardProps = {
   product: PackageProduct;
 };
 
+const MOBILE_FEATURE_LIMIT = 5;
+
 export function PackageCard({ product }: PackageCardProps) {
+  const [showAllMobileFeatures, setShowAllMobileFeatures] = useState(false);
   const featureTitles = product.featureDetails?.length
     ? product.featureDetails.map((feature) => feature.title)
     : product.features;
+  const hasMobileHiddenFeatures = featureTitles.length > MOBILE_FEATURE_LIMIT;
 
   return (
     <article className="ega-pack-card" data-tone={product.tone}>
@@ -30,13 +37,24 @@ export function PackageCard({ product }: PackageCardProps) {
 
       <ProductIntroVideo product={product} />
 
-      <ul className="ega-pack-card__features">
-        {featureTitles.map((feature) => (
-          <li key={feature}>
+      <ul className="ega-pack-card__features" data-mobile-expanded={showAllMobileFeatures}>
+        {featureTitles.map((feature, index) => (
+          <li key={feature} data-mobile-extra={index >= MOBILE_FEATURE_LIMIT ? "true" : undefined}>
             <strong>{feature}</strong>
           </li>
         ))}
       </ul>
+
+      {hasMobileHiddenFeatures ? (
+        <button
+          type="button"
+          className="ega-pack-card__feature-toggle"
+          aria-expanded={showAllMobileFeatures}
+          onClick={() => setShowAllMobileFeatures((current) => !current)}
+        >
+          {showAllMobileFeatures ? "Daha az göster" : "Tüm özellikleri gör"}
+        </button>
+      ) : null}
 
       <div className="ega-pack-card__actions ega-pack-card__actions--split">
         <ButtonLink
