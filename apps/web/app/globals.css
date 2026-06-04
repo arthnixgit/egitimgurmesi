@@ -9379,3 +9379,117 @@ textarea {
     padding-block: 20px;
   }
 }
+
+/* Mobile UX hardening phase 2A: conversion and touch comfort without layout redesign. */
+@media (max-width: 860px) {
+  .ega-footer__links {
+    gap: 6px;
+  }
+
+  .ega-footer__links a {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    border-radius: 14px;
+    text-decoration: none;
+  }
+
+  .ega-video-card__link {
+    min-height: 44px;
+    align-items: center;
+    padding-top: 12px;
+  }
+
+  .ega-inline-links a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .ega-showcase-hero__indicator {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+    padding-block: 19px;
+    background-clip: content-box;
+  }
+
+  .ega-showcase-hero__indicator::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    border-radius: 999px;
+  }
+
+  .ega-contact-bookmark {
+    bottom: 82px;
+    min-height: 46px;
+    padding-inline: 14px;
+    box-shadow: 0 12px 24px rgba(11, 52, 102, 0.18);
+  }
+
+  .ega-instagram-float,
+  .ega-whatsapp-float {
+    bottom: 14px;
+    width: 56px;
+    height: 56px;
+    box-shadow: 0 12px 24px rgba(17, 36, 66, 0.22);
+  }
+
+  .ega-instagram-float {
+    left: 14px;
+  }
+
+  .ega-whatsapp-float {
+    right: 14px;
+  }
+
+  .ega-success-score-table__row,
+  .ega-success-score-table__row span,
+  .ega-success-score-table__row strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ega-success-track-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-success-track-tab {
+    min-width: 0;
+    padding: 18px;
+  }
+
+  .ega-success-track-tab span,
+  .ega-success-track-tab strong,
+  .ega-success-track-tab p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 520px) {
+  .ega-contact-bookmark {
+    bottom: 76px;
+    max-width: calc(100vw - 132px);
+    min-height: 44px;
+    padding-inline: 13px;
+    font-size: 0.84rem;
+  }
+
+  .ega-instagram-float,
+  .ega-whatsapp-float {
+    width: 52px;
+    height: 52px;
+  }
+
+  .ega-instagram-float__icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ega-whatsapp-float__icon {
+    width: 26px;
+    height: 26px;
+  }
+}
