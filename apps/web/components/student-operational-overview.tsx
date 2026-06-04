@@ -23,7 +23,7 @@ export function StudentOperationalOverviewPanel() {
       })
       .catch((requestError) => {
         if (active) {
-          setError(requestError instanceof Error ? requestError.message : "Operasyon özeti alınamadı.");
+        setError(requestError instanceof Error ? requestError.message : "Program özeti alınamadı.");
         }
       })
       .finally(() => {
@@ -40,9 +40,9 @@ export function StudentOperationalOverviewPanel() {
   if (loading) {
     return (
       <section className="ega-dashboard-card">
-        <div className="ega-pill">Operasyon</div>
+        <div className="ega-pill">Programım</div>
         <h2>Program bilgilerin yükleniyor</h2>
-        <p className="ega-dashboard-note">Şube, eğitmen, koç ve canlı ders kayıtları hazırlanıyor.</p>
+        <p className="ega-dashboard-note">Canlı ders, koçluk ve duyuru bilgilerin hazırlanıyor.</p>
       </section>
     );
   }
@@ -50,7 +50,7 @@ export function StudentOperationalOverviewPanel() {
   if (error || !data) {
     return (
       <section className="ega-dashboard-card">
-        <div className="ega-pill">Operasyon</div>
+        <div className="ega-pill">Programım</div>
         <h2>Program özeti alınamadı</h2>
         <div className="ega-message ega-message--error">{error || "Veri bulunamadı."}</div>
       </section>
@@ -61,8 +61,8 @@ export function StudentOperationalOverviewPanel() {
     <section className="ega-dashboard-card ega-operational-panel">
       <div className="ega-dashboard-card__head">
         <div>
-          <div className="ega-pill">Operasyon</div>
-          <h2>Şube, koçluk ve canlı ders planın</h2>
+          <div className="ega-pill">Bugünkü Programım</div>
+          <h2>Canlı ders, koçluk ve duyurular</h2>
         </div>
         <span className="ega-dashboard-status">
           {data.upcomingSessions.length ? `${data.upcomingSessions.length} yaklaşan ders` : "Program bekliyor"}
@@ -86,7 +86,7 @@ export function StudentOperationalOverviewPanel() {
 
       <div className="ega-operational-grid">
         <article>
-          <h3>Şube ve ekip</h3>
+          <h3>Koçum / Eğitmenim</h3>
           <div className="ega-operational-list">
             {data.branches.length ? (
               data.branches.map((branch) => (

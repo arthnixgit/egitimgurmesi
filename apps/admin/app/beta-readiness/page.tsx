@@ -77,8 +77,8 @@ export default function BetaReadinessPage() {
     <main className="admin-shell">
       <section className="admin-card admin-ops-hero">
         <div>
-          <span className="admin-pill">Beta Hazırlık</span>
-          <h1>Beta hazırlık durumunu kontrol edin.</h1>
+          <span className="admin-pill">Kurulum Kontrolü</span>
+          <h1>Operasyon hazırlığını kontrol edin.</h1>
           <p>
             Kurum, şube, kullanıcı, grup, canlı ders, duyuru ve paket hazırlığını doğrulayın.
           </p>
@@ -177,7 +177,7 @@ export default function BetaReadinessPage() {
                   Tekrar Kontrol Et
                 </button>
                 <Link className="admin-button admin-button--ghost" href="/saas">
-                  SaaS Yönetimine Git
+                  Kurum ve Şube Yönetimine Git
                 </Link>
                 <Link className="admin-button admin-button--ghost" href="/operasyon">
                   Operasyonu Aç

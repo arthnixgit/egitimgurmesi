@@ -2,85 +2,176 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchDeploymentStatus, type DeploymentStatus } from "../lib/deploy-client";
+import { fetchStaffOverview } from "../lib/auth-client";
+import {
+  getPrimaryRoleLabel,
+  isAccountantRole,
+  isBranchAdminRole,
+  isCoachRole,
+  isInstructorRole,
+  isSuperAdminRole
+} from "../lib/role-routing";
 
-const adminModules = [
+type StaffOverview = Awaited<ReturnType<typeof fetchStaffOverview>>;
+
+type AdminModule = {
+  href: string;
+  icon: string;
+  label: string;
+  description: string;
+  group: "Günlük Panel" | "Operasyon" | "İçerik ve Satış" | "Sistem";
+  visibleFor: (overview: StaffOverview | null) => boolean;
+};
+
+const isSuperOrAdmin = (overview: StaffOverview | null) => isSuperAdminRole(overview?.roleKeys);
+const isBranchAdmin = (overview: StaffOverview | null) => isBranchAdminRole(overview?.roleKeys);
+const isInstructor = (overview: StaffOverview | null) => isInstructorRole(overview?.roleKeys);
+const isCoach = (overview: StaffOverview | null) => isCoachRole(overview?.roleKeys);
+const isAccountant = (overview: StaffOverview | null) => isAccountantRole(overview?.roleKeys);
+const hasPermission = (overview: StaffOverview | null, permission: string) =>
+  Boolean(overview?.permissionKeys.includes(permission));
+
+const adminModules: AdminModule[] = [
   {
-    href: "/",
-    icon: "⌂",
-    label: "Kontrol Merkezi",
-    description: "Genel durum ve hızlı başlangıç"
+    href: "/platform",
+    icon: "PL",
+    label: "Genel Bakış",
+    description: "Platform sağlığı ve hızlı işlemler",
+    group: "Günlük Panel",
+    visibleFor: (overview) => isSuperOrAdmin(overview)
+  },
+  {
+    href: "/sube",
+    icon: "ŞB",
+    label: "Şube Paneli",
+    description: "Şube öğrencileri, grupları ve dersleri",
+    group: "Günlük Panel",
+    visibleFor: (overview) => isBranchAdmin(overview)
+  },
+  {
+    href: "/egitmen",
+    icon: "EĞ",
+    label: "Eğitmen Paneli",
+    description: "Dersler, sınıflar ve öğrenciler",
+    group: "Günlük Panel",
+    visibleFor: (overview) => isInstructor(overview)
+  },
+  {
+    href: "/koc",
+    icon: "KO",
+    label: "Koç Paneli",
+    description: "Takipler, planlar ve görüşme notları",
+    group: "Günlük Panel",
+    visibleFor: (overview) => isCoach(overview)
+  },
+  {
+    href: "/finans",
+    icon: "FN",
+    label: "Finans Paneli",
+    description: "Ödemeler, siparişler ve gelir özeti",
+    group: "Günlük Panel",
+    visibleFor: (overview) => isAccountant(overview) || isSuperOrAdmin(overview)
   },
   {
     href: "/saas",
-    icon: "SA",
-    label: "SaaS Yönetimi",
-    description: "Organizasyon, merkez, şube ve kapsam"
+    icon: "KŞ",
+    label: "Kurum ve Şube Yönetimi",
+    description: "Organizasyon, merkez, şube ve yetki kapsamı",
+    group: "Operasyon",
+    visibleFor: (overview) =>
+      isSuperOrAdmin(overview) || isBranchAdmin(overview) || hasPermission(overview, "organizations.manage")
   },
   {
     href: "/operasyon",
-    icon: "OP",
-    label: "Operasyon Merkezi",
-    description: "Şube, ders, koçluk ve duyurular"
-  },
-  {
-    href: "/beta-readiness",
-    icon: "BR",
-    label: "Beta Hazırlık",
-    description: "Pazartesi öncesi veri ve operasyon kontrolü"
-  },
-  {
-    href: "/icerik",
-    icon: "✎",
-    label: "İçerik Yönetimi",
-    description: "Menü, sayfalar, kadro, başarılar, materyaller"
-  },
-  {
-    href: "/ticaret",
-    icon: "◈",
-    label: "Ürün ve Sipariş",
-    description: "Paketler, kategoriler, fiyatlar, siparişler"
-  },
-  {
-    href: "/medya",
-    icon: "▣",
-    label: "Medya Kütüphanesi",
-    description: "Görsel, PDF, video ve Google Drive linkleri"
+    icon: "CD",
+    label: "Canlı Ders ve Duyurular",
+    description: "Ders planı, gruplar, koçluk ve duyurular",
+    group: "Operasyon",
+    visibleFor: (overview) =>
+      isSuperOrAdmin(overview) ||
+      isBranchAdmin(overview) ||
+      isInstructor(overview) ||
+      isCoach(overview)
   },
   {
     href: "/leadler",
-    icon: "☏",
-    label: "Başvuru Talepleri",
-    description: "Ücretsiz ön görüşme ve WhatsApp leadleri"
+    icon: "ÖG",
+    label: "Ön Görüşme Talepleri",
+    description: "Ziyaretçi talepleri ve iletişim kayıtları",
+    group: "Operasyon",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "leads.manage")
+  },
+  {
+    href: "/ticaret",
+    icon: "PS",
+    label: "Paketler ve Satış",
+    description: "Paketler, fiyatlar, siparişler ve harici siparişler",
+    group: "İçerik ve Satış",
+    visibleFor: (overview) =>
+      isSuperOrAdmin(overview) || isBranchAdmin(overview) || isAccountant(overview) || hasPermission(overview, "products.manage")
+  },
+  {
+    href: "/icerik",
+    icon: "İÇ",
+    label: "İçerik Yönetimi",
+    description: "Sayfalar, menüler, kadro ve materyaller",
+    group: "İçerik ve Satış",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
+  },
+  {
+    href: "/medya",
+    icon: "MK",
+    label: "Medya Kütüphanesi",
+    description: "Görsel, doküman ve video bağlantıları",
+    group: "İçerik ve Satış",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "media.manage")
   },
   {
     href: "/personel",
-    icon: "RB",
+    icon: "PR",
     label: "Personel ve Roller",
-    description: "Admin hesapları, roller ve yetkiler"
+    description: "Ekip hesapları, roller ve erişimler",
+    group: "Sistem",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || isBranchAdmin(overview) || hasPermission(overview, "staff.manage")
+  },
+  {
+    href: "/beta-readiness",
+    icon: "KK",
+    label: "Kurulum Kontrolü",
+    description: "Onboarding ve beta hazırlık durumu",
+    group: "Sistem",
+    visibleFor: (overview) => isSuperOrAdmin(overview)
   },
   {
     href: "/denetim",
-    icon: "✓",
-    label: "Denetim Kayıtları",
-    description: "Kim neyi değiştirdi takibi"
+    icon: "SK",
+    label: "Sistem Kayıtları",
+    description: "İşlem geçmişi ve gelişmiş denetim",
+    group: "Sistem",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "audit.read")
   },
   {
     href: "/guncellemeler",
-    icon: "UP",
-    label: "Güncellemeler",
-    description: "GitHub üzerinden VDS yayını"
+    icon: "YG",
+    label: "Yayın ve Güncelleme",
+    description: "Sürüm durumu ve yayın akışı",
+    group: "Sistem",
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "maintenance.deploy")
   }
-] as const;
+];
 
-const unframedRoutes = ["/giris", "/kurulum"];
+const unframedRoutes = ["/", "/giris", "/kurulum"];
 
 export function AdminFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus | null>(null);
-  const isUnframed = unframedRoutes.some((route) => pathname?.startsWith(route));
+  const [overview, setOverview] = useState<StaffOverview | null>(null);
+  const isUnframed = unframedRoutes.some((route) =>
+    route === "/" ? pathname === "/" : pathname?.startsWith(route)
+  );
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -93,30 +184,34 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
 
     let active = true;
 
-    fetchDeploymentStatus()
-      .then((status) => {
-        if (active) {
-          setDeploymentStatus(status);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setDeploymentStatus(null);
-        }
-      });
+    Promise.allSettled([fetchDeploymentStatus(), fetchStaffOverview()]).then(([deployResult, overviewResult]) => {
+      if (!active) {
+        return;
+      }
+
+      setDeploymentStatus(deployResult.status === "fulfilled" ? deployResult.value : null);
+      setOverview(overviewResult.status === "fulfilled" ? overviewResult.value : null);
+    });
 
     return () => {
       active = false;
     };
   }, [isUnframed, pathname]);
 
+  const visibleModules = useMemo(() => {
+    const modules = adminModules.filter((module) => module.visibleFor(overview));
+    return modules.length ? modules : adminModules.filter((module) => module.group === "Günlük Panel");
+  }, [overview]);
+
   if (isUnframed) {
     return <>{children}</>;
   }
 
-  const activeModule = adminModules.find((module) =>
+  const activeModule = visibleModules.find((module) =>
     module.href === "/" ? pathname === "/" : pathname?.startsWith(module.href)
   );
+  const websiteUrl = resolveWebsiteUrl();
+  const groupedModules = groupModules(visibleModules);
 
   return (
     <div className="admin-app-frame" data-sidebar-open={sidebarOpen}>
@@ -130,14 +225,14 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
       <aside
         id="admin-sidebar"
         className="admin-app-sidebar"
-        aria-label="Yönetim modülleri"
+        aria-label="Yönetim alanları"
         aria-hidden={!sidebarOpen}
       >
-        <Link className="admin-app-sidebar__brand" href="/">
+        <Link className="admin-app-sidebar__brand" href={activeModule?.href ?? "/platform"}>
           <span className="admin-app-sidebar__logo">EGA</span>
           <span>
             <strong>Eğitim Gurmesi</strong>
-            <small>Yönetim Paneli</small>
+            <small>{getPrimaryRoleLabel(overview?.roleKeys)}</small>
           </span>
         </Link>
 
@@ -150,36 +245,38 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
           Kapat
         </button>
 
-        <div className="admin-app-sidebar__section">
-          <span>Modüller</span>
-          <nav className="admin-app-nav">
-            {adminModules.map((module) => (
-              <Link
-                key={module.href}
-                className="admin-app-nav__item"
-                data-active={activeModule?.href === module.href}
-                href={module.href}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span className="admin-app-nav__icon">{module.icon}</span>
-                <span className="admin-app-nav__text">
-                  <strong>{module.label}</strong>
-                  <small>{module.description}</small>
-                </span>
-              </Link>
-            ))}
-          </nav>
-        </div>
+        {Object.entries(groupedModules).map(([group, modules]) => (
+          <div className="admin-app-sidebar__section" key={group}>
+            <span>{group}</span>
+            <nav className="admin-app-nav">
+              {modules.map((module) => (
+                <Link
+                  key={module.href}
+                  className="admin-app-nav__item"
+                  data-active={activeModule?.href === module.href}
+                  href={module.href}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <span className="admin-app-nav__icon">{module.icon}</span>
+                  <span className="admin-app-nav__text">
+                    <strong>{module.label}</strong>
+                    <small>{module.description}</small>
+                  </span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+        ))}
 
         <div className="admin-app-sidebar__help">
-          <strong>Basit kullanım sırası</strong>
-          <span>1. Soldan modül seç</span>
-          <span>2. İçeride sayfa veya kayıt seç</span>
-          <span>3. Alanları güncelle ve Kaydet</span>
+          <strong>Hızlı Başlangıç</strong>
+          <span>Rolüne uygun paneli aç.</span>
+          <span>Günlük işlemlerden devam et.</span>
+          <span>Gerekli kayıtları kaydet.</span>
         </div>
 
-        <a className="admin-app-sidebar__site-link" href="http://localhost:3000" target="_blank" rel="noreferrer">
-          Website önizlemesini aç
+        <a className="admin-app-sidebar__site-link" href={websiteUrl} target="_blank" rel="noreferrer">
+          Web sitesini aç
         </a>
       </aside>
 
@@ -197,9 +294,9 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
               Menü
             </button>
             <div>
-              <span className="admin-app-header__eyebrow">Aktif modül</span>
+              <span className="admin-app-header__eyebrow">Aktif alan</span>
               <h1>{activeModule?.label ?? "Yönetim Paneli"}</h1>
-              <p>{activeModule?.description ?? "Yönetim araçları ve operasyon ekranları."}</p>
+              <p>{activeModule?.description ?? "Rolüne uygun yönetim alanları."}</p>
             </div>
           </div>
           {deploymentStatus?.updateAvailable ? (
@@ -216,4 +313,43 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
+}
+
+function groupModules(modules: AdminModule[]) {
+  return modules.reduce<Record<AdminModule["group"], AdminModule[]>>(
+    (groups, module) => {
+      groups[module.group].push(module);
+      return groups;
+    },
+    {
+      "Günlük Panel": [],
+      Operasyon: [],
+      "İçerik ve Satış": [],
+      Sistem: []
+    }
+  );
+}
+
+function resolveWebsiteUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (typeof window === "undefined") {
+    return "#";
+  }
+
+  const { protocol, hostname } = window.location;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:3000";
+  }
+
+  if (hostname.startsWith("admin.")) {
+    return `${protocol}//${hostname.replace(/^admin\./, "")}`;
+  }
+
+  return `${protocol}//${hostname}`;
 }

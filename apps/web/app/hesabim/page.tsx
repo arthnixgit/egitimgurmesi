@@ -317,8 +317,7 @@ export default function AccountPage() {
             Hoş geldin, {data.user.profile?.firstName || data.user.email}
           </h1>
           <p className="ega-dashboard-lead">
-            Profilini tamamla, siparişlerini izle ve gerekiyorsa koçluk ödeme
-            yönlendirmesine devam et.
+            Bugünkü programını gör, derslerine devam et ve koçluk sürecini tek yerden takip et.
           </p>
         </div>
 
@@ -338,20 +337,42 @@ export default function AccountPage() {
 
       <section className="ega-dashboard-kpis">
         <div className="ega-dashboard-kpi">
-          <strong>{orderCounts.total}</strong>
-          <span>Toplam sipariş</span>
+          <strong>Program</strong>
+          <span>Canlı ders ve duyurular</span>
         </div>
         <div className="ega-dashboard-kpi">
-          <strong>{orderCounts.active}</strong>
-          <span>Bekleyen akış</span>
+          <strong>Derslerim</strong>
+          <span>Kurslarına devam et</span>
         </div>
         <div className="ega-dashboard-kpi">
           <strong>{orderCounts.paid}</strong>
-          <span>Tamamlanan sipariş</span>
+          <span>Aktif paket / sipariş</span>
         </div>
       </section>
 
-      <StudentOperationalOverviewPanel />
+      <section className="ega-dashboard-card">
+        <div className="ega-dashboard-card__head">
+          <div>
+            <div className="ega-pill">Hızlı Başlangıç</div>
+            <h2>Bugün nereden devam etmek istiyorsun?</h2>
+          </div>
+        </div>
+        <div className="ega-actions">
+          <Link className="ega-button" href="/derslerim">
+            Derse Devam Et
+          </Link>
+          <Link className="ega-button ega-button--ghost" href="/paketlerimiz">
+            Paketlerimi Gör
+          </Link>
+          <a className="ega-button ega-button--ghost" href="#ogrenci-programi">
+            Programımı Gör
+          </a>
+        </div>
+      </section>
+
+      <div id="ogrenci-programi">
+        <StudentOperationalOverviewPanel />
+      </div>
 
       <StudentLmsDashboard />
 

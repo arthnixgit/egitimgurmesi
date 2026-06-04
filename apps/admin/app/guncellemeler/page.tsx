@@ -59,7 +59,7 @@ export default function DeploymentPage() {
           <span className="admin-badge admin-badge--warm">Yayın ve Güncelleme</span>
           <h1>VDS güncellemesini güvenli şekilde başlatın.</h1>
           <p>
-            Güncellemeler GitHub Actions üzerinden tetiklenir; sunucuda kilitli deploy akışı çalışır.
+            Yayın işlemleri GitHub Actions üzerinden tetiklenir; sunucuda güvenli güncelleme akışı çalışır.
           </p>
 
           <div className="admin-dashboard-hero__actions">
@@ -75,7 +75,7 @@ export default function DeploymentPage() {
               Durumu Yenile
             </button>
             <Link className="admin-button--ghost" href="/denetim">
-              Denetim Kayıtları
+              Sistem Kayıtları
             </Link>
           </div>
         </div>

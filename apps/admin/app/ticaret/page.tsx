@@ -682,8 +682,7 @@ export default function AdminCommercePage() {
               <span className="admin-badge">{tabMeta[activeTab].label}</span>
               <h1>{tabMeta[activeTab].description}</h1>
               <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
-                Bu sürüm belge editörü değil. Kayıtlar form tabanlı yönetilir. Sipariş tarafında
-                operasyon kararları zaman çizelgesiyle birlikte görünür.
+                Paketleri, kategorileri ve sipariş operasyonunu yönetin.
               </p>
             </div>
           </div>
@@ -697,9 +696,7 @@ export default function AdminCommercePage() {
                 <div className="admin-toolbar admin-toolbar--split">
                   <div className="admin-editor-meta">
                     <span className="admin-badge">Kategori Listesi</span>
-                    <span className="admin-editor-meta__text">
-                      Ana kategori ve alt kategori kayıtları
-                    </span>
+                    <span className="admin-editor-meta__text">Kategori yapısı</span>
                   </div>
                   <button className="admin-button" type="button" onClick={openNewCategoryForm}>
                     Yeni Kategori
@@ -755,9 +752,7 @@ export default function AdminCommercePage() {
                 <div className="admin-toolbar admin-toolbar--split">
                   <div className="admin-editor-meta">
                     <span className="admin-badge">Ürün Listesi</span>
-                    <span className="admin-editor-meta__text">
-                      Varyantlar ve provider eşleşmeleri dahil
-                    </span>
+                    <span className="admin-editor-meta__text">Paket kataloğu</span>
                   </div>
                   <button className="admin-button" type="button" onClick={openNewProductForm}>
                     Yeni Ürün
@@ -808,9 +803,7 @@ export default function AdminCommercePage() {
               <div className="admin-orders-list">
                 <div className="admin-editor-meta">
                   <span className="admin-badge">Siparişler</span>
-                  <span className="admin-editor-meta__text">
-                    Arama, filtreleme ve hızlı operasyon görünümü
-                  </span>
+                  <span className="admin-editor-meta__text">Sipariş takibi</span>
                 </div>
 
                 <div className="admin-filter-grid">
@@ -1502,10 +1495,8 @@ function ProductForm({
 
       <section className="admin-subpanel">
         <div className="admin-editor-meta">
-          <span className="admin-badge">Tanıtım Videosu</span>
-          <span className="admin-editor-meta__text">
-            Aynı video alanı ana sayfa kartlarında, paket listesinde ve detay sayfasında oynatılır
-          </span>
+          <span className="admin-badge">Video</span>
+          <span className="admin-editor-meta__text">Paket tanıtım medyasını yönetin.</span>
         </div>
 
         <div className="admin-form-grid">
@@ -1534,7 +1525,7 @@ function ProductForm({
               className="admin-input"
               value={draft.introVideoTitle ?? ""}
               onChange={(event) => onChange({ ...draft, introVideoTitle: event.target.value })}
-              placeholder="Kart içindeki video etiketi"
+              placeholder="Video başlığı"
             />
           </div>
         </div>
@@ -1546,7 +1537,7 @@ function ProductForm({
               value={draft.introVideoUrl ?? ""}
               kinds={["VIDEO"]}
               pickerTitle={`${draft.name || "Ürün"} tanıtım videosu seç`}
-              placeholder="Cloud streamer embed ya da doğrudan video adresi"
+              placeholder="Embed veya doğrudan video URL'si"
               onChange={(value) => onChange({ ...draft, introVideoUrl: value })}
               onSelectAsset={(asset) =>
                 onChange({
@@ -1564,7 +1555,7 @@ function ProductForm({
               disabled={mediaBusy || !draft.introVideoUrl?.trim()}
               onClick={() => void handleNormalizeIntroVideoUrl()}
             >
-              Google Drive / Cloud URL Normalize Et
+              Bağlantıyı Düzenle
             </button>
           </div>
           <div className="admin-field">
@@ -2159,7 +2150,7 @@ function OrderManagementPanel({
 
         <section className="admin-subpanel">
           <div className="admin-editor-meta">
-            <span className="admin-badge">External Orders</span>
+            <span className="admin-badge">Harici Siparişler</span>
           </div>
           <div className="admin-stack">
             {order.externalOrders.length ? (

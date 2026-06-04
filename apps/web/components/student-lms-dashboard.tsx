@@ -59,11 +59,11 @@ export function StudentLmsDashboard() {
     <section className="ega-dashboard-card">
       <div className="ega-dashboard-card__head">
         <div>
-          <div className="ega-pill">LMS</div>
-          <h2>Derslerim</h2>
+          <div className="ega-pill">Derslerim</div>
+          <h2>Kaldığın yerden devam et</h2>
         </div>
         <Link className="ega-button ega-button--ghost" href="/derslerim">
-          Tümünü Aç
+          Derslerimi Aç
         </Link>
       </div>
 
@@ -115,7 +115,7 @@ export function StudentLmsDashboard() {
           ) : (
             <div className="ega-dashboard-empty">
               <p>
-                Aktif ders erişimi bulunmuyor. Ders paketleri hesabına tanımlandığında listelenir.
+                Ders erişimi tanımlandığında burada görünecek. Bu sırada paketleri inceleyebilirsin.
               </p>
               <div className="ega-actions">
                 <Link className="ega-button" href="/paketlerimiz">

@@ -5,18 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { loginStaff, saveStaffTokens } from "../../lib/auth-client";
-
-const loginHighlights = [
-  "İçerik, ürün, medya ve lead yönetimi tek panelde",
-  "Sol menüden modül seç, içeride sayfa veya kayıt seç",
-  "Kaydetmeden önce hangi alanı değiştirdiğini net gör"
-] as const;
-
-const modulePreview = [
-  { label: "İçerik", text: "Ana sayfa, navbar, akademik kadro, ücretsiz materyaller" },
-  { label: "Ticaret", text: "Paketler, kategoriler, fiyatlar ve siparişler" },
-  { label: "Medya", text: "Görsel, PDF, video ve Google Drive bağlantıları" }
-] as const;
+import { getStaffDefaultRoute } from "../../lib/role-routing";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -33,7 +22,12 @@ export default function StaffLoginPage() {
     try {
       const response = await loginStaff({ email, password });
       saveStaffTokens(response);
-      router.push("/");
+      router.push(
+        getStaffDefaultRoute({
+          roleKeys: response.staffUser.roleKeys,
+          permissionKeys: response.staffUser.permissionKeys
+        })
+      );
     } catch (submissionError) {
       setError(
         submissionError instanceof Error ? submissionError.message
@@ -53,38 +47,28 @@ export default function StaffLoginPage() {
         </div>
 
         <div>
-          <span className="admin-badge admin-badge--warm">Yönetim Paneli</span>
-          <h1>Website yönetimini tek, sade ve yönlendiren panelde topla.</h1>
+          <span className="admin-badge admin-badge--warm">Güvenli Personel Girişi</span>
+          <h1>Eğitim operasyonunu yetkine göre yönet.</h1>
           <p>
-            Bu panel teknik kullanıcılar için değil; içerik, satış ve operasyon ekibinin her gün
-            rahat kullanması için düzenlendi.
+            Giriş yaptıktan sonra yalnızca rolüne uygun panel, işlemler ve yönetim alanları açılır.
           </p>
         </div>
 
         <div className="admin-login-highlights">
-          {loginHighlights.map((item) => (
+          {["Rol bazlı panel", "Şube ve ekip kapsamı", "Güvenli yönetim erişimi"].map((item) => (
             <div key={item} className="admin-login-highlight">
               <span>✓</span>
               <strong>{item}</strong>
             </div>
           ))}
         </div>
-
-        <div className="admin-login-module-preview">
-          {modulePreview.map((module) => (
-            <article key={module.label}>
-              <strong>{module.label}</strong>
-              <span>{module.text}</span>
-            </article>
-          ))}
-        </div>
       </section>
 
       <section className="admin-login-card">
         <span className="admin-badge">Personel girişi</span>
-        <h2>Paneline giriş yap</h2>
+        <h2>Hesabına giriş yap</h2>
         <p>
-          Giriş yaptıktan sonra sol menüden modül seçebilir, ilgili sayfa veya kaydı düzenleyebilirsin.
+          Yetki kapsamına göre yönetim paneline yönlendirileceksin.
         </p>
 
         <form className="admin-form" onSubmit={handleSubmit}>

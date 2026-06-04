@@ -257,7 +257,7 @@ export default function AdminLeadsPage() {
 
       <div className="admin-panel-grid">
         <aside className="admin-card admin-sidebar">
-          <span className="admin-badge">Lead Yönetimi</span>
+          <span className="admin-badge">Ön Görüşme Talepleri</span>
           <h2 style={{ marginTop: 18 }}>Ön Görüşme Talepleri</h2>
           <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
             Başvuru taleplerini takip edin, filtreleyin ve ekibe atayın.

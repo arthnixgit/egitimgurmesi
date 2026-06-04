@@ -122,7 +122,7 @@ const sectionLinks: Array<{
   { key: "staffAssignments", href: "/saas/personel-atamalari", label: "Personel Atamaları", description: "Şube rol bağlantıları" },
   { key: "studentMemberships", href: "/saas/ogrenci-uyelikleri", label: "Öğrenci Üyelikleri", description: "Öğrenciyi şubeye bağla" },
   { key: "classGroups", href: "/saas/sinif-gruplar", label: "Sınıf / Grup Yönetimi", description: "Şube sınıfları ve gruplar" },
-  { key: "scope", href: "/saas/kapsam", label: "Yetki ve Kapsam Görünümü", description: "Aktif erişim teşhisi" }
+  { key: "scope", href: "/saas/kapsam", label: "Yetki Özeti", description: "Rol ve şube kapsamı" }
 ];
 
 const emptyOrganizationDraft: OrganizationDraft = {
@@ -171,11 +171,11 @@ const emptyClassGroupDraft: ClassGroupDraft = {
 };
 
 const staffRoles: Array<{ value: StaffBranchRole; label: string }> = [
-  { value: "BRANCH_ADMIN", label: "Branch Admin" },
-  { value: "INSTRUCTOR", label: "Instructor" },
-  { value: "COACH", label: "Coach" },
-  { value: "ACCOUNTANT", label: "Accountant" },
-  { value: "STAFF", label: "Staff" }
+  { value: "BRANCH_ADMIN", label: "Şube Yöneticisi" },
+  { value: "INSTRUCTOR", label: "Eğitmen" },
+  { value: "COACH", label: "Koç" },
+  { value: "ACCOUNTANT", label: "Finans Yetkilisi" },
+  { value: "STAFF", label: "Personel" }
 ];
 
 const membershipStatuses: Array<{ value: BranchMembershipStatus; label: string }> = [
@@ -829,8 +829,8 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     <main className="admin-shell admin-saas-shell">
       <header className="admin-saas-hero">
         <div>
-          <span className="admin-badge">SaaS Yönetimi</span>
-          <h1>Organizasyon, merkez ve şube operasyonları</h1>
+          <span className="admin-badge">Kurum ve Şube Yönetimi</span>
+          <h1>Kurum, merkez ve şube operasyonları</h1>
           <p>
             {staff?.staffUser.firstName} {staff?.staffUser.lastName} için mevcut kapsam:
             {" "}
@@ -842,7 +842,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         </button>
       </header>
 
-      <nav className="admin-saas-tabs" aria-label="SaaS Yönetimi">
+      <nav className="admin-saas-tabs" aria-label="Kurum ve Şube Yönetimi">
         {sectionLinks.map((section) => (
           <Link
             key={section.key}
@@ -1264,22 +1264,30 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
-          <span className="admin-badge">Yetki ve Kapsam Görünümü</span>
-          <h2>Mevcut admin erişimi</h2>
+          <span className="admin-badge">Yetki Özeti</span>
+          <h2>Rol ve erişim kapsamı</h2>
           <div className="admin-saas-diagnostics">
-            <Diagnostic label="Mevcut Rol" value={staffOverview?.roleKeys.join(", ") || "Rol yok"} />
+            <Diagnostic label="Rol" value={staffOverview?.roleKeys.join(", ") || "Rol yok"} />
             <Diagnostic label="Organizasyon Yetkisi" value={resolvedScope?.actor.organizationId || "Tüm organizasyonlar veya henüz atanmadı"} />
             <Diagnostic label="Şube Yetkisi" value={resolvedScope?.actor.branchIds.length ? resolvedScope.actor.branchIds.join(", ") : "Tüm şubeler veya henüz atanmadı"} />
             <Diagnostic label="Super Admin" value={resolvedScope?.actor.isSuperAdmin ? "Evet" : "Hayır"} />
+            <Diagnostic label="Yetki Sayısı" value={`${staffOverview?.permissionKeys.length ?? 0} aktif yetki`} />
           </div>
-          <h3>İzinler</h3>
-          <div className="admin-saas-permission-grid">
-            {(staffOverview?.permissionKeys ?? []).map((permission) => <span key={permission}>{permission}</span>)}
-          </div>
+          <details className="admin-saas-advanced">
+            <summary>Teknik yetki anahtarlarını göster</summary>
+            <div className="admin-saas-permission-grid">
+              {(staffOverview?.permissionKeys ?? []).map((permission) => <span key={permission}>{permission}</span>)}
+            </div>
+          </details>
         </article>
         <article className="admin-card">
-          <span className="admin-badge">Kapsam Detayı</span>
-          <pre className="admin-saas-json">{JSON.stringify(resolvedScope, null, 2)}</pre>
+          <span className="admin-badge">Gelişmiş</span>
+          <h2>Teknik kapsam detayı</h2>
+          <p>Destek ve denetim gerektiğinde ayrıntılı kapsam bilgisi açılabilir.</p>
+          <details className="admin-saas-advanced">
+            <summary>Teknik detayları göster</summary>
+            <pre className="admin-saas-json">{JSON.stringify(resolvedScope, null, 2)}</pre>
+          </details>
         </article>
       </section>
     );

@@ -619,7 +619,7 @@ export default function OperationsPage() {
         {canViewFinance ? (
         <article className="admin-card">
           <span className="admin-pill">Muhasebe</span>
-          <h2>Beta finans özeti</h2>
+          <h2>Finans Özeti</h2>
           <div className="admin-stack">
             {dashboard?.finance.recentOrders.map((order, index) => (
               <div className="admin-record-item" key={String(order.id ?? index)}>
@@ -632,7 +632,7 @@ export default function OperationsPage() {
             ))}
             {dashboard?.finance.placeholders.map((item) => (
               <div className="admin-empty-state" key={item}>
-                {item} operasyonel beta sonrası detaylandırılacak.
+                {item} kayıtları eklendiğinde burada görüntülenir.
               </div>
             ))}
           </div>

@@ -235,7 +235,7 @@ export default function AdminAuditPage() {
             </div>
             <div className="admin-kpi">
               <strong>{selectedLog ? selectedLog.entityType : "-"}</strong>
-              <span>Seçili entity</span>
+              <span>Seçili kayıt</span>
             </div>
             <div className="admin-kpi">
               <strong>{selectedLog ? selectedLog.actorType : "-"}</strong>
@@ -250,13 +250,13 @@ export default function AdminAuditPage() {
                 className="admin-input"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Action, entity veya summary"
+                placeholder="İşlem, kayıt türü veya özet"
               />
             </div>
 
             <div className="admin-form-grid">
               <div className="admin-field">
-                <label>Entity Type</label>
+                <label>Kayıt Türü</label>
                 <input
                   className="admin-input"
                   value={entityTypeFilter}
@@ -283,7 +283,7 @@ export default function AdminAuditPage() {
             </div>
 
             <div className="admin-field">
-              <label>Action</label>
+              <label>İşlem</label>
               <input
                 className="admin-input"
                 value={actionFilter}
@@ -301,11 +301,10 @@ export default function AdminAuditPage() {
         <section className="admin-editor-panel">
           <header className="admin-card admin-editor-header">
             <div>
-              <span className="admin-badge">Audit Stream</span>
-              <h1>Request-time access checks and change visibility</h1>
+              <span className="admin-badge">Denetim</span>
+              <h1>İşlem Geçmişi</h1>
               <p className="admin-editor-meta__text">
-                Oturum artık canlı session ve personel durumu ile doğrulanır. Buradaki kayıtlar da
-                içerik ve ticaret modüllerinde oluşan değişiklikleri izlenebilir hale getirir.
+                İçerik, ticaret ve operasyon kayıtlarındaki kritik değişiklikleri izleyin.
               </p>
             </div>
           </header>
@@ -373,11 +372,11 @@ export default function AdminAuditPage() {
 
                   <div className="admin-detail-grid">
                     <div className="admin-list__item">
-                      <strong>Action</strong>
+                      <strong>İşlem</strong>
                       <div>{selectedLog.action}</div>
                     </div>
                     <div className="admin-list__item">
-                      <strong>Entity</strong>
+                      <strong>Kayıt</strong>
                       <div>
                         {selectedLog.entityType} / {selectedLog.entityId}
                       </div>
@@ -408,7 +407,7 @@ export default function AdminAuditPage() {
                   <div className="admin-record-grid admin-record-grid--stackable">
                     <div className="admin-subpanel">
                       <div className="admin-editor-meta">
-                        <span className="admin-badge">Before</span>
+                        <span className="admin-badge">Önce</span>
                       </div>
                       <pre className="admin-code-block">
                         {formatJsonBlock(selectedLog.beforeData)}
@@ -417,7 +416,7 @@ export default function AdminAuditPage() {
 
                     <div className="admin-subpanel">
                       <div className="admin-editor-meta">
-                        <span className="admin-badge">After</span>
+                        <span className="admin-badge">Sonra</span>
                       </div>
                       <pre className="admin-code-block">
                         {formatJsonBlock(selectedLog.afterData)}
@@ -427,7 +426,7 @@ export default function AdminAuditPage() {
 
                   <div className="admin-subpanel">
                     <div className="admin-editor-meta">
-                      <span className="admin-badge">Metadata</span>
+                      <span className="admin-badge">Ek Bilgi</span>
                       <span className="admin-editor-meta__text">
                         User-agent ve ek bağlam bilgileri
                       </span>
