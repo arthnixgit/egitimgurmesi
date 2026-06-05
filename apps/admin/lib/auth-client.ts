@@ -1,6 +1,10 @@
 function resolveApiBaseUrl() {
   const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 
+  if (configured && /^https?:\/\//i.test(configured)) {
+    return configured.replace(/\/+$/, "");
+  }
+
   if (typeof window !== "undefined") {
     const isLocalDev =
       window.location.protocol === "http:" &&
@@ -11,10 +15,6 @@ function resolveApiBaseUrl() {
     }
 
     return `${window.location.origin}/v1`;
-  }
-
-  if (configured && /^https?:\/\//i.test(configured)) {
-    return configured.replace(/\/+$/, "");
   }
 
   return "http://localhost:4000/v1";
