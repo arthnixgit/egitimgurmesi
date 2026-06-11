@@ -8,6 +8,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -80,9 +82,19 @@ export default function AdminMediaPage() {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
-        setError(requestError instanceof Error ? requestError.message : "Medya kayıtları yüklenemedi.");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+        setError(
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Bu alan için yetkiniz bulunmuyor.",
+            notFound: "Medya kaydı bulunamadı.",
+            server: "Medya servisine ulaşılamadı.",
+            fallback: "Medya kayıtları yüklenemedi."
+          })
+        );
       } finally {
         if (active) {
           setLoading(false);

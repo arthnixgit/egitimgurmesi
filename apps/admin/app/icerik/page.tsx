@@ -13,6 +13,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff,
   saveAdminFreeMaterialsDocument,
   saveAdminMarketingPage,
@@ -280,11 +282,19 @@ export default function AdminContentStudioPage() {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
         setError(
-          requestError instanceof Error ? requestError.message
-            : "İçerik stüdyosu verileri yüklenemedi."
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Bu alan için yetkiniz bulunmuyor.",
+            notFound: "İçerik kaydı bulunamadı.",
+            server: "İçerik servisine ulaşılamadı.",
+            fallback: "İçerik stüdyosu verileri yüklenemedi."
+          })
         );
       } finally {
         if (active) {

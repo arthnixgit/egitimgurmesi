@@ -93,7 +93,7 @@ export class AdminContentService {
     });
 
     if (!menu) {
-      throw new NotFoundException("Navigation menu not found.");
+      return createEmptyNavigationMenu(key);
     }
 
     return normalizeNavigationMenu(menu);
@@ -550,6 +550,18 @@ function normalizeNavigationMenu(menu: NavigationMenuWithItems) {
     description: menu.description,
     isActive: menu.isActive,
     items: buildNavigationTree(menu.items)
+  };
+}
+
+function createEmptyNavigationMenu(key: string) {
+  return {
+    id: "",
+    key,
+    name: key === "primary" ? "Primary Navigation" : key,
+    location: key === "primary" ? "PRIMARY" : key.toUpperCase(),
+    description: null,
+    isActive: true,
+    items: []
   };
 }
 

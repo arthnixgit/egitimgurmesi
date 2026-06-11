@@ -235,11 +235,26 @@ async function githubRequest<T>(
   }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GitHub request failed with ${response.status}: ${text.slice(0, 240)}`);
+    throw new Error(getGithubConnectionErrorMessage(response.status));
   }
 
   return (await response.json()) as T;
+}
+
+function getGithubConnectionErrorMessage(status: number) {
+  if (status === 401 || status === 403) {
+    return "GitHub bağlantısı doğrulanamadı. Token, repository ve workflow yetkilerini kontrol edin.";
+  }
+
+  if (status === 404) {
+    return "GitHub repository, branch veya workflow bulunamadı. Yayın ayarlarını kontrol edin.";
+  }
+
+  if (status >= 500) {
+    return "GitHub servisinden geçici yanıt alınamadı. Bir süre sonra tekrar deneyin.";
+  }
+
+  return "GitHub bağlantısı kontrol edilemedi. Yayın ayarlarını gözden geçirin.";
 }
 
 function mapCommit(commit: GitHubCommitResponse) {

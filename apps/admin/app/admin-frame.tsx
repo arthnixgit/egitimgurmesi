@@ -126,7 +126,7 @@ const adminModules: AdminModule[] = [
     label: "Medya Kütüphanesi",
     description: "Görsel, doküman ve video bağlantıları",
     group: "İçerik ve Satış",
-    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "media.manage")
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
   },
   {
     href: "/personel",
@@ -158,7 +158,7 @@ const adminModules: AdminModule[] = [
     label: "Yayın ve Güncelleme",
     description: "Sürüm durumu ve yayın akışı",
     group: "Sistem",
-    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "maintenance.deploy")
+    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "maintenance.manage")
   }
 ];
 

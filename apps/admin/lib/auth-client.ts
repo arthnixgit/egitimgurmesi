@@ -238,6 +238,57 @@ type StaffRequestInit = Omit<RequestInit, "body"> & {
   body?: unknown;
 };
 
+export class AdminApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "AdminApiError";
+    this.status = status;
+  }
+}
+
+export function isStaffSessionError(error: unknown) {
+  return (
+    (error instanceof AdminApiError && error.status === 401) ||
+    (error instanceof Error &&
+      (error.message === "Staff session is missing." || error.message === "Refresh token is missing."))
+  );
+}
+
+export function getAdminRequestErrorMessage(
+  error: unknown,
+  messages: {
+    forbidden?: string;
+    notFound?: string;
+    server?: string;
+    network?: string;
+    fallback?: string;
+  } = {}
+) {
+  if (error instanceof AdminApiError) {
+    if (error.status === 403) {
+      return messages.forbidden ?? "Bu alan için yetkiniz bulunmuyor.";
+    }
+
+    if (error.status === 404) {
+      return messages.notFound ?? "Kayıt bulunamadı.";
+    }
+
+    if (error.status >= 500) {
+      return messages.server ?? "Servise ulaşılamadı. Lütfen tekrar deneyin.";
+    }
+
+    return error.message;
+  }
+
+  if (error instanceof TypeError) {
+    return messages.network ?? "Servise ulaşılamadı. Bağlantınızı kontrol edin.";
+  }
+
+  return error instanceof Error ? error.message : messages.fallback ?? "İşlem tamamlanamadı.";
+}
+
 async function parseError(response: Response) {
   let payload: ApiErrorPayload | null = null;
 
@@ -247,7 +298,7 @@ async function parseError(response: Response) {
     payload = null;
   }
 
-  throw new Error(payload?.message || "Request could not be processed.");
+  throw new AdminApiError(payload?.message || "Request could not be processed.", response.status);
 }
 
 async function request<T>(path: string, init?: RequestInit) {

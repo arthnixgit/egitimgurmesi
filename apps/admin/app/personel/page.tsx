@@ -7,6 +7,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -117,11 +119,22 @@ export default function AdminStaffManagementPage() {
           return;
         }
 
-        clearStaffTokens();
-        setStaff(null);
-        setOverview(null);
-        setManagement(null);
-        setError(requestError instanceof Error ? requestError.message : "Personel yönetimi yüklenemedi.");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          setStaff(null);
+          setOverview(null);
+          setManagement(null);
+          router.replace("/giris");
+          return;
+        }
+        setError(
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Bu alan için yetkiniz bulunmuyor.",
+            notFound: "Personel kaydı bulunamadı.",
+            server: "Personel servisine ulaşılamadı.",
+            fallback: "Personel yönetimi yüklenemedi."
+          })
+        );
       } finally {
         if (active) {
           setLoading(false);
