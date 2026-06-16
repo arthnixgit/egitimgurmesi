@@ -71,6 +71,7 @@ export type StartCheckoutResponse =
       mode: "local_gateway";
       provider: "PAYTR";
       orderNumber: string;
+      checkoutUrl: string;
       redirectUrl: string;
     }
   | {

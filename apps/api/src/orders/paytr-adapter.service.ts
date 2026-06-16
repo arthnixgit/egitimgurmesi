@@ -65,7 +65,7 @@ export class PaytrAdapterService {
     const merchantKey = appEnv.paymentApiKey().trim();
     const merchantSalt = appEnv.paymentSecretKey().trim();
     const baseUrl = appEnv.paymentBaseUrl().trim() || "https://www.paytr.com";
-    const testMode = baseUrl.includes("sandbox") ? "1" : "0";
+    const testMode = appEnv.paymentTestMode() ? "1" : "0";
     const basket = Buffer.from(
       JSON.stringify(
         input.basketItems.map((item) => [item.name, item.unitPrice, item.quantity])

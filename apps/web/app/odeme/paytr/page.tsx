@@ -5,6 +5,7 @@ type PaytrCheckoutPageProps = {
   searchParams: Promise<{
     order?: string;
     token?: string;
+    checkoutUrl?: string;
   }>;
 };
 
@@ -33,6 +34,7 @@ export default async function PaytrCheckoutPage({ searchParams }: PaytrCheckoutP
   const params = await searchParams;
   const orderNumber = params.order ?? null;
   const token = params.token ?? null;
+  const checkoutUrl = resolvePaytrCheckoutUrl(params.checkoutUrl ?? null, token);
 
   return (
     <PublicPageLayout>
@@ -41,10 +43,10 @@ export default async function PaytrCheckoutPage({ searchParams }: PaytrCheckoutP
           <h1>Güvenli ödeme ekranı</h1>
           <p>Ödemen bu ekranda PayTR altyapısı üzerinden tamamlanır.</p>
 
-          {token ? (
+          {checkoutUrl ? (
             <iframe
               title="PayTR Güvenli Ödeme"
-              src={`https://www.paytr.com/odeme/guvenli/${encodeURIComponent(token)}`}
+              src={checkoutUrl}
               style={{
                 width: "100%",
                 minHeight: "720px",
@@ -76,4 +78,29 @@ export default async function PaytrCheckoutPage({ searchParams }: PaytrCheckoutP
       </main>
     </PublicPageLayout>
   );
+}
+
+function resolvePaytrCheckoutUrl(rawCheckoutUrl: string | null, token: string | null) {
+  if (rawCheckoutUrl) {
+    try {
+      const url = new URL(rawCheckoutUrl);
+      const hostname = url.hostname.toLowerCase();
+
+      if (
+        url.protocol === "https:" &&
+        (hostname === "www.paytr.com" || hostname.endsWith(".paytr.com")) &&
+        url.pathname.startsWith("/odeme/guvenli/")
+      ) {
+        return url.toString();
+      }
+    } catch {
+      // Fall back to the token-based hosted checkout URL below.
+    }
+  }
+
+  if (!token) {
+    return null;
+  }
+
+  return `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(token)}`;
 }

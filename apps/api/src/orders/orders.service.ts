@@ -506,7 +506,12 @@ export class OrdersService {
         mode: "local_gateway" as const,
         provider: "PAYTR" as const,
         orderNumber: order.orderNumber,
-        redirectUrl: `${publicAppUrl()}/odeme/paytr?order=${encodeURIComponent(order.orderNumber)}&token=${encodeURIComponent(checkoutSession.token)}`
+        checkoutUrl: checkoutSession.checkoutUrl,
+        redirectUrl: buildPaytrHostedCheckoutPageUrl({
+          orderNumber: order.orderNumber,
+          token: checkoutSession.token,
+          checkoutUrl: checkoutSession.checkoutUrl
+        })
       };
     }
 
@@ -711,8 +716,21 @@ export class OrdersService {
     }
 
     const result = this.paytrAdapterService.verifyCallback(input.callbackPayload);
-    const paymentSucceeded = result.status === "success";
+    const expectedTotalAmount = decimalAmountToPaytrKurus(order.totalAmount);
+    const receivedTotalAmount = normalizePaytrKurus(result.totalAmount);
+    const amountVerified = receivedTotalAmount === expectedTotalAmount;
+    const amountMismatch = !amountVerified;
+    const paymentSucceeded = result.status === "success" && amountVerified;
     const now = new Date();
+
+    if (
+      order.status === OrderStatus.PAID &&
+      primaryPayment.status === PaymentStatus.PAID &&
+      externalOrder.status === ExternalProviderOrderStatus.CONFIRMED &&
+      externalOrder.callbackVerified
+    ) {
+      return "OK";
+    }
 
     const nextOrderStatus = paymentSucceeded ? OrderStatus.PAID : OrderStatus.FAILED;
     const nextPaymentStatus = paymentSucceeded ? PaymentStatus.PAID : PaymentStatus.FAILED;
@@ -737,8 +755,17 @@ export class OrdersService {
           status: nextPaymentStatus,
           providerReference: result.merchantOrderId,
           providerTransactionId: result.merchantOrderId,
-          failureReason: paymentSucceeded ? null : result.failedReasonMessage || "PayTR ödeme başarısız oldu.",
-          metadata: result as Prisma.InputJsonValue,
+          failureReason: paymentSucceeded
+            ? null
+            : amountMismatch
+              ? "PayTR ödeme tutarı sipariş tutarıyla eşleşmedi."
+              : result.failedReasonMessage || "PayTR ödeme başarısız oldu.",
+          metadata: {
+            ...result,
+            amountVerified,
+            expectedTotalAmount,
+            receivedTotalAmount
+          } as Prisma.InputJsonValue,
           paidAt: paymentSucceeded ? now : null
         }
       });
@@ -752,14 +779,21 @@ export class OrdersService {
           redirectedAt: externalOrder.redirectedAt ?? now,
           returnedAt: now,
           callbackReceivedAt: now,
-          callbackVerified: true,
-          externalStatus: result.status,
-          responsePayload: result as Prisma.InputJsonValue,
+          callbackVerified: amountVerified,
+          externalStatus: amountMismatch ? "amount_mismatch" : result.status,
+          responsePayload: {
+            ...result,
+            amountVerified,
+            expectedTotalAmount,
+            receivedTotalAmount
+          } as Prisma.InputJsonValue,
           callbackPayload: {
             source: "paytr_callback",
             merchantOrderId: result.merchantOrderId,
             paymentAmount: result.paymentAmount,
             totalAmount: result.totalAmount,
+            expectedTotalAmount,
+            amountVerified,
             paymentType: result.paymentType,
             userAgent: input.userAgent ?? null,
             userIp: sanitizeUserIp(input.ipAddress),
@@ -780,8 +814,17 @@ export class OrdersService {
             userAgent: input.userAgent ?? null,
             userIp: sanitizeUserIp(input.ipAddress)
           },
-          responsePayload: result as Prisma.InputJsonValue,
-          errorMessage: paymentSucceeded ? null : result.failedReasonMessage ?? "Payment failed",
+          responsePayload: {
+            ...result,
+            amountVerified,
+            expectedTotalAmount,
+            receivedTotalAmount
+          } as Prisma.InputJsonValue,
+          errorMessage: paymentSucceeded
+            ? null
+            : amountMismatch
+              ? `PayTR amount mismatch. Expected ${expectedTotalAmount}, received ${receivedTotalAmount}.`
+              : result.failedReasonMessage ?? "Payment failed",
           completedAt: now
         }
       });
@@ -965,6 +1008,41 @@ function publicAppUrl() {
 
 function appPaymentProvider() {
   return appEnv.paymentProvider();
+}
+
+function buildPaytrHostedCheckoutPageUrl(input: {
+  orderNumber: string;
+  token: string;
+  checkoutUrl: string;
+}) {
+  const params = new URLSearchParams({
+    order: input.orderNumber,
+    token: input.token,
+    checkoutUrl: input.checkoutUrl
+  });
+
+  return `${publicAppUrl()}/odeme/paytr?${params.toString()}`;
+}
+
+function decimalAmountToPaytrKurus(amount: Prisma.Decimal) {
+  const fixed = amount.toFixed(2);
+  const match = /^(\d+)\.(\d{2})$/.exec(fixed);
+
+  if (!match) {
+    throw new BadRequestException("Geçersiz sipariş tutarı.");
+  }
+
+  return normalizePaytrKurus(`${match[1]}${match[2]}`);
+}
+
+function normalizePaytrKurus(value: string) {
+  const normalized = value.trim();
+
+  if (!/^\d+$/.test(normalized)) {
+    throw new BadRequestException("PayTR ödeme tutarı geçersiz.");
+  }
+
+  return normalized.replace(/^0+(?=\d)/, "");
 }
 
 function ensureUserActor(auth: AuthenticatedRequestContext) {

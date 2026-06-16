@@ -51,6 +51,8 @@ export const appEnv = {
   paymentApiKey: () => process.env.PAYMENT_API_KEY ?? "",
   paymentSecretKey: () => process.env.PAYMENT_SECRET_KEY ?? "",
   paymentBaseUrl: () => process.env.PAYMENT_BASE_URL ?? "",
+  paymentTestMode: () =>
+    ["1", "true", "yes", "on"].includes((process.env.PAYMENT_TEST_MODE ?? "").trim().toLowerCase()),
   mediaStorageDir: () => process.env.MEDIA_STORAGE_DIR?.trim() || "../../storage/media",
   mediaPublicBaseUrl: () =>
     process.env.MEDIA_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "") || `${appEnv.apiAppUrl()}/v1`,
