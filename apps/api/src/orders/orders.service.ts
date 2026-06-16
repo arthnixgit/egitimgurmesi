@@ -414,8 +414,9 @@ export class OrdersService {
       }
 
       const billingProfile = resolveLocalGatewayBillingProfile(order, input);
+      const paytrMerchantOrderId = buildPaytrMerchantOrderId(order.orderNumber);
       const checkoutSession = await this.paytrAdapterService.initializeHostedCheckout({
-        merchantOrderId: order.orderNumber,
+        merchantOrderId: paytrMerchantOrderId,
         email: order.user.email,
         userIp: sanitizeUserIp(input.ipAddress),
         paymentAmount: order.totalAmount.toFixed(2),
@@ -437,9 +438,12 @@ export class OrdersService {
             where: { id: localExternalOrder.id },
             data: {
               status: ExternalProviderOrderStatus.REDIRECT_READY,
+              externalReference: paytrMerchantOrderId,
               checkoutUrl: checkoutSession.checkoutUrl,
               redirectToken: checkoutSession.token,
               requestPayload: {
+                orderNumber: order.orderNumber,
+                paytrMerchantOrderId,
                 billingCity: billingProfile.city,
                 billingCountry: billingProfile.country
               } as Prisma.InputJsonValue,
@@ -451,18 +455,21 @@ export class OrdersService {
             data: {
               orderId: order.id,
               orderItemId: firstItem.id,
-            paymentId: firstPayment.id,
-            provider: ExternalProvider.LOCAL,
-            externalProductId: firstItem.product.slug,
-            externalVariantId: firstItem.variant?.sku ?? firstItem.variantId ?? null,
-            status: ExternalProviderOrderStatus.REDIRECT_READY,
-            checkoutUrl: checkoutSession.checkoutUrl,
-            redirectToken: checkoutSession.token,
-            requestPayload: {
-              billingCity: billingProfile.city,
-              billingCountry: billingProfile.country
-            } as Prisma.InputJsonValue,
-            responsePayload: checkoutSession.rawResponse as Prisma.InputJsonValue
+              paymentId: firstPayment.id,
+              provider: ExternalProvider.LOCAL,
+              externalProductId: firstItem.product.slug,
+              externalVariantId: firstItem.variant?.sku ?? firstItem.variantId ?? null,
+              externalReference: paytrMerchantOrderId,
+              status: ExternalProviderOrderStatus.REDIRECT_READY,
+              checkoutUrl: checkoutSession.checkoutUrl,
+              redirectToken: checkoutSession.token,
+              requestPayload: {
+                orderNumber: order.orderNumber,
+                paytrMerchantOrderId,
+                billingCity: billingProfile.city,
+                billingCountry: billingProfile.country
+              } as Prisma.InputJsonValue,
+              responsePayload: checkoutSession.rawResponse as Prisma.InputJsonValue
             }
           });
         }
@@ -473,6 +480,7 @@ export class OrdersService {
             status: PaymentStatus.PENDING,
             metadata: {
               provider: "paytr",
+              paytrMerchantOrderId,
               checkoutToken: checkoutSession.token
             } as Prisma.InputJsonValue
           }
@@ -492,6 +500,7 @@ export class OrdersService {
             status: PaymentAttemptStatus.SUCCEEDED,
             requestPayload: {
               orderNumber: order.orderNumber,
+              paytrMerchantOrderId,
               provider: "paytr",
               userAgent: input.userAgent ?? null
             },
@@ -691,17 +700,29 @@ export class OrdersService {
   }
 
   async handlePaytrCallback(
-    orderNumber: string,
+    merchantOrderId: string,
     input: {
       callbackPayload: Record<string, string | undefined>;
       ipAddress?: string;
       userAgent?: string;
     }
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { orderNumber },
-      include: orderInclude
-    });
+    const order =
+      (await this.prisma.order.findFirst({
+        where: {
+          externalOrders: {
+            some: {
+              provider: ExternalProvider.LOCAL,
+              externalReference: merchantOrderId
+            }
+          }
+        },
+        include: orderInclude
+      })) ??
+      (await this.prisma.order.findUnique({
+        where: { orderNumber: merchantOrderId },
+        include: orderInclude
+      }));
 
     if (!order) {
       throw new NotFoundException("Order not found.");
@@ -709,7 +730,11 @@ export class OrdersService {
 
     const primaryPayment = order.payments[0] ?? null;
     const externalOrder =
-      order.externalOrders.find((entry) => entry.provider === ExternalProvider.LOCAL) ?? null;
+      order.externalOrders.find(
+        (entry) =>
+          entry.provider === ExternalProvider.LOCAL &&
+          (entry.externalReference === merchantOrderId || entry.externalReference === null)
+      ) ?? null;
 
     if (!primaryPayment || !externalOrder) {
       throw new BadRequestException("Bu sipariş PayTR ödeme akışına bağlı değil.");
@@ -762,6 +787,7 @@ export class OrdersService {
               : result.failedReasonMessage || "PayTR ödeme başarısız oldu.",
           metadata: {
             ...result,
+            orderNumber: order.orderNumber,
             amountVerified,
             expectedTotalAmount,
             receivedTotalAmount
@@ -783,12 +809,14 @@ export class OrdersService {
           externalStatus: amountMismatch ? "amount_mismatch" : result.status,
           responsePayload: {
             ...result,
+            orderNumber: order.orderNumber,
             amountVerified,
             expectedTotalAmount,
             receivedTotalAmount
           } as Prisma.InputJsonValue,
           callbackPayload: {
             source: "paytr_callback",
+            orderNumber: order.orderNumber,
             merchantOrderId: result.merchantOrderId,
             paymentAmount: result.paymentAmount,
             totalAmount: result.totalAmount,
@@ -809,13 +837,15 @@ export class OrdersService {
           attemptType: PaymentAttemptType.WEBHOOK,
           status: paymentSucceeded ? PaymentAttemptStatus.SUCCEEDED : PaymentAttemptStatus.FAILED,
           requestPayload: {
-            orderNumber,
+            orderNumber: order.orderNumber,
+            merchantOrderId,
             callbackPayload: input.callbackPayload,
             userAgent: input.userAgent ?? null,
             userIp: sanitizeUserIp(input.ipAddress)
           },
           responsePayload: {
             ...result,
+            orderNumber: order.orderNumber,
             amountVerified,
             expectedTotalAmount,
             receivedTotalAmount
@@ -1332,8 +1362,14 @@ function resolveLocalGatewayBillingProfile(
     throw new BadRequestException("Ödeme için öğrenci ad ve soyad bilgisi gerekli.");
   }
 
-  if (!input.identityNumber?.trim()) {
-    throw new BadRequestException("PayTR ödemesi için T.C. Kimlik No gerekli.");
+  const identityNumber = input.identityNumber?.replace(/\D+/g, "") ?? "";
+
+  if (!identityNumber) {
+    throw new BadRequestException("T.C. kimlik numaranızı girmeniz gerekiyor.");
+  }
+
+  if (identityNumber.length !== 11) {
+    throw new BadRequestException("T.C. kimlik numarası 11 haneli olmalıdır.");
   }
 
   const address = input.billingAddress?.trim();
@@ -1345,29 +1381,43 @@ function resolveLocalGatewayBillingProfile(
     order.user.phone?.trim() || order.user.profile?.parentPhone?.trim() || "";
 
   if (!address) {
-    throw new BadRequestException("PayTR ödemesi için fatura adresi gerekli.");
+    throw new BadRequestException("Fatura adresi zorunludur.");
   }
 
   if (!city) {
-    throw new BadRequestException("PayTR ödemesi için il bilgisi gerekli.");
+    throw new BadRequestException("İl alanı zorunludur.");
+  }
+
+  if (!district) {
+    throw new BadRequestException("İlçe alanı zorunludur.");
   }
 
   const phone = normalizePhoneForGateway(phoneCandidate);
 
   if (!phone) {
-    throw new BadRequestException("PayTR ödemesi için geçerli telefon numarası gerekli.");
+    throw new BadRequestException("Ödeme için geçerli telefon numarası gereklidir.");
   }
 
   return {
     firstName,
     lastName,
-    identityNumber: input.identityNumber.trim(),
+    identityNumber,
     address: district ? `${address}, ${district}` : address,
     city,
     country,
     zipCode,
     phone
   };
+}
+
+function buildPaytrMerchantOrderId(orderNumber: string) {
+  const merchantOrderId = orderNumber.replace(/[^a-z0-9]/gi, "").toUpperCase();
+
+  if (!merchantOrderId) {
+    throw new BadRequestException("Ödeme başlatılırken bir sorun oluştu. Lütfen tekrar deneyin.");
+  }
+
+  return merchantOrderId;
 }
 
 function normalizePhoneForGateway(phone: string) {

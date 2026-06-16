@@ -23,6 +23,69 @@ type AuthState =
   | { status: "authenticated"; user: Awaited<ReturnType<typeof fetchCurrentUser>>["user"] }
   | { status: "unauthenticated"; message?: string };
 
+function validateBillingDetails(details: StartCheckoutPayload) {
+  const identityNumber = details.identityNumber?.trim() ?? "";
+
+  if (!identityNumber) {
+    return "T.C. kimlik numaranızı girmeniz gerekiyor.";
+  }
+
+  if (!/^\d{11}$/.test(identityNumber)) {
+    return "T.C. kimlik numarası 11 haneli olmalıdır.";
+  }
+
+  if (!details.billingCity?.trim()) {
+    return "İl alanı zorunludur.";
+  }
+
+  if (!details.billingDistrict?.trim()) {
+    return "İlçe alanı zorunludur.";
+  }
+
+  if (!details.billingAddress?.trim()) {
+    return "Fatura adresi zorunludur.";
+  }
+
+  return null;
+}
+
+function normalizeCheckoutErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const normalizedMessage = message.toLocaleLowerCase("tr-TR");
+
+  if (!message) {
+    return "Ödeme başlatılırken bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
+  if (normalizedMessage.includes("merchant_oid") || normalizedMessage.includes("paytr")) {
+    return "Ödeme başlatılırken bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
+  if (normalizedMessage.includes("kimlik")) {
+    return normalizedMessage.includes("11")
+      ? "T.C. kimlik numarası 11 haneli olmalıdır."
+      : "T.C. kimlik numaranızı girmeniz gerekiyor.";
+  }
+
+  if (normalizedMessage.includes("fatura adres")) {
+    return "Fatura adresi zorunludur.";
+  }
+
+  if (normalizedMessage.includes("ilçe")) {
+    return "İlçe alanı zorunludur.";
+  }
+
+  if (normalizedMessage.includes("il alan") || normalizedMessage.includes("il bilgisi")) {
+    return "İl alanı zorunludur.";
+  }
+
+  if (normalizedMessage.includes("posta kod")) {
+    return "Posta kodu zorunludur.";
+  }
+
+  return message;
+}
+
 export function CheckoutFlow({ product }: CheckoutFlowProps) {
   const pathname = usePathname();
   const authRedirectHref = useMemo(
@@ -92,8 +155,17 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
   async function handleCheckoutStart() {
     if (!product.defaultVariantId) {
-      setError("Bu ürün için varsayılan varyant tanımı eksik. Yönetim panelinden katalog eşleşmesini kontrol et.");
+      setError("Bu ürün için varsayılan paket seçeneği eksik. Yönetim panelinden katalog eşleşmesini kontrol edin.");
       return;
+    }
+
+    if (product.provider === "local") {
+      const billingError = validateBillingDetails(billingDetails);
+
+      if (billingError) {
+        setError(billingError);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -112,11 +184,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
       );
       handleCheckoutResponse(checkoutResponse);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Ödeme akışı başlatılırken beklenmeyen bir hata oluştu."
-      );
+      setError(normalizeCheckoutErrorMessage(requestError));
     } finally {
       setSubmitting(false);
     }
@@ -125,7 +193,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
   function handleCheckoutResponse(response: StartCheckoutResponse) {
     if (response.status === "redirect_ready") {
       setRedirectUrl(response.redirectUrl);
-      setMessage("Ödeme sayfasına yönlendiriliyorsun...");
+      setMessage("Ödeme sayfasına yönlendiriliyorsunuz...");
       window.location.assign(response.redirectUrl);
       return;
     }
@@ -141,7 +209,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
       return;
     }
 
-    setError(response.message);
+    setError(normalizeCheckoutErrorMessage(new Error(response.message)));
   }
 
   async function handleLinkAndRetry() {
@@ -274,16 +342,18 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
               {product.provider === "local" ? (
                 <div className="ega-checkout-linkbox">
                   <h3>Fatura Bilgileri</h3>
-                  <p>Yerel ödeme sayfasına geçmeden önce PayTR için gerekli bilgileri tamamla.</p>
+                  <p>PayTR ödeme sayfasına geçmeden önce zorunlu fatura bilgilerini tamamlayın.</p>
 
                   <div className="ega-form-grid ega-form-grid--compact">
                     <div className="ega-field">
-                      <label htmlFor="identityNumber">T.C. Kimlik No</label>
+                      <label htmlFor="identityNumber">T.C. Kimlik No *</label>
                       <input
                         id="identityNumber"
                         className="ega-input"
                         inputMode="numeric"
                         maxLength={11}
+                        required
+                        aria-required="true"
                         value={billingDetails.identityNumber ?? ""}
                         onChange={(event) =>
                           setBillingDetails((current) => ({
@@ -295,10 +365,12 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                     </div>
 
                     <div className="ega-field">
-                      <label htmlFor="billingCity">İl</label>
+                      <label htmlFor="billingCity">İl *</label>
                       <input
                         id="billingCity"
                         className="ega-input"
+                        required
+                        aria-required="true"
                         value={billingDetails.billingCity ?? ""}
                         onChange={(event) =>
                           setBillingDetails((current) => ({
@@ -310,11 +382,13 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                     </div>
 
                     <div className="ega-field ega-field--full">
-                      <label htmlFor="billingAddress">Fatura Adresi</label>
+                      <label htmlFor="billingAddress">Fatura Adresi *</label>
                       <textarea
                         id="billingAddress"
                         className="ega-textarea"
                         rows={3}
+                        required
+                        aria-required="true"
                         value={billingDetails.billingAddress ?? ""}
                         onChange={(event) =>
                           setBillingDetails((current) => ({
@@ -326,10 +400,12 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                     </div>
 
                     <div className="ega-field">
-                      <label htmlFor="billingDistrict">İlçe</label>
+                      <label htmlFor="billingDistrict">İlçe *</label>
                       <input
                         id="billingDistrict"
                         className="ega-input"
+                        required
+                        aria-required="true"
                         value={billingDetails.billingDistrict ?? ""}
                         onChange={(event) =>
                           setBillingDetails((current) => ({
@@ -341,7 +417,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                     </div>
 
                     <div className="ega-field">
-                      <label htmlFor="billingZipCode">Posta Kodu</label>
+                      <label htmlFor="billingZipCode">Posta Kodu (opsiyonel)</label>
                       <input
                         id="billingZipCode"
                         className="ega-input"
@@ -385,7 +461,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
                   <h3>Unikazan hesabını bağla</h3>
                   <p>
                     Bu koçluk paketi için mevcut Unikazan öğrenci hesabınla bağlantı kurulmalı.
-                    Buradaki bilgiler sadece yönlendirme oturumu oluşturmak için kullanılır.
+                    Bilgiler güvenli yönlendirme oturumu için kullanılır.
                   </p>
 
                   <div className="ega-form-grid ega-form-grid--compact">

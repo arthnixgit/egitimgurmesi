@@ -63,7 +63,7 @@ const tabMeta: Record<
   },
   products: {
     label: "Ürün Yönetimi",
-    description: "Ürün, varyant, fiyat ve provider eşleşmeleri"
+    description: "Ürün, seçenek, fiyat ve sağlayıcı eşleşmeleri"
   },
   orders: {
     label: "Sipariş Yönetimi",
@@ -112,6 +112,81 @@ const externalStatusOptions = [
   "FAILED",
   "CANCELLED"
 ] as const;
+
+const productTypeLabels: Record<string, string> = {
+  VIDEO_PACKAGE: "Video Paketi",
+  COACHING_PACKAGE: "Koçluk Paketi",
+  HYBRID_PACKAGE: "Hibrit Paket",
+  DIGITAL_RESOURCE: "Dijital Kaynak"
+};
+
+const providerLabels: Record<string, string> = {
+  LOCAL: "Eğitim Gurmesi",
+  LOCAL_GATEWAY: "PayTR / Yerel Ödeme",
+  PAYTR: "PayTR",
+  UNIKAZAN: "Unikazan",
+  MANUAL: "Manuel"
+};
+
+const publishStatusLabels: Record<string, string> = {
+  DRAFT: "Taslak",
+  PUBLISHED: "Yayında",
+  ARCHIVED: "Arşiv"
+};
+
+const orderStatusLabels: Record<string, string> = {
+  DRAFT: "Taslak",
+  PENDING_PAYMENT: "Ödeme Bekliyor",
+  REDIRECT_PENDING: "Yönlendirme Bekliyor",
+  AWAITING_CONFIRMATION: "Onay Bekliyor",
+  PAID: "Ödendi",
+  FAILED: "Başarısız",
+  CANCELLED: "İptal",
+  REFUNDED: "İade"
+};
+
+const paymentStatusLabels: Record<string, string> = {
+  INITIATED: "Başlatıldı",
+  PENDING: "Beklemede",
+  AUTHORIZED: "Yetkilendirildi",
+  PAID: "Ödendi",
+  FAILED: "Başarısız",
+  CANCELLED: "İptal",
+  REFUNDED: "İade",
+  PARTIALLY_REFUNDED: "Kısmi İade"
+};
+
+const externalStatusLabels: Record<string, string> = {
+  CREATED: "Oluşturuldu",
+  REDIRECT_READY: "Yönlendirme Hazır",
+  REDIRECTED: "Yönlendirildi",
+  RETURNED_SUCCESS: "Başarılı Dönüş",
+  RETURNED_FAILURE: "Başarısız Dönüş",
+  CONFIRMED: "Onaylandı",
+  FAILED: "Başarısız",
+  CANCELLED: "İptal"
+};
+
+const accentLabels: Record<string, string> = {
+  blue: "Mavi",
+  teal: "Turkuaz",
+  amber: "Amber"
+};
+
+const videoSourceLabels: Record<string, string> = {
+  EMBED: "Gömülü Bağlantı",
+  DIRECT: "Doğrudan Video"
+};
+
+const currencyLabels: Record<string, string> = {
+  TRY: "Türk Lirası",
+  USD: "ABD Doları",
+  EUR: "Euro"
+};
+
+function labelFrom(map: Record<string, string>, value?: string | null) {
+  return value ? map[value] ?? value : "-";
+}
 
 export default function AdminCommercePage() {
   const router = useRouter();
@@ -773,11 +848,11 @@ export default function AdminCommercePage() {
                     >
                       <div className="admin-record-item__top">
                         <strong>{product.name}</strong>
-                        <span className="admin-order-pill">{product.provider}</span>
+                        <span className="admin-order-pill">{labelFrom(providerLabels, product.provider)}</span>
                       </div>
                       <div className="admin-record-item__meta">
                         <span>{product.slug}</span>
-                        <span>{product.publishStatus}</span>
+                        <span>{labelFrom(publishStatusLabels, product.publishStatus)}</span>
                       </div>
                     </button>
                   ))}
@@ -826,7 +901,7 @@ export default function AdminCommercePage() {
                       <option value="ALL">Hepsi</option>
                       {orderStatusOptions.map((option) => (
                         <option key={option} value={option}>
-                          {option}
+                          {labelFrom(orderStatusLabels, option)}
                         </option>
                       ))}
                     </select>
@@ -841,22 +916,22 @@ export default function AdminCommercePage() {
                       <option value="ALL">Hepsi</option>
                       {paymentStatusOptions.map((option) => (
                         <option key={option} value={option}>
-                          {option}
+                          {labelFrom(paymentStatusLabels, option)}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div className="admin-field">
-                    <label>Provider</label>
+                    <label>Sağlayıcı</label>
                     <select
                       className="admin-input admin-select"
                       value={providerFilter}
                       onChange={(event) => setProviderFilter(event.target.value)}
                     >
                       <option value="ALL">Hepsi</option>
-                      <option value="LOCAL_GATEWAY">LOCAL_GATEWAY</option>
-                      <option value="UNIKAZAN">UNIKAZAN</option>
-                      <option value="MANUAL">MANUAL</option>
+                      <option value="LOCAL_GATEWAY">{labelFrom(providerLabels, "LOCAL_GATEWAY")}</option>
+                      <option value="UNIKAZAN">{labelFrom(providerLabels, "UNIKAZAN")}</option>
+                      <option value="MANUAL">{labelFrom(providerLabels, "MANUAL")}</option>
                     </select>
                   </div>
                 </div>
@@ -874,7 +949,7 @@ export default function AdminCommercePage() {
                       >
                         <div className="admin-order-item__top">
                           <strong>{order.orderNumber}</strong>
-                          <span className="admin-order-pill">{order.status}</span>
+                          <span className="admin-order-pill">{labelFrom(orderStatusLabels, order.status)}</span>
                         </div>
                         <div className="admin-order-item__meta">
                           <span>{order.userEmail}</span>
@@ -883,7 +958,7 @@ export default function AdminCommercePage() {
                           </span>
                         </div>
                         <div className="admin-order-item__meta">
-                          <span>{order.paymentStatus}</span>
+                          <span>{labelFrom(paymentStatusLabels, order.paymentStatus)}</span>
                           <span>{formatDateTime(order.createdAt)}</span>
                         </div>
                       </button>
@@ -1153,7 +1228,7 @@ function CategoryForm({
           />
         </div>
         <div className="admin-field">
-          <label>Slug</label>
+          <label>URL Kısa Adı</label>
           <input
             className="admin-input"
             value={draft.slug}
@@ -1217,7 +1292,7 @@ function CategoryForm({
           />
         </div>
         <div className="admin-field">
-          <label>CTA Href</label>
+          <label>CTA Bağlantısı</label>
           <input
             className="admin-input"
             value={draft.ctaHref ?? ""}
@@ -1349,7 +1424,7 @@ function ProductForm({
         <div className="admin-editor-meta">
           <span className="admin-badge">{draft.id ? "Ürün Düzenle" : "Yeni Ürün"}</span>
           <span className="admin-editor-meta__text">
-            Varyant, fiyat ve gerekiyorsa Unikazan paket eşleşmeleriyle birlikte
+            Paket seçenekleri, fiyat ve sağlayıcı eşleşmeleriyle birlikte
           </span>
         </div>
         <div className="admin-actions">
@@ -1374,7 +1449,7 @@ function ProductForm({
           />
         </div>
         <div className="admin-field">
-          <label>Slug</label>
+          <label>URL Kısa Adı</label>
           <input
             className="admin-input"
             value={draft.slug}
@@ -1405,13 +1480,13 @@ function ProductForm({
           >
             {productTypeOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {labelFrom(productTypeLabels, option)}
               </option>
             ))}
           </select>
         </div>
         <div className="admin-field">
-          <label>Provider</label>
+          <label>Sağlayıcı</label>
           <select
             className="admin-input admin-select"
             value={draft.provider}
@@ -1419,7 +1494,7 @@ function ProductForm({
           >
             {providerOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {labelFrom(providerLabels, option)}
               </option>
             ))}
           </select>
@@ -1433,13 +1508,13 @@ function ProductForm({
           >
             {publishStatusOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {labelFrom(publishStatusLabels, option)}
               </option>
             ))}
           </select>
         </div>
         <div className="admin-field">
-          <label>Accent Color</label>
+          <label>Renk Tonu</label>
           <select
             className="admin-input admin-select"
             value={draft.accentColor ?? "blue"}
@@ -1447,7 +1522,7 @@ function ProductForm({
           >
             {accentOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {labelFrom(accentLabels, option)}
               </option>
             ))}
           </select>
@@ -1514,7 +1589,7 @@ function ProductForm({
             >
               {videoSourceOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {labelFrom(videoSourceLabels, option)}
                 </option>
               ))}
             </select>
@@ -1700,7 +1775,7 @@ function ProductForm({
                   />
                 </div>
                 <div className="admin-field">
-                  <label>Currency</label>
+                  <label>Para Birimi</label>
                   <select
                     className="admin-input admin-select"
                     value={variant.currency ?? "TRY"}
@@ -1710,7 +1785,7 @@ function ProductForm({
                   >
                     {currencyOptions.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {labelFrom(currencyLabels, option)}
                       </option>
                     ))}
                   </select>
@@ -1784,7 +1859,7 @@ function ProductForm({
               {canShowExternalMapping ? (
                 <div className="admin-form-grid">
                   <div className="admin-field">
-                    <label>Unikazan Package ID</label>
+                    <label>Unikazan Paket ID</label>
                     <input
                       className="admin-input"
                       value={variant.externalProductId ?? ""}
@@ -1797,7 +1872,7 @@ function ProductForm({
                     />
                   </div>
                   <div className="admin-field">
-                    <label>Unikazan Variant ID</label>
+                    <label>Unikazan Seçenek ID</label>
                     <input
                       className="admin-input"
                       value={variant.externalVariantId ?? ""}
@@ -1862,7 +1937,7 @@ function ProductForm({
                   />
                 </div>
                 <div className="admin-field">
-                  <label>Icon Key</label>
+                  <label>İkon Anahtarı</label>
                   <input
                     className="admin-input"
                     value={feature.iconKey ?? ""}
@@ -1939,11 +2014,11 @@ function OrderManagementPanel({
     <div className="admin-form-stack">
       <div className="admin-order-summary-grid">
         <div className="admin-kpi">
-          <strong>{order.status}</strong>
+          <strong>{labelFrom(orderStatusLabels, order.status)}</strong>
           <span>Sipariş durumu</span>
         </div>
         <div className="admin-kpi">
-          <strong>{order.paymentStatus}</strong>
+          <strong>{labelFrom(paymentStatusLabels, order.paymentStatus)}</strong>
           <span>Ödeme durumu</span>
         </div>
         <div className="admin-kpi">
@@ -1954,7 +2029,7 @@ function OrderManagementPanel({
         </div>
         <div className="admin-kpi">
           <strong>{order.redirectMode ? "Evet" : "Hayır"}</strong>
-          <span>Redirect modu</span>
+          <span>Yönlendirme modu</span>
         </div>
       </div>
 
@@ -1978,15 +2053,15 @@ function OrderManagementPanel({
               <div>{formatDateTime(order.updatedAt)}</div>
             </div>
             <div className="admin-list__item">
-              <strong>Placed At</strong>
+              <strong>Sipariş Tarihi</strong>
               <div>{formatDateTime(order.placedAt)}</div>
             </div>
             <div className="admin-list__item">
-              <strong>Paid At</strong>
+              <strong>Ödeme Tarihi</strong>
               <div>{formatDateTime(order.paidAt)}</div>
             </div>
             <div className="admin-list__item">
-              <strong>Cancelled At</strong>
+              <strong>İptal Tarihi</strong>
               <div>{formatDateTime(order.cancelledAt)}</div>
             </div>
             <div className="admin-list__item">
@@ -2048,7 +2123,7 @@ function OrderManagementPanel({
               >
                 {orderStatusOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {labelFrom(orderStatusLabels, option)}
                   </option>
                 ))}
               </select>
@@ -2063,13 +2138,13 @@ function OrderManagementPanel({
                 <option value="UNCHANGED">Değiştirme</option>
                 {paymentStatusOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {labelFrom(paymentStatusLabels, option)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="admin-field">
-              <label>Dış Provider Durumu</label>
+              <label>Dış Sağlayıcı Durumu</label>
               <select
                 className="admin-input admin-select"
                 value={externalStatusDraft}
@@ -2078,7 +2153,7 @@ function OrderManagementPanel({
                 <option value="UNCHANGED">Değiştirme</option>
                 {externalStatusOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {labelFrom(externalStatusLabels, option)}
                   </option>
                 ))}
               </select>
@@ -2136,12 +2211,12 @@ function OrderManagementPanel({
             {order.payments.map((payment) => (
               <div key={payment.id} className="admin-list__item">
                 <strong>
-                  {payment.provider} / {payment.status}
+                  {labelFrom(providerLabels, payment.provider)} / {labelFrom(paymentStatusLabels, payment.status)}
                 </strong>
                 <div>
                   {payment.amount} {payment.currency} - {payment.method}
                 </div>
-                <div>Attempt: {payment.attempts.length}</div>
+                <div>Deneme: {payment.attempts.length}</div>
                 {payment.failureReason ? <div>{payment.failureReason}</div> : null}
               </div>
             ))}
@@ -2157,13 +2232,13 @@ function OrderManagementPanel({
               order.externalOrders.map((externalOrder) => (
                 <div key={externalOrder.id} className="admin-list__item">
                   <strong>
-                    {externalOrder.provider} / {externalOrder.status}
+                    {labelFrom(providerLabels, externalOrder.provider)} / {labelFrom(externalStatusLabels, externalOrder.status)}
                   </strong>
-                  <div>Reference: {externalOrder.externalReference || "-"}</div>
-                  <div>Package: {externalOrder.externalProductId || "-"}</div>
+                  <div>Referans: {externalOrder.externalReference || "-"}</div>
+                  <div>Paket: {externalOrder.externalProductId || "-"}</div>
                   {externalOrder.checkoutUrl ? (
                     <a href={externalOrder.checkoutUrl} target="_blank" rel="noreferrer">
-                      Checkout URL
+                      Ödeme Linki
                     </a>
                   ) : null}
                 </div>
