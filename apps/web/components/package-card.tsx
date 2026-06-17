@@ -17,6 +17,8 @@ export function PackageCard({ product }: PackageCardProps) {
     ? product.featureDetails.map((feature) => feature.title)
     : product.features;
   const hasMobileHiddenFeatures = featureTitles.length > MOBILE_FEATURE_LIMIT;
+  const productHref = product.slug ? `/paketlerimiz/${encodeURIComponent(product.slug)}` : "/paketlerimiz";
+  const checkoutHref = product.slug ? `/checkout/${encodeURIComponent(product.slug)}` : "/paketlerimiz";
 
   return (
     <article className="ega-pack-card" data-tone={product.tone}>
@@ -58,12 +60,12 @@ export function PackageCard({ product }: PackageCardProps) {
 
       <div className="ega-pack-card__actions ega-pack-card__actions--split">
         <ButtonLink
-          href={`/paketlerimiz/${product.slug}`}
+          href={productHref}
           label="İncele"
           variant="ghost"
           className="ega-button--inspect"
         />
-        <ButtonLink href={`/checkout/${product.slug}`} label="Satın Al" />
+        <ButtonLink href={checkoutHref} label="Satın Al" />
       </div>
     </article>
   );

@@ -6,8 +6,9 @@ import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from
 import { StudentLmsDashboard } from "../../components/student-lms-dashboard";
 import { StudentOperationalOverviewPanel } from "../../components/student-operational-overview";
 import {
-  clearUserTokens,
   fetchCurrentUser,
+  getUserFacingErrorMessage,
+  isAuthFailure,
   logoutUser,
   updateCurrentUserProfile
 } from "../../lib/auth-client";
@@ -108,25 +109,20 @@ export default function AccountPage() {
 
           setOrders([]);
           setSelectedOrderNumber("");
-          setError(
-            ordersError instanceof Error
-              ? ordersError.message
-              : "Siparişler şu anda yüklenemedi."
-          );
+          setError(getUserFacingErrorMessage(ordersError, "Siparişler şu anda yüklenemedi."));
         }
       } catch (requestError) {
         if (!active) {
           return;
         }
 
-        clearUserTokens();
         setData(null);
         setOrders([]);
         setSelectedOrderNumber("");
         setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Hesap bilgileri alınamadı."
+          isAuthFailure(requestError)
+            ? "Öğrenci panelini görüntülemek için giriş yapmalısın."
+            : getUserFacingErrorMessage(requestError, "Hesap bilgileri alınamadı.")
         );
       } finally {
         if (active) {
@@ -204,11 +200,7 @@ export default function AccountPage() {
       syncProfileForm(response, setProfileForm);
       setSuccess("Profil bilgileri güncellendi.");
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Profil güncellenemedi."
-      );
+      setError(getUserFacingErrorMessage(saveError, "Profil güncellenemedi."));
     } finally {
       setSavingProfile(false);
     }
@@ -231,11 +223,7 @@ export default function AccountPage() {
       });
       setSuccess("Unikazan hesabı bağlantısı güncellendi.");
     } catch (linkError) {
-      setError(
-        linkError instanceof Error
-          ? linkError.message
-          : "Unikazan bağlantısı kurulamadı."
-      );
+      setError(getUserFacingErrorMessage(linkError, "Unikazan bağlantısı kurulamadı."));
     } finally {
       setLinkingAccount(false);
     }
@@ -264,11 +252,7 @@ export default function AccountPage() {
       setOrders(refreshedOrders);
       setSelectedOrderNumber(orderNumber);
     } catch (checkoutError) {
-      setError(
-        checkoutError instanceof Error
-          ? checkoutError.message
-          : "Ödeme akışı başlatılamadı."
-      );
+      setError(getUserFacingErrorMessage(checkoutError, "Ödeme akışı başlatılamadı."));
     } finally {
       setCheckoutLoading(false);
     }

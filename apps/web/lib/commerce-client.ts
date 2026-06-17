@@ -1,6 +1,12 @@
 "use client";
 
-import { clearUserTokens, getUserAccessToken, refreshUserToken } from "./auth-client";
+import {
+  ApiRequestError,
+  clearUserTokens,
+  getUserAccessToken,
+  isAuthFailure,
+  refreshUserToken
+} from "./auth-client";
 import { resolveApiBaseUrl } from "./api-base-url";
 
 const API_BASE_URL = resolveApiBaseUrl();
@@ -102,7 +108,42 @@ async function parseError(response: Response): Promise<never> {
     payload = null;
   }
 
-  throw new Error(payload?.message || "İstek işlenemedi.");
+  throw new ApiRequestError(
+    normalizeCommerceErrorMessage(payload?.message, response.status),
+    response.status
+  );
+}
+
+function normalizeCommerceErrorMessage(message: string | undefined, status: number) {
+  const normalizedMessage = (message ?? "").toLocaleLowerCase("tr-TR");
+
+  if (status === 401) {
+    return "Önce öğrenci hesabına giriş yapmalısın.";
+  }
+
+  if (status === 403) {
+    return "Bu işlem için yetkiniz bulunmuyor.";
+  }
+
+  if (
+    status === 404 ||
+    normalizedMessage.includes("variant") ||
+    normalizedMessage.includes("product") ||
+    normalizedMessage.includes("selected variants") ||
+    normalizedMessage.includes("not available for checkout")
+  ) {
+    return "Paket bilgisi bulunamadı.";
+  }
+
+  if (normalizedMessage.includes("order not found") || normalizedMessage.includes("order is missing")) {
+    return "Sipariş bilgisi bulunamadı.";
+  }
+
+  if (status >= 500) {
+    return "İşlem sırasında bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
+  return message || "İstek işlenemedi.";
 }
 
 async function fetchWithToken(path: string, init: RequestInit, accessToken: string) {
@@ -120,7 +161,7 @@ async function requestUserApi<T>(path: string, init: RequestInit) {
   const accessToken = getUserAccessToken();
 
   if (!accessToken) {
-    throw new Error("Önce öğrenci hesabına giriş yapmalısın.");
+    throw new ApiRequestError("Önce öğrenci hesabına giriş yapmalısın.", 401);
   }
 
   const firstResponse = await fetchWithToken(path, init, accessToken);
@@ -139,7 +180,10 @@ async function requestUserApi<T>(path: string, init: RequestInit) {
     const refreshed = await refreshUserToken();
     refreshedAccessToken = refreshed.accessToken;
   } catch (error) {
-    clearUserTokens();
+    if (isAuthFailure(error)) {
+      clearUserTokens();
+    }
+
     throw error;
   }
 

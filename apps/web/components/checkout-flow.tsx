@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { PackageProduct } from "../lib/package-catalog";
-import { fetchCurrentUser } from "../lib/auth-client";
+import {
+  ApiRequestError,
+  fetchCurrentUser,
+  getUserFacingErrorMessage,
+  isAuthFailure,
+  isNotFoundFailure,
+  isPermissionFailure
+} from "../lib/auth-client";
 import {
   createCheckoutOrder,
   linkUnikazanAccount,
@@ -21,7 +28,8 @@ type CheckoutFlowProps = {
 type AuthState =
   | { status: "loading" }
   | { status: "authenticated"; user: Awaited<ReturnType<typeof fetchCurrentUser>>["user"] }
-  | { status: "unauthenticated"; message?: string };
+  | { status: "unauthenticated"; message?: string }
+  | { status: "error"; message: string };
 
 function validateBillingDetails(details: StartCheckoutPayload) {
   const identityNumber = details.identityNumber?.trim() ?? "";
@@ -50,6 +58,22 @@ function validateBillingDetails(details: StartCheckoutPayload) {
 }
 
 function normalizeCheckoutErrorMessage(error: unknown) {
+  if (isPermissionFailure(error)) {
+    return "Bu işlem için yetkiniz bulunmuyor.";
+  }
+
+  if (isNotFoundFailure(error)) {
+    return "Paket bilgisi bulunamadı.";
+  }
+
+  if (error instanceof ApiRequestError && error.status && error.status >= 500) {
+    return "İşlem sırasında bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
+  if (error instanceof TypeError) {
+    return "İşlem sırasında bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
   const message = error instanceof Error ? error.message : "";
   const normalizedMessage = message.toLocaleLowerCase("tr-TR");
 
@@ -59,6 +83,20 @@ function normalizeCheckoutErrorMessage(error: unknown) {
 
   if (normalizedMessage.includes("merchant_oid") || normalizedMessage.includes("paytr")) {
     return "Ödeme başlatılırken bir sorun oluştu. Lütfen tekrar deneyin.";
+  }
+
+  if (
+    normalizedMessage.includes("variant") ||
+    normalizedMessage.includes("product") ||
+    normalizedMessage.includes("selected variants") ||
+    normalizedMessage.includes("not available for checkout") ||
+    normalizedMessage.includes("paket bilgisi")
+  ) {
+    return "Paket bilgisi bulunamadı.";
+  }
+
+  if (normalizedMessage.includes("order not found") || normalizedMessage.includes("sipariş bilgisi")) {
+    return "Sipariş bilgisi bulunamadı.";
   }
 
   if (normalizedMessage.includes("kimlik")) {
@@ -136,12 +174,20 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
           return;
         }
 
+        if (isAuthFailure(requestError)) {
+          setAuthState({
+            status: "unauthenticated",
+            message:
+              requestError instanceof Error && !requestError.message.includes("Oturum")
+                ? requestError.message
+                : undefined
+          });
+          return;
+        }
+
         setAuthState({
-          status: "unauthenticated",
-          message:
-            requestError instanceof Error && !requestError.message.includes("Oturum")
-              ? requestError.message
-              : undefined
+          status: "error",
+          message: getUserFacingErrorMessage(requestError)
         });
       }
     }
@@ -155,7 +201,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
   async function handleCheckoutStart() {
     if (!product.defaultVariantId) {
-      setError("Bu ürün için varsayılan paket seçeneği eksik. Yönetim panelinden katalog eşleşmesini kontrol edin.");
+      setError("Paket bilgisi bulunamadı.");
       return;
     }
 
@@ -232,11 +278,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
       const checkoutResponse = await startOrderCheckout(order.orderNumber);
       handleCheckoutResponse(checkoutResponse);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unikazan hesabı bağlanırken bir hata oluştu."
-      );
+      setError(normalizeCheckoutErrorMessage(requestError));
     } finally {
       setSubmitting(false);
     }
@@ -285,6 +327,20 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
           {authState.status === "loading" ? (
             <div className="ega-message ega-message--success">Öğrenci oturumu kontrol ediliyor...</div>
+          ) : null}
+
+          {authState.status === "error" ? (
+            <div className="ega-status-stack">
+              <div className="ega-message ega-message--error">{authState.message}</div>
+              <div className="ega-actions">
+                <button className="ega-button" type="button" onClick={() => window.location.reload()}>
+                  Tekrar Dene
+                </button>
+                <Link className="ega-button ega-button--ghost" href={`/paketlerimiz/${product.slug}`}>
+                  Ürüne Dön
+                </Link>
+              </div>
+            </div>
           ) : null}
 
           {authState.status === "unauthenticated" ? (

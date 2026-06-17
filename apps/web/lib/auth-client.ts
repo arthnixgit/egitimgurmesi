@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from "./api-base-url";
+
 export type PublicAuthResponse = {
   accessToken: string;
   refreshToken: string;
@@ -50,6 +52,51 @@ type ApiErrorPayload = {
   message?: string;
 };
 
+export class ApiRequestError extends Error {
+  status: number | null;
+
+  constructor(message: string, status: number | null = null) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
+export function isAuthFailure(error: unknown) {
+  return error instanceof ApiRequestError && error.status === 401;
+}
+
+export function isPermissionFailure(error: unknown) {
+  return error instanceof ApiRequestError && error.status === 403;
+}
+
+export function isNotFoundFailure(error: unknown) {
+  return error instanceof ApiRequestError && error.status === 404;
+}
+
+export function getUserFacingErrorMessage(
+  error: unknown,
+  fallback = "İşlem sırasında bir sorun oluştu. Lütfen tekrar deneyin."
+) {
+  if (isPermissionFailure(error)) {
+    return "Bu işlem için yetkiniz bulunmuyor.";
+  }
+
+  if (error instanceof ApiRequestError && error.status && error.status >= 500) {
+    return fallback;
+  }
+
+  if (error instanceof TypeError) {
+    return fallback;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 async function parseError(response: Response) {
   let payload: ApiErrorPayload | null = null;
 
@@ -59,7 +106,17 @@ async function parseError(response: Response) {
     payload = null;
   }
 
-  throw new Error(payload?.message || "İstek işlenemedi.");
+  const message =
+    payload?.message ||
+    (response.status === 403
+      ? "Bu işlem için yetkiniz bulunmuyor."
+      : response.status === 404
+        ? "Kayıt bulunamadı."
+        : response.status >= 500
+          ? "İşlem sırasında bir sorun oluştu. Lütfen tekrar deneyin."
+          : "İstek işlenemedi.");
+
+  throw new ApiRequestError(message, response.status);
 }
 
 async function request<T>(path: string, init?: RequestInit) {
@@ -142,7 +199,7 @@ export async function refreshUserToken() {
   const refreshToken = getUserRefreshToken();
 
   if (!refreshToken) {
-    throw new Error("Yenileme belirteci bulunamadı.");
+    throw new ApiRequestError("Oturum bulunamadı.", 401);
   }
 
   const response = await request<PublicAuthResponse>("/auth/refresh", {
@@ -158,7 +215,7 @@ export async function fetchCurrentUser() {
   const accessToken = getUserAccessToken();
 
   if (!accessToken) {
-    throw new Error("Oturum bulunamadı.");
+    throw new ApiRequestError("Oturum bulunamadı.", 401);
   }
 
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -168,13 +225,27 @@ export async function fetchCurrentUser() {
   });
 
   if (response.status === 401) {
-    const refreshed = await refreshUserToken();
+    let refreshed: PublicAuthResponse;
+
+    try {
+      refreshed = await refreshUserToken();
+    } catch (error) {
+      if (isAuthFailure(error)) {
+        clearUserTokens();
+      }
+
+      throw error;
+    }
 
     const retryResponse = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: {
         Authorization: `Bearer ${refreshed.accessToken}`
       }
     });
+
+    if (retryResponse.status === 401) {
+      clearUserTokens();
+    }
 
     if (!retryResponse.ok) {
       await parseError(retryResponse);
@@ -200,7 +271,7 @@ export async function updateCurrentUserProfile(payload: Record<string, unknown>)
   const accessToken = getUserAccessToken();
 
   if (!accessToken) {
-    throw new Error("Oturum bulunamadı.");
+    throw new ApiRequestError("Oturum bulunamadı.", 401);
   }
 
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -213,7 +284,17 @@ export async function updateCurrentUserProfile(payload: Record<string, unknown>)
   });
 
   if (response.status === 401) {
-    const refreshed = await refreshUserToken();
+    let refreshed: PublicAuthResponse;
+
+    try {
+      refreshed = await refreshUserToken();
+    } catch (error) {
+      if (isAuthFailure(error)) {
+        clearUserTokens();
+      }
+
+      throw error;
+    }
 
     const retryResponse = await fetch(`${API_BASE_URL}/auth/me`, {
       method: "PATCH",
@@ -223,6 +304,10 @@ export async function updateCurrentUserProfile(payload: Record<string, unknown>)
       },
       body: JSON.stringify(payload)
     });
+
+    if (retryResponse.status === 401) {
+      clearUserTokens();
+    }
 
     if (!retryResponse.ok) {
       await parseError(retryResponse);
@@ -261,4 +346,3 @@ export async function logoutUser() {
 
   clearUserTokens();
 }
-import { resolveApiBaseUrl } from "./api-base-url";
