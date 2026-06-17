@@ -1,4 +1,4 @@
-import { GradeLevel, StudyTrack } from "@ega/db";
+import type { GradeLevel, StudyTrack } from "@ega/db";
 import { Transform } from "class-transformer";
 import {
   IsBoolean,
@@ -12,6 +12,7 @@ import {
   Min,
   MinLength
 } from "class-validator";
+import { GRADE_LEVEL_VALUES, STUDY_TRACK_VALUES } from "./student-profile-enum-values";
 
 export class RegisterUserDto {
   @IsString()
@@ -47,11 +48,11 @@ export class RegisterUserDto {
   district?: string;
 
   @IsOptional()
-  @IsEnum(GradeLevel)
+  @IsEnum(GRADE_LEVEL_VALUES)
   gradeLevel?: GradeLevel;
 
   @IsOptional()
-  @IsEnum(StudyTrack)
+  @IsEnum(STUDY_TRACK_VALUES)
   studyTrack?: StudyTrack;
 
   @IsOptional()
