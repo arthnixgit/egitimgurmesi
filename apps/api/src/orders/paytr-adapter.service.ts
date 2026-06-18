@@ -1,5 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger
+} from "@nestjs/common";
 import { appEnv } from "../config/env";
 
 type InitializeHostedCheckoutInput = {
@@ -41,6 +46,8 @@ type PaytrCallbackPayload = {
 
 @Injectable()
 export class PaytrAdapterService {
+  private readonly logger = new Logger(PaytrAdapterService.name);
+
   isConfigured() {
     const provider = appEnv.paymentProvider().trim().toLowerCase();
     const merchantId = appEnv.paymentMerchantId().trim();
@@ -108,12 +115,11 @@ export class PaytrAdapterService {
       timeout_limit: "30",
       currency: "TRY",
       test_mode: testMode,
-      lang: "tr",
-      iframe_v2: "1",
-      iframe_v2_dark: "0"
+      lang: "tr"
     });
 
-    const response = await fetch(`${normalizeBaseUrl(baseUrl)}/odeme/api/get-token`, {
+    const tokenEndpoint = `${normalizeBaseUrl(baseUrl)}/odeme/api/get-token`;
+    const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded"
@@ -121,9 +127,21 @@ export class PaytrAdapterService {
       body: form.toString()
     });
 
-    const result = (await response.json()) as PaytrInitializeResponse;
+    const result = parsePaytrInitializeResponse(await response.text());
 
     if (!response.ok || result.status !== "success" || !result.token) {
+      this.logger.warn(
+        `PayTR token request failed ${JSON.stringify({
+          merchantOid: input.merchantOrderId,
+          paymentAmount,
+          testMode,
+          responseStatus: response.status,
+          paytrStatus: result.status,
+          reason: getPaytrFailureReason(result),
+          endpoint: tokenEndpoint
+        })}`
+      );
+
       throw new BadRequestException(
         result.reason || "PayTR ödeme oturumu başlatılamadı. Lütfen tekrar dene."
       );
@@ -183,6 +201,36 @@ export class PaytrAdapterService {
       throw new InternalServerErrorException("PayTR ayarları eksik.");
     }
   }
+}
+
+function parsePaytrInitializeResponse(rawBody: string): PaytrInitializeResponse {
+  if (!rawBody) {
+    return {
+      status: "failed",
+      reason: "Empty PayTR response"
+    };
+  }
+
+  try {
+    return JSON.parse(rawBody) as PaytrInitializeResponse;
+  } catch {
+    return {
+      status: "failed",
+      reason: "PayTR response could not be parsed"
+    };
+  }
+}
+
+function getPaytrFailureReason(result: PaytrInitializeResponse) {
+  if (typeof result.reason === "string" && result.reason) {
+    return result.reason;
+  }
+
+  if (typeof result.message === "string" && result.message) {
+    return result.message;
+  }
+
+  return "Unknown PayTR error";
 }
 
 function normalizeBaseUrl(value: string) {
