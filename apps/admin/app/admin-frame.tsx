@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDeploymentStatus, type DeploymentStatus } from "../lib/deploy-client";
 import { fetchStaffOverview } from "../lib/auth-client";
+import { AdminSessionManager } from "./admin-session-manager";
 import {
   getPrimaryRoleLabel,
   isAccountantRole,
@@ -216,6 +217,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="admin-app-frame" data-sidebar-open={sidebarOpen}>
+      <AdminSessionManager roleKeys={overview?.roleKeys} />
       <button
         className="admin-app-sidebar-backdrop"
         type="button"

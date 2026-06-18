@@ -3,6 +3,7 @@
 import {
   clearUserTokens,
   getUserAccessToken,
+  isAuthFailure,
   refreshUserToken
 } from "./auth-client";
 
@@ -232,7 +233,9 @@ async function requestUserApi<T>(path: string) {
     const refreshed = await refreshUserToken();
     refreshedAccessToken = refreshed.accessToken;
   } catch (error) {
-    clearUserTokens();
+    if (isAuthFailure(error)) {
+      clearUserTokens();
+    }
     throw error;
   }
 

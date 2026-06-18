@@ -8,6 +8,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -88,10 +90,18 @@ export default function AdminAuditPage() {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
         setError(
-          requestError instanceof Error ? requestError.message : "Denetim kayıtları yüklenemedi."
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Denetim kayıtları için yetkiniz bulunmuyor.",
+            server: "Denetim servisine ulaşılamadı.",
+            fallback: "Denetim kayıtları yüklenemedi."
+          })
         );
       } finally {
         if (active) {

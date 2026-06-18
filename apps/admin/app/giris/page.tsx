@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { loginStaff, saveStaffTokens } from "../../lib/auth-client";
 import { getStaffDefaultRoute } from "../../lib/role-routing";
 
@@ -13,7 +13,16 @@ export default function StaffLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("reason") === "timeout") {
+      setSessionMessage("Güvenliğiniz için oturumunuz otomatik kapatıldı.");
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,6 +124,7 @@ export default function StaffLoginPage() {
             />
           </div>
 
+          {sessionMessage ? <div className="admin-message admin-message--success">{sessionMessage}</div> : null}
           {error ? <div className="admin-message admin-message--error">{error}</div> : null}
 
           <button className="admin-button admin-button--wide" type="submit" disabled={loading}>

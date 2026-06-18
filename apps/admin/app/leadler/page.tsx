@@ -8,6 +8,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -105,10 +107,18 @@ export default function AdminLeadsPage() {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
         setError(
-          requestError instanceof Error ? requestError.message : "Lead kayıtları yüklenemedi."
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Başvuru talepleri için yetkiniz bulunmuyor.",
+            server: "Başvuru servisine ulaşılamadı.",
+            fallback: "Başvuru talepleri yüklenemedi."
+          })
         );
       } finally {
         if (active) {

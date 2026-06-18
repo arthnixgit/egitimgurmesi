@@ -8,6 +8,7 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -340,7 +341,13 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         setStudentMemberships(membershipResponse);
       } catch (requestError) {
         if (!active) return;
-        clearStaffTokens();
+
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
         setError(toFriendlyError(requestError, "SaaS yönetimi verileri yüklenemedi."));
       } finally {
         if (active) setLoading(false);

@@ -16,17 +16,24 @@ export default function DeploymentPage() {
   const [triggering, setTriggering] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [technicalError, setTechnicalError] = useState("");
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
 
   async function loadStatus() {
     setLoading(true);
     setError("");
+    setTechnicalError("");
+    setShowErrorDetails(false);
 
     try {
       const response = await fetchDeploymentStatus();
       setStatus(response);
       setDeployRef((current) => current || response.github.branch);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Güncelleme durumu okunamadı.");
+      setError("Güncelleme kontrolü sırasında teknik bir sorun oluştu.");
+      setTechnicalError(getTechnicalErrorMessage(requestError));
     } finally {
       setLoading(false);
     }
@@ -39,14 +46,19 @@ export default function DeploymentPage() {
   async function handleTriggerDeployment() {
     setTriggering(true);
     setError("");
+    setTechnicalError("");
+    setShowErrorDetails(false);
     setMessage("");
 
     try {
       const response: TriggerDeploymentResponse = await triggerDeployment(deployRef || status?.github.branch);
       setMessage(`GitHub deployment workflow kuyruğa alındı: ${response.ref}`);
+      setConfirmOpen(false);
+      setConfirmText("");
       await loadStatus();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Deployment başlatılamadı.");
+      setError("Güncelleme başlatılırken teknik bir sorun oluştu.");
+      setTechnicalError(getTechnicalErrorMessage(requestError));
     } finally {
       setTriggering(false);
     }
@@ -67,7 +79,10 @@ export default function DeploymentPage() {
               className="admin-button"
               type="button"
               disabled={!status?.canTrigger || triggering}
-              onClick={handleTriggerDeployment}
+              onClick={() => {
+                setConfirmText("");
+                setConfirmOpen(true);
+              }}
             >
               {triggering ? "Güncelleme başlatılıyor..." : "Güncellemeyi Başlat"}
             </button>
@@ -87,7 +102,14 @@ export default function DeploymentPage() {
         </div>
       </section>
 
-      {error ? <div className="admin-message admin-message--error">{error}</div> : null}
+      {error ? (
+        <TechnicalErrorMessage
+          message={error}
+          details={technicalError}
+          showDetails={showErrorDetails}
+          onToggleDetails={() => setShowErrorDetails((current) => !current)}
+        />
+      ) : null}
       {message ? <div className="admin-message admin-message--success">{message}</div> : null}
 
       <section className="admin-deploy-grid">
@@ -146,7 +168,12 @@ export default function DeploymentPage() {
           ) : null}
 
           {status?.github.error ? (
-            <div className="admin-message admin-message--error">{status.github.error}</div>
+            <TechnicalErrorMessage
+              message="GitHub bağlantısı kontrol edilirken teknik bir sorun oluştu."
+              details={status.github.error}
+              showDetails={showErrorDetails}
+              onToggleDetails={() => setShowErrorDetails((current) => !current)}
+            />
           ) : null}
         </aside>
       </section>
@@ -179,7 +206,73 @@ export default function DeploymentPage() {
           )}
         </div>
       </section>
+
+      {confirmOpen ? (
+        <div className="admin-session-modal" role="alertdialog" aria-modal="true" aria-labelledby="deploy-confirm-title">
+          <div className="admin-session-modal__card">
+            <span className="admin-session-modal__badge">Yayın Onayı</span>
+            <h2 id="deploy-confirm-title">VDS güncellemesini başlatmak üzeresiniz.</h2>
+            <p>
+              Bu işlem GitHub Actions üzerinden sunucuda yeni sürümü çeker, build ve servis yeniden
+              başlatma adımlarını tetikleyebilir. İşleme devam etmek için aşağıya GUNCELLE yazın.
+            </p>
+            <label className="admin-field" style={{ marginTop: "18px" }}>
+              <span>Onay metni</span>
+              <input
+                className="admin-input"
+                value={confirmText}
+                onChange={(event) => setConfirmText(event.target.value)}
+                placeholder="GUNCELLE"
+              />
+            </label>
+            <div className="admin-session-modal__actions">
+              <button
+                className="admin-button"
+                type="button"
+                disabled={triggering || confirmText.trim().toUpperCase() !== "GUNCELLE"}
+                onClick={() => void handleTriggerDeployment()}
+              >
+                {triggering ? "Başlatılıyor..." : "Onayla ve Başlat"}
+              </button>
+              <button
+                className="admin-button--ghost"
+                type="button"
+                disabled={triggering}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function TechnicalErrorMessage({
+  message,
+  details,
+  showDetails,
+  onToggleDetails
+}: {
+  message: string;
+  details: string;
+  showDetails: boolean;
+  onToggleDetails: () => void;
+}) {
+  return (
+    <div className="admin-message admin-message--error">
+      <strong>{message}</strong>
+      {details ? (
+        <>
+          <button className="admin-button--ghost" type="button" onClick={onToggleDetails}>
+            {showDetails ? "Teknik detayı gizle" : "Teknik detayı göster"}
+          </button>
+          {showDetails ? <pre style={{ whiteSpace: "pre-wrap" }}>{details}</pre> : null}
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -221,4 +314,16 @@ function formatDate(value: string) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function getTechnicalErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Teknik detay alınamadı.";
 }

@@ -10,7 +10,12 @@ import {
   type BetaReadinessSummary,
   type TenancyOverview
 } from "../lib/admin-tenancy-client";
-import { clearStaffTokens, fetchStaffOverview } from "../lib/auth-client";
+import {
+  clearStaffTokens,
+  fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError
+} from "../lib/auth-client";
 import {
   getOperationalDashboard,
   type AnnouncementItem,
@@ -140,13 +145,25 @@ export function RoleDashboardPage({ kind }: { kind: RoleDashboardKind }) {
           (result) => result.status === "rejected"
         );
         setError(failures.length ? "Bazı panel özetleri şu anda alınamadı." : "");
-      } catch {
+      } catch (requestError) {
         if (!active) {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
+        setError(
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Bu panel için yetkiniz bulunmuyor.",
+            network: "Panel verileri alınamadı. Bağlantınızı kontrol edin.",
+            server: "Panel servisi şu anda yanıt vermiyor.",
+            fallback: "Panel verileri yüklenemedi."
+          })
+        );
       } finally {
         if (active) {
           setLoading(false);

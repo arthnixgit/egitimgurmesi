@@ -8,6 +8,8 @@ import {
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
   fetchStaffOverview,
+  getAdminRequestErrorMessage,
+  isStaffSessionError,
   logoutStaff
 } from "../../lib/auth-client";
 import {
@@ -281,11 +283,18 @@ export default function AdminCommercePage() {
           return;
         }
 
-        clearStaffTokens();
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
         setError(
-          requestError instanceof Error ? requestError.message
-            : "Ticaret yönetimi verileri yüklenemedi."
+          getAdminRequestErrorMessage(requestError, {
+            forbidden: "Ticaret yönetimi için yetkiniz bulunmuyor.",
+            server: "Ticaret servisine ulaşılamadı.",
+            fallback: "Ticaret yönetimi verileri yüklenemedi."
+          })
         );
       } finally {
         if (active) {

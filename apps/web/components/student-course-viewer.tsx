@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearUserTokens } from "../lib/auth-client";
+import { isAuthFailure } from "../lib/auth-client";
 import { fetchMyCourse, fetchMyCourses, type StudentCourseDetail, type StudentCourseSummary } from "../lib/lms-client";
 
 export function StudentCoursesPage() {
@@ -31,13 +31,13 @@ export function StudentCoursesPage() {
           return;
         }
 
-        if (requestError instanceof Error && requestError.message.includes("giriş")) {
-          clearUserTokens();
-        }
-
         setCourses([]);
         setError(
-          requestError instanceof Error ? requestError.message : "Kurslar şu anda alınamadı."
+          isAuthFailure(requestError)
+            ? "Oturum süren doldu. Lütfen tekrar giriş yap."
+            : requestError instanceof Error
+              ? requestError.message
+              : "Kurslar şu anda alınamadı."
         );
       } finally {
         if (active) {

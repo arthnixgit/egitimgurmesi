@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { FloatingInstagramLink } from "../components/floating-instagram-link";
 import { FloatingWhatsAppLink } from "../components/floating-whatsapp-link";
+import { StudentSessionManager } from "../components/student-session-manager";
 
 export const metadata: Metadata = {
   title: {
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="tr">
       <body>
         {children}
+        <StudentSessionManager />
         <FloatingInstagramLink />
         <FloatingWhatsAppLink />
       </body>

@@ -9,6 +9,7 @@ import { gradeOptions, studyTrackOptions } from "../../lib/student-profile-optio
 
 type AuthPageClientProps = {
   redirectHref: string;
+  sessionMessage?: string;
 };
 
 type AuthMode = "login" | "register";
@@ -19,7 +20,7 @@ const authHighlights = [
   "Mini Quiz, ücretsiz ön görüşme ve LMS akışına hazır hesap oluştur."
 ] as const;
 
-export function AuthPageClient({ redirectHref }: AuthPageClientProps) {
+export function AuthPageClient({ redirectHref, sessionMessage = "" }: AuthPageClientProps) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("login");
   const [loginEmail, setLoginEmail] = useState("");
@@ -163,6 +164,8 @@ export function AuthPageClient({ redirectHref }: AuthPageClientProps) {
                 Hızlı Kayıt
               </button>
             </div>
+
+            {sessionMessage ? <div className="ega-message ega-message--success">{sessionMessage}</div> : null}
 
             {mode === "login" ? (
               <form className="ega-form ega-auth-form" onSubmit={handleLogin}>

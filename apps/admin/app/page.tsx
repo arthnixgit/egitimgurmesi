@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import {
   clearStaffTokens,
   fetchBootstrapStatus,
-  fetchCurrentStaffUser
+  fetchCurrentStaffUser,
+  getAdminRequestErrorMessage,
+  isStaffSessionError
 } from "../lib/auth-client";
 import { getStaffDefaultRoute } from "../lib/role-routing";
 
@@ -42,14 +44,25 @@ export default function AdminGatewayPage() {
             permissionKeys: currentStaff.staffUser.permissionKeys
           })
         );
-      } catch {
+      } catch (requestError) {
         if (!active) {
           return;
         }
 
-        clearStaffTokens();
-        setMessage("Güvenli giriş ekranına yönlendiriliyorsunuz.");
-        router.replace("/giris");
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          setMessage("Güvenli giriş ekranına yönlendiriliyorsunuz.");
+          router.replace("/giris");
+          return;
+        }
+
+        setMessage(
+          getAdminRequestErrorMessage(requestError, {
+            network: "Yönetim servisine ulaşılamadı. Lütfen bağlantınızı kontrol edin.",
+            server: "Yönetim servisi şu anda yanıt vermiyor. Lütfen tekrar deneyin.",
+            fallback: "Yönetim paneli açılırken teknik bir sorun oluştu."
+          })
+        );
       }
     }
 

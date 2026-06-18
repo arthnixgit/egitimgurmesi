@@ -239,7 +239,7 @@ export default function AdminContentStudioPage() {
         setStaff(staffResponse);
         setOverview(overviewResponse);
 
-        const [menu, pages, staffDoc, successDoc, freeDoc] = await Promise.all([
+        const [menuResult, pagesResult, staffDocResult, successDocResult, freeDocResult] = await Promise.allSettled([
           fetchAdminNavigationMenu("primary"),
           fetchAdminMarketingPages(),
           fetchAdminStaffProfilesDocument(),
@@ -251,6 +251,21 @@ export default function AdminContentStudioPage() {
           return;
         }
 
+        const contentFailures = [menuResult, pagesResult, staffDocResult, successDocResult, freeDocResult].filter(
+          (result): result is PromiseRejectedResult => result.status === "rejected"
+        );
+        const sessionFailure = contentFailures.find((result) => isStaffSessionError(result.reason));
+
+        if (sessionFailure) {
+          throw sessionFailure.reason;
+        }
+
+        const menu = menuResult.status === "fulfilled" ? menuResult.value : null;
+        const pages = pagesResult.status === "fulfilled" ? pagesResult.value : [];
+        const staffDoc = staffDocResult.status === "fulfilled" ? staffDocResult.value : null;
+        const successDoc = successDocResult.status === "fulfilled" ? successDocResult.value : null;
+        const freeDoc = freeDocResult.status === "fulfilled" ? freeDocResult.value : null;
+
         setNavigationMenu(menu);
         setSelectedNavigationItemKey(MENU_SETTINGS_KEY);
 
@@ -260,16 +275,16 @@ export default function AdminContentStudioPage() {
         setSelectedMarketingSectionKey(PAGE_OVERVIEW_KEY);
 
         setStaffDocument(staffDoc);
-        setSelectedStaffGroupKey(staffDoc.groups[0]?.key ?? "");
-        setSelectedStaffProfileKey(staffDoc.groups[0]?.profiles[0] ? getStaffProfileKey(staffDoc.groups[0].profiles[0], 0) : "");
+        setSelectedStaffGroupKey(staffDoc?.groups[0]?.key ?? "");
+        setSelectedStaffProfileKey(staffDoc?.groups[0]?.profiles[0] ? getStaffProfileKey(staffDoc.groups[0].profiles[0], 0) : "");
 
         setSuccessDocument(successDoc);
-        setSelectedSuccessStoryKey(successDoc.stories[0] ? getSuccessStoryKey(successDoc.stories[0], 0) : "");
+        setSelectedSuccessStoryKey(successDoc?.stories[0] ? getSuccessStoryKey(successDoc.stories[0], 0) : "");
 
         setFreeMaterialsDocument(freeDoc);
-        setSelectedFreeMaterialCategoryKey(freeDoc.categories[0]?.key ?? "");
-        setSelectedFreeMaterialItemKey(freeDoc.categories[0]?.items[0] ? getFreeMaterialItemKey(freeDoc.categories[0].items[0], 0) : "");
-        setSelectedCountdownPageSlug(freeDoc.countdownPages[0]?.slug ?? "");
+        setSelectedFreeMaterialCategoryKey(freeDoc?.categories[0]?.key ?? "");
+        setSelectedFreeMaterialItemKey(freeDoc?.categories[0]?.items[0] ? getFreeMaterialItemKey(freeDoc.categories[0].items[0], 0) : "");
+        setSelectedCountdownPageSlug(freeDoc?.countdownPages[0]?.slug ?? "");
         setSavedSnapshots({
           navigation: serializeContentSnapshot(menu),
           marketingPages: createMarketingPageSnapshots(pages),
@@ -277,6 +292,10 @@ export default function AdminContentStudioPage() {
           success: serializeContentSnapshot(successDoc),
           freeMaterials: serializeContentSnapshot(freeDoc)
         });
+
+        if (contentFailures.length > 0) {
+          setError("Bazı içerik kayıtları alınamadı. Açılan bölümleri düzenlemeye devam edebilirsiniz.");
+        }
       } catch (requestError) {
         if (!active) {
           return;
