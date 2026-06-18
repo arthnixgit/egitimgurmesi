@@ -14,6 +14,7 @@ import {
 } from "../lib/auth-client";
 import {
   createCheckoutOrder,
+  fetchMyOrders,
   linkUnikazanAccount,
   startOrderCheckout,
   type StartCheckoutPayload,
@@ -169,6 +170,22 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
           billingCity: current.billingCity || response.user.profile?.city || "",
           billingDistrict: current.billingDistrict || response.user.profile?.district || ""
         }));
+
+        try {
+          const orders = await fetchMyOrders();
+          const reusableOrder = findReusableCheckoutOrder(orders, product.slug);
+
+          if (active && reusableOrder) {
+            setOrder(reusableOrder);
+          }
+        } catch (ordersError) {
+          if (active && isAuthFailure(ordersError)) {
+            setAuthState({
+              status: "unauthenticated",
+              message: undefined
+            });
+          }
+        }
       } catch (requestError) {
         if (!active) {
           return;
@@ -197,7 +214,7 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [product.slug]);
 
   async function handleCheckoutStart() {
     if (!product.defaultVariantId) {
@@ -220,7 +237,9 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
 
     try {
       const ensuredOrder =
-        order ?? (await createCheckoutOrder(product.defaultVariantId, couponCode.trim() || undefined));
+        order ??
+        findReusableCheckoutOrder(await fetchMyOrders(), product.slug) ??
+        (await createCheckoutOrder(product.defaultVariantId, couponCode.trim() || undefined));
 
       setOrder(ensuredOrder);
 
@@ -573,4 +592,18 @@ export function CheckoutFlow({ product }: CheckoutFlowProps) {
       </div>
     </section>
   );
+}
+
+function findReusableCheckoutOrder(orders: UserOrder[], productSlug: string) {
+  return (
+    orders.find(
+      (entry) =>
+        isCheckoutContinuableOrder(entry) &&
+        entry.items.some((item) => item.productSlug === productSlug)
+    ) ?? null
+  );
+}
+
+function isCheckoutContinuableOrder(order: UserOrder) {
+  return !["PAID", "CANCELLED", "REFUNDED", "FAILED"].includes(order.status);
 }

@@ -47,6 +47,7 @@ export type AuthActionResponse = {
 const API_BASE_URL = resolveApiBaseUrl();
 const ACCESS_TOKEN_KEY = "ega_user_access_token";
 const REFRESH_TOKEN_KEY = "ega_user_refresh_token";
+export const USER_AUTH_CHANGED_EVENT = "ega:user-auth-changed";
 
 type ApiErrorPayload = {
   message?: string;
@@ -138,11 +139,13 @@ async function request<T>(path: string, init?: RequestInit) {
 export function saveUserTokens(payload: Pick<PublicAuthResponse, "accessToken" | "refreshToken">) {
   localStorage.setItem(ACCESS_TOKEN_KEY, payload.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken);
+  notifyUserAuthChanged();
 }
 
 export function clearUserTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  notifyUserAuthChanged();
 }
 
 export function getUserAccessToken() {
@@ -151,6 +154,10 @@ export function getUserAccessToken() {
 
 export function getUserRefreshToken() {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function hasUserTokens() {
+  return Boolean(getUserAccessToken() && getUserRefreshToken());
 }
 
 export function registerUser(payload: Record<string, unknown>) {
@@ -345,4 +352,8 @@ export async function logoutUser() {
   });
 
   clearUserTokens();
+}
+
+function notifyUserAuthChanged() {
+  window.dispatchEvent(new Event(USER_AUTH_CHANGED_EVENT));
 }

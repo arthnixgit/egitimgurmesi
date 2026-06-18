@@ -4,8 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ButtonLink } from "@ega/ui";
+import {
+  fetchCurrentUser,
+  hasUserTokens,
+  isAuthFailure,
+  USER_AUTH_CHANGED_EVENT
+} from "../lib/auth-client";
 import { getNavigationItems } from "../lib/public-content-api";
 import { publicNavigationItems, type PublicNavItem } from "../lib/navigation";
+
+type NavbarAuthState =
+  | { status: "checking" }
+  | { status: "anonymous" }
+  | { status: "authenticated"; label: string };
 
 export function PublicNavbar() {
   const [navigationItems, setNavigationItems] =
@@ -15,6 +26,7 @@ export function PublicNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMobileGroupId, setOpenMobileGroupId] = useState<string | null>(null);
   const [isScrollSettling, setIsScrollSettling] = useState(false);
+  const [authState, setAuthState] = useState<NavbarAuthState>({ status: "checking" });
   const closeTimerRef = useRef<number | null>(null);
   const scrollUnlockTimerRef = useRef<number | null>(null);
 
@@ -102,6 +114,64 @@ export function PublicNavbar() {
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAuthState() {
+      if (!hasUserTokens()) {
+        if (active) {
+          setAuthState({ status: "anonymous" });
+        }
+
+        return;
+      }
+
+      try {
+        const response = await fetchCurrentUser();
+
+        if (!active) {
+          return;
+        }
+
+        const firstName = response.user.profile?.firstName?.trim();
+        setAuthState({
+          status: "authenticated",
+          label: firstName ? `${firstName} Paneli` : "Öğrenci Paneli"
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setAuthState({ status: isAuthFailure(error) ? "anonymous" : "anonymous" });
+      }
+    }
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (
+        event.key === "ega_user_access_token" ||
+        event.key === "ega_user_refresh_token" ||
+        event.key === null
+      ) {
+        void loadAuthState();
+      }
+    };
+
+    void loadAuthState();
+    window.addEventListener(USER_AUTH_CHANGED_EVENT, loadAuthState);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      active = false;
+      window.removeEventListener(USER_AUTH_CHANGED_EVENT, loadAuthState);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
+  const accountActionHref = authState.status === "authenticated" ? "/hesabim" : "/giris";
+  const accountActionLabel =
+    authState.status === "authenticated" ? authState.label : "Giriş Yap / Kayıt Ol";
 
   return (
     <header className="ega-header">
@@ -258,7 +328,7 @@ export function PublicNavbar() {
           onPointerEnter={closeMegaMenu}
           onFocusCapture={closeMegaMenu}
         >
-          <ButtonLink href="/giris" label="Giriş Yap / Kayıt Ol" />
+          <ButtonLink href={accountActionHref} label={accountActionLabel} />
         </div>
       </div>
 
@@ -352,7 +422,7 @@ export function PublicNavbar() {
           </div>
 
           <div className="ega-mobile-nav__footer">
-            <ButtonLink href="/giris" label="Giriş Yap / Kayıt Ol" />
+            <ButtonLink href={accountActionHref} label={accountActionLabel} />
           </div>
         </div>
       </div>
