@@ -23,7 +23,15 @@ type AdminModule = {
   icon: string;
   label: string;
   description: string;
-  group: "Günlük Panel" | "Operasyon" | "İçerik ve Satış" | "Sistem";
+  group:
+    | "Kontrol Merkezi"
+    | "Kurum & Şube"
+    | "Öğrenci Operasyonu"
+    | "Eğitim Operasyonu"
+    | "İçerik & Medya"
+    | "Paket & Satış"
+    | "Finans"
+    | "Sistem & Güvenlik";
   visibleFor: (overview: StaffOverview | null) => boolean;
 };
 
@@ -41,7 +49,7 @@ const adminModules: AdminModule[] = [
     icon: "PL",
     label: "Genel Bakış",
     description: "Platform sağlığı ve hızlı işlemler",
-    group: "Günlük Panel",
+    group: "Kontrol Merkezi",
     visibleFor: (overview) => isSuperOrAdmin(overview)
   },
   {
@@ -49,7 +57,7 @@ const adminModules: AdminModule[] = [
     icon: "ŞB",
     label: "Şube Paneli",
     description: "Şube öğrencileri, grupları ve dersleri",
-    group: "Günlük Panel",
+    group: "Kurum & Şube",
     visibleFor: (overview) => isBranchAdmin(overview)
   },
   {
@@ -57,7 +65,7 @@ const adminModules: AdminModule[] = [
     icon: "EĞ",
     label: "Eğitmen Paneli",
     description: "Dersler, sınıflar ve öğrenciler",
-    group: "Günlük Panel",
+    group: "Eğitim Operasyonu",
     visibleFor: (overview) => isInstructor(overview)
   },
   {
@@ -65,7 +73,7 @@ const adminModules: AdminModule[] = [
     icon: "KO",
     label: "Koç Paneli",
     description: "Takipler, planlar ve görüşme notları",
-    group: "Günlük Panel",
+    group: "Eğitim Operasyonu",
     visibleFor: (overview) => isCoach(overview)
   },
   {
@@ -73,7 +81,7 @@ const adminModules: AdminModule[] = [
     icon: "FN",
     label: "Finans Paneli",
     description: "Ödemeler, siparişler ve gelir özeti",
-    group: "Günlük Panel",
+    group: "Finans",
     visibleFor: (overview) => isAccountant(overview) || isSuperOrAdmin(overview)
   },
   {
@@ -81,7 +89,7 @@ const adminModules: AdminModule[] = [
     icon: "KŞ",
     label: "Kurum ve Şube Yönetimi",
     description: "Organizasyon, merkez, şube ve yetki kapsamı",
-    group: "Operasyon",
+    group: "Kurum & Şube",
     visibleFor: (overview) =>
       isSuperOrAdmin(overview) || isBranchAdmin(overview) || hasPermission(overview, "organizations.manage")
   },
@@ -90,7 +98,7 @@ const adminModules: AdminModule[] = [
     icon: "CD",
     label: "Canlı Ders ve Duyurular",
     description: "Ders planı, gruplar, koçluk ve duyurular",
-    group: "Operasyon",
+    group: "Eğitim Operasyonu",
     visibleFor: (overview) =>
       isSuperOrAdmin(overview) ||
       isBranchAdmin(overview) ||
@@ -102,7 +110,7 @@ const adminModules: AdminModule[] = [
     icon: "ÖG",
     label: "Ön Görüşme Talepleri",
     description: "Ziyaretçi talepleri ve iletişim kayıtları",
-    group: "Operasyon",
+    group: "Öğrenci Operasyonu",
     visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "leads.manage")
   },
   {
@@ -110,7 +118,7 @@ const adminModules: AdminModule[] = [
     icon: "PS",
     label: "Paketler ve Satış",
     description: "Paketler, fiyatlar, siparişler ve harici siparişler",
-    group: "İçerik ve Satış",
+    group: "Paket & Satış",
     visibleFor: (overview) =>
       isSuperOrAdmin(overview) || isBranchAdmin(overview) || isAccountant(overview) || hasPermission(overview, "products.manage")
   },
@@ -119,7 +127,7 @@ const adminModules: AdminModule[] = [
     icon: "İÇ",
     label: "İçerik Yönetimi",
     description: "Sayfalar, menüler, kadro ve materyaller",
-    group: "İçerik ve Satış",
+    group: "İçerik & Medya",
     visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
   },
   {
@@ -127,7 +135,7 @@ const adminModules: AdminModule[] = [
     icon: "MK",
     label: "Medya Kütüphanesi",
     description: "Görsel, doküman ve video bağlantıları",
-    group: "İçerik ve Satış",
+    group: "İçerik & Medya",
     visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
   },
   {
@@ -135,7 +143,7 @@ const adminModules: AdminModule[] = [
     icon: "PR",
     label: "Personel ve Roller",
     description: "Ekip hesapları, roller ve erişimler",
-    group: "Sistem",
+    group: "Sistem & Güvenlik",
     visibleFor: (overview) => isSuperOrAdmin(overview) || isBranchAdmin(overview) || hasPermission(overview, "staff.manage")
   },
   {
@@ -143,7 +151,7 @@ const adminModules: AdminModule[] = [
     icon: "KK",
     label: "Kurulum Kontrolü",
     description: "Onboarding ve beta hazırlık durumu",
-    group: "Sistem",
+    group: "Kontrol Merkezi",
     visibleFor: (overview) => isSuperOrAdmin(overview)
   },
   {
@@ -151,7 +159,7 @@ const adminModules: AdminModule[] = [
     icon: "SK",
     label: "Sistem Kayıtları",
     description: "İşlem geçmişi ve gelişmiş denetim",
-    group: "Sistem",
+    group: "Sistem & Güvenlik",
     visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "audit.read")
   },
   {
@@ -159,7 +167,7 @@ const adminModules: AdminModule[] = [
     icon: "YG",
     label: "Yayın ve Güncelleme",
     description: "Sürüm durumu ve yayın akışı",
-    group: "Sistem",
+    group: "Sistem & Güvenlik",
     visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "maintenance.manage")
   }
 ];
@@ -202,7 +210,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
 
   const visibleModules = useMemo(() => {
     const modules = adminModules.filter((module) => module.visibleFor(overview));
-    return modules.length ? modules : adminModules.filter((module) => module.group === "Günlük Panel");
+    return modules.length ? modules : adminModules.filter((module) => module.group === "Kontrol Merkezi");
   }, [overview]);
 
   if (isUnframed) {
@@ -337,10 +345,14 @@ function groupModules(modules: AdminModule[]) {
       return groups;
     },
     {
-      "Günlük Panel": [],
-      Operasyon: [],
-      "İçerik ve Satış": [],
-      Sistem: []
+      "Kontrol Merkezi": [],
+      "Kurum & Şube": [],
+      "Öğrenci Operasyonu": [],
+      "Eğitim Operasyonu": [],
+      "İçerik & Medya": [],
+      "Paket & Satış": [],
+      Finans: [],
+      "Sistem & Güvenlik": []
     }
   );
 }

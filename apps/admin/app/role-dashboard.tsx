@@ -76,7 +76,8 @@ const quickActions: Record<RoleDashboardKind, Array<{ label: string; href: strin
   branch: [
     { label: "Öğrenci Ekle", href: "/saas/ogrenci-uyelikleri", body: "Öğrenciyi şubeye bağlayın.", tone: "green" },
     { label: "Grup Oluştur", href: "/saas/sinif-gruplar", body: "Sınıf veya çalışma grubu açın.", tone: "teal" },
-    { label: "Ders Planla", href: "/operasyon", body: "Canlı ders oturumu oluşturun.", tone: "blue" },
+    { label: "Personel Ata", href: "/saas/personel-atamalari", body: "Eğitmen, koç ve finans yetkilisini şubeye bağlayın.", tone: "navy" },
+    { label: "Canlı Ders", href: "/operasyon", body: "Yaklaşan ders ve görüşme oturumlarını yönetin.", tone: "blue" },
     { label: "Duyuru Yayınla", href: "/operasyon", body: "Öğrenci ve ekip duyurusu gönderin.", tone: "amber" }
   ],
   instructor: [
@@ -90,9 +91,10 @@ const quickActions: Record<RoleDashboardKind, Array<{ label: string; href: strin
     { label: "Öğrencilerimi Gör", href: "/operasyon", body: "Atandığınız öğrencileri takip edin.", tone: "green" }
   ],
   finance: [
-    { label: "Ödemeleri Gör", href: "/ticaret", body: "Ödeme kayıtları ve durumları inceleyin.", tone: "green" },
-    { label: "Siparişleri Gör", href: "/ticaret", body: "Sipariş akışını kontrol edin.", tone: "blue" },
-    { label: "Raporlar", href: "/denetim", body: "Kayıt geçmişi ve finans hareketlerini izleyin.", tone: "navy" }
+    { label: "Siparişler", href: "/ticaret", body: "Sipariş akışını ve öğrenci bağlantılarını kontrol edin.", tone: "blue" },
+    { label: "Ödemeler", href: "/ticaret", body: "Ödeme kayıtları ve durumlarını inceleyin.", tone: "green" },
+    { label: "Bekleyen Ödemeler", href: "/ticaret", body: "Tamamlanmamış ödeme akışlarını takip edin.", tone: "amber" },
+    { label: "Manuel İnceleme", href: "/ticaret", body: "İade, iptal ve kontrol gerektiren kayıtları ayırın.", tone: "navy" }
   ]
 };
 

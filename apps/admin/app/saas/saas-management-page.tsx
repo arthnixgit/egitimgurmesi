@@ -449,6 +449,60 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     });
   }, [branchSearch, branches, centerFilterId]);
 
+  const setupSteps = useMemo(() => {
+    const educationCenterCount = tenancyOverview?.educationCenterCount ?? centers.length;
+    const classGroupCount = tenancyOverview?.classGroupCount ?? classGroups.length;
+    const staffAssignmentCount = tenancyOverview?.staffAssignmentCount ?? staffAssignments.length;
+    const studentMembershipCount = tenancyOverview?.studentMembershipCount ?? studentMemberships.length;
+
+    return [
+      {
+        label: "Organizasyon",
+        href: "/saas/organizasyonlar",
+        count: tenancyOverview?.organizationCount ?? organizations.length,
+        done: (tenancyOverview?.organizationCount ?? organizations.length) > 0,
+        description: "Ana kurum kaydını oluşturun."
+      },
+      {
+        label: "Eğitim Merkezi",
+        href: "/saas/egitim-merkezleri",
+        count: educationCenterCount,
+        done: educationCenterCount > 0,
+        description: "Okul veya online eğitim merkezi bağlayın."
+      },
+      {
+        label: "Şube",
+        href: "/saas/subeler",
+        count: tenancyOverview?.branchCount ?? branches.length,
+        done: (tenancyOverview?.branchCount ?? branches.length) > 0,
+        description: "Operasyonun yürütüleceği şubeyi açın."
+      },
+      {
+        label: "Personel Ataması",
+        href: "/saas/personel-atamalari",
+        count: staffAssignmentCount,
+        done: staffAssignmentCount > 0,
+        description: "Şube yöneticisi, eğitmen, koç ve finans rollerini bağlayın."
+      },
+      {
+        label: "Sınıf / Grup",
+        href: "/saas/sinif-gruplar",
+        count: classGroupCount,
+        done: classGroupCount > 0,
+        description: "Öğrencileri ders ve takip gruplarında toplayın."
+      },
+      {
+        label: "Öğrenci Üyeliği",
+        href: "/saas/ogrenci-uyelikleri",
+        count: studentMembershipCount,
+        done: studentMembershipCount > 0,
+        description: "Öğrenciyi şubeye ve operasyon akışına dahil edin."
+      }
+    ];
+  }, [branches.length, centers.length, classGroups.length, organizations.length, staffAssignments.length, studentMemberships.length, tenancyOverview]);
+
+  const nextSetupStep = setupSteps.find((step) => !step.done) ?? setupSteps[setupSteps.length - 1]!;
+
   async function refreshScopeAndOverview() {
     const [scopeResponse, overviewResponse] = await Promise.all([getTenancyScope(), getTenancyOverview()]);
     setScope(scopeResponse);
@@ -878,61 +932,103 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
 
   function renderOverview() {
     return (
-      <section className="admin-saas-grid">
-        <article className="admin-card admin-saas-main-card">
+      <div className="admin-saas-overview-stack">
+        <section className="admin-saas-grid">
+          <article className="admin-card admin-saas-main-card">
+            <div className="admin-saas-section-head">
+              <div>
+                <span className="admin-badge">Genel Bakış</span>
+                <h2>Platform operasyon özeti</h2>
+                <p>Kurum, şube ve atama durumunu tek bakışta izleyin.</p>
+              </div>
+            </div>
+            <div className="admin-saas-stat-grid">
+              <StatCard label="Organizasyon" value={tenancyOverview?.organizationCount ?? 0} />
+              <StatCard label="Eğitim Merkezi" value={tenancyOverview?.educationCenterCount ?? 0} />
+              <StatCard label="Şube" value={tenancyOverview?.branchCount ?? 0} />
+              <StatCard label="Sınıf / Grup" value={tenancyOverview?.classGroupCount ?? 0} />
+              <StatCard label="Personel Ataması" value={tenancyOverview?.staffAssignmentCount ?? 0} />
+              <StatCard label="Öğrenci Üyeliği" value={tenancyOverview?.studentMembershipCount ?? 0} />
+            </div>
+            <div className="admin-saas-quick-actions">
+              <Link className="admin-button" href="/saas/organizasyonlar">Yeni Organizasyon</Link>
+              <Link className="admin-button" href="/saas/egitim-merkezleri">Yeni Eğitim Merkezi</Link>
+              <Link className="admin-button" href="/saas/subeler">Yeni Şube</Link>
+              <Link className="admin-button" href="/saas/sinif-gruplar">Yeni Sınıf/Grup</Link>
+            </div>
+          </article>
+          <article className="admin-card">
+            <span className="admin-badge">Son İşlemler</span>
+            <h3>Yeni şubeler ve atamalar</h3>
+            <div className="admin-saas-record-list">
+              {tenancyOverview?.recentBranches.map((branch) => (
+                <RecordRow key={branch.id} title={branch.name} meta={branch.organization?.name ?? "Organizasyon"} detail={formatDate(branch.createdAt)} />
+              ))}
+              {tenancyOverview?.recentStaffAssignments.map((assignment) => (
+                <RecordRow
+                  key={assignment.id}
+                  title={assignment.staffUser?.displayName ?? assignment.staffUserId}
+                  meta={`${assignment.branch?.name ?? "Şube"} · ${roleLabel(assignment.roleKey)}`}
+                  detail={formatDate(assignment.createdAt)}
+                />
+              ))}
+              {tenancyOverview?.recentStudentMemberships.map((membership) => (
+                <RecordRow
+                  key={membership.id}
+                  title={membership.student?.displayName ?? membership.userId}
+                  meta={`${membership.branch?.name ?? "Şube"} · ${statusLabel(membership.status)}`}
+                  detail={formatDate(membership.createdAt)}
+                />
+              ))}
+              {!tenancyOverview?.recentBranches.length &&
+              !tenancyOverview?.recentStaffAssignments.length &&
+              !tenancyOverview?.recentStudentMemberships.length ? (
+                <EmptyState title="Henüz işlem yok" body="Yeni şube, personel ataması ve öğrenci üyelikleri burada görünür." />
+              ) : null}
+            </div>
+          </article>
+        </section>
+
+        <section className="admin-card admin-saas-flow-card">
           <div className="admin-saas-section-head">
             <div>
-              <span className="admin-badge">Genel Bakış</span>
-              <h2>Platform operasyon özeti</h2>
-              <p>Kurum, şube ve atama durumunu tek bakışta izleyin.</p>
+              <span className="admin-badge">Kurulum Akışı</span>
+              <h2>Kurumdan öğrenci üyeliğine</h2>
+              <p>Beta hazırlık için temel operasyon sırasını canlı kayıt durumuyla takip edin.</p>
+            </div>
+            <Link className="admin-button--ghost" href={nextSetupStep.href}>
+              {nextSetupStep.done ? "Akışı Gözden Geçir" : `${nextSetupStep.label} adımına git`}
+            </Link>
+          </div>
+          <div className="admin-saas-step-grid">
+            {setupSteps.map((step, index) => (
+              <Link className="admin-saas-step-card" data-complete={step.done} href={step.href} key={step.label}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{step.label}</strong>
+                <small>{step.description}</small>
+                <em>{step.done ? `${step.count} kayıt hazır` : "Tamamlanacak"}</em>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="admin-card">
+          <div className="admin-saas-section-head">
+            <div>
+              <span className="admin-badge">Şube Günlük İşlemleri</span>
+              <h2>Şube operasyonuna hızlı geçiş</h2>
+              <p>Öğrenci, ekip, grup, canlı ders ve duyuru işlemlerini aynı akıştan yönetin.</p>
             </div>
           </div>
-          <div className="admin-saas-stat-grid">
-            <StatCard label="Organizasyon" value={tenancyOverview?.organizationCount ?? 0} />
-            <StatCard label="Eğitim Merkezi" value={tenancyOverview?.educationCenterCount ?? 0} />
-            <StatCard label="Şube" value={tenancyOverview?.branchCount ?? 0} />
-            <StatCard label="Sınıf / Grup" value={tenancyOverview?.classGroupCount ?? 0} />
-            <StatCard label="Personel Ataması" value={tenancyOverview?.staffAssignmentCount ?? 0} />
-            <StatCard label="Öğrenci Üyeliği" value={tenancyOverview?.studentMembershipCount ?? 0} />
+          <div className="admin-saas-shortcut-grid">
+            <WorkflowShortcut href="/saas/ogrenci-uyelikleri" label="Öğrenciler" body="Öğrenciyi şubeye bağla." />
+            <WorkflowShortcut href="/saas/sinif-gruplar" label="Sınıf / Grup" body="Grup yapısını hazırla." />
+            <WorkflowShortcut href="/saas/personel-atamalari" label="Personel" body="Eğitmen ve koç ataması yap." />
+            <WorkflowShortcut href="/operasyon" label="Canlı Dersler" body="Oturum ve programı yönet." />
+            <WorkflowShortcut href="/operasyon" label="Duyurular" body="Şube ve grup mesajlarını yayınla." />
           </div>
-          <div className="admin-saas-quick-actions">
-            <Link className="admin-button" href="/saas/organizasyonlar">Yeni Organizasyon</Link>
-            <Link className="admin-button" href="/saas/egitim-merkezleri">Yeni Eğitim Merkezi</Link>
-            <Link className="admin-button" href="/saas/subeler">Yeni Şube</Link>
-            <Link className="admin-button" href="/saas/sinif-gruplar">Yeni Sınıf/Grup</Link>
-          </div>
-        </article>
-        <article className="admin-card">
-          <span className="admin-badge">Son İşlemler</span>
-          <h3>Yeni şubeler ve atamalar</h3>
-          <div className="admin-saas-record-list">
-            {tenancyOverview?.recentBranches.map((branch) => (
-              <RecordRow key={branch.id} title={branch.name} meta={branch.organization?.name ?? "Organizasyon"} detail={formatDate(branch.createdAt)} />
-            ))}
-            {tenancyOverview?.recentStaffAssignments.map((assignment) => (
-              <RecordRow
-                key={assignment.id}
-                title={assignment.staffUser?.displayName ?? assignment.staffUserId}
-                meta={`${assignment.branch?.name ?? "Şube"} · ${roleLabel(assignment.roleKey)}`}
-                detail={formatDate(assignment.createdAt)}
-              />
-            ))}
-            {tenancyOverview?.recentStudentMemberships.map((membership) => (
-              <RecordRow
-                key={membership.id}
-                title={membership.student?.displayName ?? membership.userId}
-                meta={`${membership.branch?.name ?? "Şube"} · ${statusLabel(membership.status)}`}
-                detail={formatDate(membership.createdAt)}
-              />
-            ))}
-            {!tenancyOverview?.recentBranches.length &&
-            !tenancyOverview?.recentStaffAssignments.length &&
-            !tenancyOverview?.recentStudentMemberships.length ? (
-              <EmptyState title="Hareket bulunmuyor" body="Yeni şube ve atamalar listelenir." />
-            ) : null}
-          </div>
-        </article>
-      </section>
+        </section>
+      </div>
     );
   }
 
@@ -1147,7 +1243,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               ))}
             </div>
           ) : null}
-          {!sectionLoading && !staffAssignments.length ? <EmptyState title="Atama yok" body="Seçili şube için personel ataması bulunmuyor." /> : null}
+          {!sectionLoading && !staffAssignments.length ? (
+            <EmptyState
+              title="Personel ataması yok"
+              body="Şube yöneticisi, eğitmen, koç veya finans yetkilisini seçili şubeye bağlayarak operasyon akışını başlatın."
+            />
+          ) : null}
         </article>
       </section>
     );
@@ -1183,6 +1284,14 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           <div className="admin-actions">
             <button className="admin-button" type="button" disabled={saving || !canManageAssignments} onClick={saveStudentMembership}>{saving ? "Kaydediliyor..." : "Şubeye Ekle"}</button>
           </div>
+          <div className="admin-saas-workflow-note">
+            <strong>Öğrenci operasyon akışı</strong>
+            <p>Üyelik sonrası öğrenciyi sınıf/gruba alın. Sipariş ve ödeme kontrollerini Paket & Satış alanından takip edin.</p>
+            <div>
+              <Link href="/saas/sinif-gruplar">Sınıf / Grup Yönetimi</Link>
+              <Link href="/ticaret">Paket & Satış</Link>
+            </div>
+          </div>
         </article>
         <article className="admin-card">
           <span className="admin-badge">Mevcut Üyelikler</span>
@@ -1205,7 +1314,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               ))}
             </div>
           ) : null}
-          {!sectionLoading && !studentMemberships.length ? <EmptyState title="Üyelik yok" body="Seçili şubede öğrenci üyeliği bulunmuyor." /> : null}
+          {!sectionLoading && !studentMemberships.length ? (
+            <EmptyState
+              title="Öğrenci üyeliği yok"
+              body="Öğrenci kaydı hazırsa bu ekrandan şubeye bağlayın; ardından sınıf/grup ve koçluk akışına dahil edebilirsiniz."
+            />
+          ) : null}
         </article>
       </section>
     );
@@ -1236,7 +1350,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               ))}
             </div>
           ) : null}
-          {!sectionLoading && !classGroups.length ? <EmptyState title="Sınıf/grup yok" body="Seçili şube için ilk sınıf veya çalışma grubunu oluşturun." /> : null}
+          {!sectionLoading && !classGroups.length ? (
+            <EmptyState
+              title="Sınıf/grup yok"
+              body="Öğrencileri, eğitmenleri ve koçları ortak bir akışta toplamak için ilk sınıf veya çalışma grubunu oluşturun."
+            />
+          ) : null}
         </article>
         <article className="admin-card admin-saas-form-card">
           <span className="admin-badge">{editingClassGroupId ? "Güncelle" : "Yeni Sınıf / Grup"}</span>
@@ -1337,6 +1456,15 @@ function RecordRow({ title, meta, detail }: { title: string; meta: string; detai
       </span>
       <time>{detail}</time>
     </div>
+  );
+}
+
+function WorkflowShortcut({ href, label, body }: { href: string; label: string; body: string }) {
+  return (
+    <Link className="admin-saas-shortcut-card" href={href}>
+      <strong>{label}</strong>
+      <span>{body}</span>
+    </Link>
   );
 }
 

@@ -137,7 +137,9 @@
 }
 
 .admin-saas-stat-grid {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .admin-saas-quick-actions {
@@ -145,6 +147,115 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
+}
+
+.admin-saas-overview-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-saas-flow-card {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-saas-step-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-saas-step-card,
+.admin-saas-shortcut-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  text-decoration: none;
+  color: var(--admin-text);
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(16, 47, 85, 0.1);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.admin-saas-step-card:hover,
+.admin-saas-shortcut-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(21, 168, 168, 0.34);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.admin-saas-step-card[data-complete="true"] {
+  background:
+    linear-gradient(135deg, rgba(21, 168, 168, 0.14), rgba(255, 255, 255, 0.86)),
+    rgba(255, 255, 255, 0.84);
+  border-color: rgba(21, 168, 168, 0.28);
+}
+
+.admin-saas-step-card span {
+  width: fit-content;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #0c6f72;
+  background: rgba(21, 168, 168, 0.12);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.admin-saas-step-card strong,
+.admin-saas-shortcut-card strong {
+  line-height: 1.15;
+}
+
+.admin-saas-step-card small,
+.admin-saas-shortcut-card span {
+  color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+.admin-saas-step-card em {
+  margin-top: 4px;
+  color: #0c6f72;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.admin-saas-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-saas-workflow-note {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(16, 47, 85, 0.05);
+  border: 1px solid rgba(16, 47, 85, 0.08);
+}
+
+.admin-saas-workflow-note p {
+  margin: 0;
+  color: var(--admin-muted);
+  line-height: 1.55;
+}
+
+.admin-saas-workflow-note div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-saas-workflow-note a {
+  color: #0c6f72;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .admin-saas-record-list {
@@ -355,7 +466,9 @@
   }
 
   .admin-saas-stat-grid,
-  .admin-saas-card-grid {
+  .admin-saas-card-grid,
+  .admin-saas-step-grid,
+  .admin-saas-shortcut-grid {
     grid-template-columns: 1fr;
   }
 
