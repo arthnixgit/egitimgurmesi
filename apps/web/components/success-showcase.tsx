@@ -150,7 +150,7 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
               {activeStory.avatarUrl ? (
                 <img src={activeStory.avatarUrl} alt={`${activeStory.studentName} görseli`} />
               ) : (
-                <img src="/branding/ega-mark-transparent.png" alt="EGA" />
+                <img src="/branding/ega-logo-official.png" alt="Eğitim Gurmesi Akademi" />
               )}
               <span>{activeStory.studentName}</span>
             </div>

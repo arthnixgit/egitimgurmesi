@@ -271,14 +271,18 @@ textarea {
 }
 
 .ega-brand__logo {
-  width: 50px;
+  width: 76px;
+  max-height: 46px;
   height: auto;
+  object-fit: contain;
   flex: 0 0 auto;
 }
 
 .ega-footer__logo {
-  width: 112px;
+  width: 154px;
+  max-height: 82px;
   height: auto;
+  object-fit: contain;
 }
 
 .ega-brand__copy {
@@ -7891,7 +7895,7 @@ textarea {
   }
 
   .ega-brand__logo {
-    width: 44px;
+    width: 62px;
   }
 
   .ega-header__actions {

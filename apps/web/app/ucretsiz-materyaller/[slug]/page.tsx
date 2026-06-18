@@ -93,7 +93,7 @@ export default async function FreeMaterialCountdownPage({
                 controls
                 playsInline
                 preload="none"
-                poster="/branding/ega-logo-transparent-cropped.png"
+                poster="/branding/ega-logo-official.png"
               >
                 <source src="" type="video/mp4" />
                 Tarayıcınız video oynatmayı desteklemiyor.

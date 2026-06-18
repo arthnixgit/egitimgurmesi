@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDeploymentStatus, type DeploymentStatus } from "../lib/deploy-client";
@@ -229,7 +230,19 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
         aria-hidden={!sidebarOpen}
       >
         <Link className="admin-app-sidebar__brand" href={activeModule?.href ?? "/platform"}>
-          <span className="admin-app-sidebar__logo">EGA</span>
+          <Image
+            src="/branding/ega-logo-official.png"
+            alt="Eğitim Gurmesi Akademi"
+            width={96}
+            height={51}
+            className="admin-app-sidebar__logo"
+            style={{
+              background: "rgba(255, 255, 255, 0.94)",
+              objectFit: "contain",
+              padding: "5px"
+            }}
+            priority
+          />
           <span>
             <strong>Eğitim Gurmesi</strong>
             <small>{getPrimaryRoleLabel(overview?.roleKeys)}</small>

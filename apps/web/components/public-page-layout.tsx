@@ -20,10 +20,10 @@ export function PublicPageLayout({
         <div className="ega-footer__inner">
           <div className="ega-footer__brand">
             <Image
-              src="/branding/ega-logo-transparent-cropped.png"
-              alt="Eğitim Gurmesi Akademi logosu"
-              width={124}
-              height={124}
+              src="/branding/ega-logo-official.png"
+              alt="Eğitim Gurmesi Akademi"
+              width={229}
+              height={121}
               className="ega-footer__logo"
             />
             <p>

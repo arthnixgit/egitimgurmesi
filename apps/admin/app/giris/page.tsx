@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
@@ -42,7 +43,21 @@ export default function StaffLoginPage() {
     <main className="admin-login-page">
       <section className="admin-login-hero">
         <div className="admin-login-hero__brand">
-          <span>EGA</span>
+          <Image
+            src="/branding/ega-logo-official.png"
+            alt="Eğitim Gurmesi Akademi"
+            width={114}
+            height={60}
+            style={{
+              background: "rgba(255, 255, 255, 0.92)",
+              borderRadius: "14px",
+              height: "auto",
+              objectFit: "contain",
+              padding: "6px",
+              width: "72px"
+            }}
+            priority
+          />
           <strong>Eğitim Gurmesi Akademi</strong>
         </div>
 

@@ -85,7 +85,7 @@ export default function InPersonCoachingPage() {
               <div className="ega-coaching-hero__avatar ega-coaching-hero__avatar--right" />
 
               <Image
-                src="/branding/ega-logo-transparent-cropped.png"
+                src="/branding/ega-logo-official.png"
                 alt=""
                 width={174}
                 height={174}

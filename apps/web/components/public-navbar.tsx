@@ -178,10 +178,10 @@ export function PublicNavbar() {
       <div className="ega-header__inner">
         <Link className="ega-brand" href="/" aria-label="Eğitim Gurmesi Akademi ana sayfa">
           <Image
-            src="/branding/ega-mark-transparent.png"
-            alt="Eğitim Gurmesi Akademi logosu"
-            width={64}
-            height={64}
+            src="/branding/ega-logo-official.png"
+            alt="Eğitim Gurmesi Akademi"
+            width={152}
+            height={80}
             className="ega-brand__logo"
             priority
           />
