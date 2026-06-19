@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { FooterContactLinks } from "./footer-contact-links";
 import { PublicNavbar } from "./public-navbar";
-import {
-  CONTACT_DISPLAY_PHONE,
-  CONTACT_TEL_HREF,
-  CONTACT_WHATSAPP_HREF
-} from "../lib/contact";
+import { CONTACT_WHATSAPP_HREF } from "../lib/contact";
 
 type PublicPageLayoutProps = {
   children: ReactNode;
@@ -42,8 +39,7 @@ export function PublicPageLayout({
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
-            <a href={CONTACT_TEL_HREF}>Bizi Arayın: {CONTACT_DISPLAY_PHONE}</a>
-            <a href={contactHref} target="_blank" rel="noreferrer">WhatsApp ile Yazın</a>
+            <FooterContactLinks whatsappHref={contactHref} />
           </div>
         </div>
       </footer>

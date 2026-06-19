@@ -4,14 +4,10 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
+import { FooterContactLinks } from "../components/footer-contact-links";
 import { PublicNavbar } from "../components/public-navbar";
 import { ShowcaseQuickActions } from "../components/showcase-quick-actions";
-import {
-  buildWhatsAppHref,
-  CONTACT_DISPLAY_PHONE,
-  CONTACT_TEL_HREF,
-  CONTACT_WHATSAPP_HREF
-} from "../lib/contact";
+import { CONTACT_TEL_HREF, CONTACT_WHATSAPP_HREF } from "../lib/contact";
 import { isEmbeddableVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 import { getPackageCatalogContent } from "../lib/public-commerce-api";
 import {
@@ -1032,7 +1028,7 @@ export default function HomePage() {
 
           <div className="ega-cta-panel__actions">
             <ButtonLink
-              href={buildWhatsAppHref("Merhaba, paketler hakkında bilgi almak istiyorum.")}
+              href={CONTACT_WHATSAPP_HREF}
               label="WhatsApp ile Yazın"
               target="_blank"
               rel="noreferrer"
@@ -1063,8 +1059,7 @@ export default function HomePage() {
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
-            <a href={CONTACT_TEL_HREF}>Bizi Arayın: {CONTACT_DISPLAY_PHONE}</a>
-            <a href={CONTACT_WHATSAPP_HREF} target="_blank" rel="noreferrer">WhatsApp ile Yazın</a>
+            <FooterContactLinks />
           </div>
         </div>
       </footer>

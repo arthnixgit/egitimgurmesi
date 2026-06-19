@@ -1,16 +1,14 @@
-import { buildWhatsAppHref } from "../lib/contact";
-
-const WHATSAPP_URL = buildWhatsAppHref("Merhaba, paketler hakkında bilgi almak istiyorum.");
+import { CONTACT_WHATSAPP_HREF } from "../lib/contact";
 
 export function FloatingWhatsAppLink() {
   return (
     <a
       className="ega-whatsapp-float"
-      href={WHATSAPP_URL}
+      href={CONTACT_WHATSAPP_HREF}
       target="_blank"
       rel="noreferrer"
-      aria-label="Eğitim Gurmesi Akademi WhatsApp hattını aç"
-      title="WhatsApp ile Yazın"
+      aria-label="WhatsApp ile iletişime geçin"
+      title="WhatsApp ile iletişime geçin"
     >
       <svg
         className="ega-whatsapp-float__icon"
