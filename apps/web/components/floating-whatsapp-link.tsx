@@ -1,5 +1,6 @@
-const WHATSAPP_URL =
-  "https://wa.me/905000000000?text=Merhaba%2C%20paketler%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.";
+import { buildWhatsAppHref } from "../lib/contact";
+
+const WHATSAPP_URL = buildWhatsAppHref("Merhaba, paketler hakkında bilgi almak istiyorum.");
 
 export function FloatingWhatsAppLink() {
   return (
@@ -9,7 +10,7 @@ export function FloatingWhatsAppLink() {
       target="_blank"
       rel="noreferrer"
       aria-label="Eğitim Gurmesi Akademi WhatsApp hattını aç"
-      title="WhatsApp"
+      title="WhatsApp ile Yazın"
     >
       <svg
         className="ega-whatsapp-float__icon"

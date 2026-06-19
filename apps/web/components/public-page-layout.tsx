@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { PublicNavbar } from "./public-navbar";
+import {
+  CONTACT_DISPLAY_PHONE,
+  CONTACT_TEL_HREF,
+  CONTACT_WHATSAPP_HREF
+} from "../lib/contact";
 
 type PublicPageLayoutProps = {
   children: ReactNode;
@@ -9,7 +14,7 @@ type PublicPageLayoutProps = {
 
 export function PublicPageLayout({
   children,
-  contactHref = "https://wa.me/905000000000?text=Merhaba%2C%20bilgi%20almak%20istiyorum."
+  contactHref = CONTACT_WHATSAPP_HREF
 }: PublicPageLayoutProps) {
   return (
     <main className="ega-page">
@@ -37,6 +42,8 @@ export function PublicPageLayout({
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
+            <a href={CONTACT_TEL_HREF}>Bizi Arayın: {CONTACT_DISPLAY_PHONE}</a>
+            <a href={contactHref} target="_blank" rel="noreferrer">WhatsApp ile Yazın</a>
           </div>
         </div>
       </footer>
@@ -44,11 +51,11 @@ export function PublicPageLayout({
       <a
         className="ega-contact-bookmark"
         href={contactHref}
-        aria-label="İletişime geç"
+        aria-label="WhatsApp ile iletişime geç"
         target="_blank"
         rel="noreferrer"
       >
-        <span>Bize Ulaşın</span>
+        <span>WhatsApp ile Yazın</span>
       </a>
     </main>
   );

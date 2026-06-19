@@ -6,6 +6,12 @@ import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
 import { PublicNavbar } from "../components/public-navbar";
 import { ShowcaseQuickActions } from "../components/showcase-quick-actions";
+import {
+  buildWhatsAppHref,
+  CONTACT_DISPLAY_PHONE,
+  CONTACT_TEL_HREF,
+  CONTACT_WHATSAPP_HREF
+} from "../lib/contact";
 import { isEmbeddableVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 import { getPackageCatalogContent } from "../lib/public-commerce-api";
 import {
@@ -1017,7 +1023,7 @@ export default function HomePage() {
       <section className="ega-section ega-container ega-cta-section" id="iletisim">
         <div className="ega-cta-panel">
           <div className="ega-cta-panel__copy">
-            <span className="ega-pill ega-pill--warm">Bize Ulaşın</span>
+            <span className="ega-pill ega-pill--warm">İletişime Geçin</span>
             <h2>Karar vermeden önce soru sormak isteyen öğrenci ve veliler için doğrudan iletişim alanı.</h2>
             <p>
               Paket seçimi, koçluk süreci veya kayıt adımları için hızlıca destek alınabilir.
@@ -1026,11 +1032,12 @@ export default function HomePage() {
 
           <div className="ega-cta-panel__actions">
             <ButtonLink
-              href="https://wa.me/905000000000?text=Merhaba%2C%20paketler%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum."
-              label="WhatsApp ile Başla"
+              href={buildWhatsAppHref("Merhaba, paketler hakkında bilgi almak istiyorum.")}
+              label="WhatsApp ile Yazın"
               target="_blank"
               rel="noreferrer"
             />
+            <ButtonLink href={CONTACT_TEL_HREF} label="Bizi Arayın" variant="ghost" />
             <ButtonLink href="/kayit" label="Hesap Oluştur" variant="ghost" />
           </div>
         </div>
@@ -1056,12 +1063,20 @@ export default function HomePage() {
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
+            <a href={CONTACT_TEL_HREF}>Bizi Arayın: {CONTACT_DISPLAY_PHONE}</a>
+            <a href={CONTACT_WHATSAPP_HREF} target="_blank" rel="noreferrer">WhatsApp ile Yazın</a>
           </div>
         </div>
       </footer>
 
-      <a className="ega-contact-bookmark" href="#iletisim" aria-label="İletişim bölümüne git">
-        <span>Bize Ulaşın</span>
+      <a
+        className="ega-contact-bookmark"
+        href={CONTACT_WHATSAPP_HREF}
+        aria-label="WhatsApp ile iletişime geç"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span>WhatsApp ile Yazın</span>
       </a>
     </main>
   );
