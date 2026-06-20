@@ -279,8 +279,8 @@ textarea {
 }
 
 .ega-footer__logo {
-  width: 154px;
-  max-height: 82px;
+  width: min(100%, 230px);
+  max-height: 122px;
   height: auto;
   object-fit: contain;
 }
@@ -6560,7 +6560,7 @@ textarea {
 .ega-footer__contact {
   display: grid;
   gap: 10px;
-  min-width: min(100%, 260px);
+  width: min(100%, 360px);
   margin-top: 4px;
   padding: 14px;
   border-radius: 18px;

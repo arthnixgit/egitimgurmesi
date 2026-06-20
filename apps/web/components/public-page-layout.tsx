@@ -32,6 +32,7 @@ export function PublicPageLayout({
               Eğitim Gurmesi Akademi; kayıtlı video paketlerini, koçluk yönlendirme mantığını ve öğrenci hesap
               disiplinini tek çatı altında birleştiren yeni nesil bir eğitim satış platformu olarak kurgulanıyor.
             </p>
+            <FooterContactLinks whatsappHref={contactHref} />
           </div>
 
           <div className="ega-footer__links">
@@ -39,7 +40,6 @@ export function PublicPageLayout({
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
-            <FooterContactLinks whatsappHref={contactHref} />
           </div>
         </div>
       </footer>

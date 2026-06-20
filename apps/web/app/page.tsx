@@ -1045,13 +1045,14 @@ export default function HomePage() {
             <Image
               src="/branding/ega-logo-official.png"
               alt="Eğitim Gurmesi Akademi"
-              width={124}
-              height={124}
+              width={229}
+              height={121}
               className="ega-footer__logo"
             />
             <p>
               Eğitim Gurmesi Akademi; video paketleri, koçluk desteği ve öğrenci takibini aynı çatı altında düzenli biçimde sunan bir hazırlık platformudur.
             </p>
+            <FooterContactLinks />
           </div>
 
           <div className="ega-footer__links">
@@ -1059,7 +1060,6 @@ export default function HomePage() {
             <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
             <a href="/hakkimizda">Hakkımızda</a>
             <a href="/giris">Öğrenci Girişi</a>
-            <FooterContactLinks />
           </div>
         </div>
       </footer>
