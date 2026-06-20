@@ -1,4 +1,5 @@
 import {
+  CONTACT_ADDRESS,
   CONTACT_DISPLAY_PHONE,
   CONTACT_TEL_HREF,
   CONTACT_WHATSAPP_HREF
@@ -12,6 +13,10 @@ export function FooterContactLinks({ whatsappHref = CONTACT_WHATSAPP_HREF }: { w
         Bizi Arayın
         <strong>{CONTACT_DISPLAY_PHONE}</strong>
       </a>
+      <div className="ega-footer__contact-address">
+        <span>Adres</span>
+        <strong>{CONTACT_ADDRESS}</strong>
+      </div>
       <a
         className="ega-footer__contact-whatsapp"
         href={whatsappHref}
