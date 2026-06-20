@@ -1043,8 +1043,8 @@ export default function HomePage() {
         <div className="ega-footer__inner">
           <div className="ega-footer__brand">
             <Image
-              src="/branding/ega-logo-transparent-cropped.png"
-              alt="Eğitim Gurmesi Akademi logosu"
+              src="/branding/ega-logo-official.png"
+              alt="Eğitim Gurmesi Akademi"
               width={124}
               height={124}
               className="ega-footer__logo"
@@ -1067,7 +1067,8 @@ export default function HomePage() {
       <a
         className="ega-contact-bookmark"
         href={CONTACT_WHATSAPP_HREF}
-        aria-label="WhatsApp ile iletişime geç"
+        aria-label="WhatsApp ile iletişime geçin"
+        title="WhatsApp ile iletişime geçin"
         target="_blank"
         rel="noreferrer"
       >

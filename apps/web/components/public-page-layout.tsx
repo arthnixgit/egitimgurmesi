@@ -47,7 +47,8 @@ export function PublicPageLayout({
       <a
         className="ega-contact-bookmark"
         href={contactHref}
-        aria-label="WhatsApp ile iletişime geç"
+        aria-label="WhatsApp ile iletişime geçin"
+        title="WhatsApp ile iletişime geçin"
         target="_blank"
         rel="noreferrer"
       >
