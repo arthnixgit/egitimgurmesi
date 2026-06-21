@@ -18,6 +18,12 @@ import {
   startOrderCheckout,
   type UserOrder
 } from "../../lib/commerce-client";
+import {
+  getExternalOrderStatusLabel,
+  getOrderStatusLabel,
+  getPaymentProviderLabel,
+  getPaymentStatusLabel
+} from "../../lib/payment-labels";
 import { gradeOptions, studyTrackOptions } from "../../lib/student-profile-options";
 
 type CurrentUserResponse = Awaited<ReturnType<typeof fetchCurrentUser>>;
@@ -230,9 +236,18 @@ export default function AccountPage() {
   }
 
   async function handleResumeCheckout(orderNumber: string) {
+    const currentOrder =
+      orders.find((entry) => entry.orderNumber === orderNumber) ?? selectedOrder ?? null;
+    const existingCheckoutUrl = currentOrder ? getReusableCheckoutUrl(currentOrder) : null;
+
+    if (existingCheckoutUrl) {
+      window.location.href = existingCheckoutUrl;
+      return;
+    }
+
     setCheckoutLoading(true);
     setError("");
-    setSuccess("");
+    setSuccess("Ödeme bağlantısı yenileniyor...");
 
     try {
       const response = await startOrderCheckout(orderNumber);
@@ -252,6 +267,14 @@ export default function AccountPage() {
       setOrders(refreshedOrders);
       setSelectedOrderNumber(orderNumber);
     } catch (checkoutError) {
+      const productSlug = currentOrder?.items[0]?.productSlug;
+
+      if (productSlug) {
+        setSuccess("Ödemenizi tamamlamak için güvenli ödeme sayfasına devam edin.");
+        router.push(`/checkout/${encodeURIComponent(productSlug)}`);
+        return;
+      }
+
       setError(getUserFacingErrorMessage(checkoutError, "Ödeme akışı başlatılamadı."));
     } finally {
       setCheckoutLoading(false);
@@ -621,13 +644,15 @@ export default function AccountPage() {
                 >
                   <div className="ega-student-order-item__top">
                     <strong>{order.orderNumber}</strong>
-                    <span className="ega-dashboard-status">{order.status}</span>
+                    <span className="ega-dashboard-status">
+                      {getOrderStatusLabel(order.status)}
+                    </span>
                   </div>
                   <div className="ega-student-order-item__meta">
                     <span>
                       {order.totalAmount} {order.currency}
                     </span>
-                    <span>{order.payment?.status || "INITIATED"}</span>
+                    <span>{getPaymentStatusLabel(order.payment?.status || "INITIATED")}</span>
                   </div>
                 </button>
               ))}
@@ -638,11 +663,15 @@ export default function AccountPage() {
                 <>
                   <div className="ega-dashboard-kpis ega-dashboard-kpis--compact">
                     <div className="ega-dashboard-kpi">
-                      <strong>{selectedOrder.status}</strong>
+                      <strong className="ega-dashboard-kpi__status">
+                        {getOrderStatusLabel(selectedOrder.status)}
+                      </strong>
                       <span>Sipariş</span>
                     </div>
                     <div className="ega-dashboard-kpi">
-                      <strong>{selectedOrder.payment?.status || "INITIATED"}</strong>
+                      <strong className="ega-dashboard-kpi__status">
+                        {getPaymentStatusLabel(selectedOrder.payment?.status || "INITIATED")}
+                      </strong>
                       <span>Ödeme</span>
                     </div>
                     <div className="ega-dashboard-kpi">
@@ -660,7 +689,7 @@ export default function AccountPage() {
                     </div>
                     <div className="ega-summary-row">
                       <strong>Ödeme sağlayıcı</strong>
-                      <span>{selectedOrder.payment?.provider || "Yok"}</span>
+                      <span>{getPaymentProviderLabel(selectedOrder.payment?.provider)}</span>
                     </div>
                     <div className="ega-summary-row">
                       <strong>Toplam</strong>
@@ -684,7 +713,8 @@ export default function AccountPage() {
 
                   {selectedOrder.externalOrders.length ? (
                     <div className="ega-message ega-message--success">
-                      Koçluk yönlendirme kaydı: {selectedOrder.externalOrders[0]?.status}
+                      Ödeme yönlendirmesi:{" "}
+                      {getExternalOrderStatusLabel(selectedOrder.externalOrders[0]?.status)}
                     </div>
                   ) : null}
 
@@ -702,7 +732,7 @@ export default function AccountPage() {
                         disabled={checkoutLoading}
                         onClick={() => void handleResumeCheckout(selectedOrder.orderNumber)}
                       >
-                        {checkoutLoading ? "Yönlendiriliyor..." : "Ödemeyi Tamamla"}
+                        {checkoutLoading ? "Ödeme bağlantısı yenileniyor..." : "Ödemeyi Tamamla"}
                       </button>
                     ) : null}
                   </div>
@@ -754,7 +784,17 @@ function syncProfileForm(
 }
 
 function canResumeCheckout(order: UserOrder) {
-  return !["PAID", "CANCELLED", "REFUNDED", "FAILED"].includes(order.status);
+  return !["PAID", "CANCELLED", "CANCELED", "REFUNDED", "FAILED"].includes(order.status);
+}
+
+function getReusableCheckoutUrl(order: UserOrder) {
+  return (
+    order.externalOrders.find(
+      (entry) =>
+        entry.checkoutUrl &&
+        ["REDIRECT_READY", "REDIRECTED", "RETURNED_FAILURE"].includes(entry.status)
+    )?.checkoutUrl ?? null
+  );
 }
 
 function formatDate(value?: string | null) {

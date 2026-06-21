@@ -605,5 +605,5 @@ function findReusableCheckoutOrder(orders: UserOrder[], productSlug: string) {
 }
 
 function isCheckoutContinuableOrder(order: UserOrder) {
-  return !["PAID", "CANCELLED", "REFUNDED", "FAILED"].includes(order.status);
+  return !["PAID", "CANCELLED", "CANCELED", "REFUNDED", "FAILED"].includes(order.status);
 }

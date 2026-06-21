@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { resolveApiBaseUrl } from "../../../lib/api-base-url";
+import {
+  getExternalOrderStatusLabel,
+  getOrderStatusLabel,
+  getPaymentStatusLabel
+} from "../../../lib/payment-labels";
 
 type PaymentStatusPageProps = {
   searchParams: Promise<{
@@ -166,21 +171,21 @@ export default async function PaymentStatusPage({ searchParams }: PaymentStatusP
                 <>
                   <div className="ega-summary-row">
                     <strong>Sipariş Durumu</strong>
-                    <span>{reconciliation.orderStatus}</span>
+                    <span>{getOrderStatusLabel(reconciliation.orderStatus)}</span>
                   </div>
                   <div className="ega-summary-row">
                     <strong>Ödeme Durumu</strong>
-                    <span>{reconciliation.paymentStatus ?? "-"}</span>
+                    <span>{getPaymentStatusLabel(reconciliation.paymentStatus)}</span>
                   </div>
                   <div className="ega-summary-row">
                     <strong>Dış Sağlayıcı</strong>
-                    <span>{reconciliation.externalStatus ?? "-"}</span>
+                    <span>{getExternalOrderStatusLabel(reconciliation.externalStatus)}</span>
                   </div>
                 </>
               ) : (
                 <div className="ega-summary-row">
                   <strong>Dönüş Durumu</strong>
-                  <span>{status}</span>
+                  <span>{getExternalOrderStatusLabel(status)}</span>
                 </div>
               )}
             </div>

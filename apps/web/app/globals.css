@@ -7283,11 +7283,21 @@ textarea {
   font-size: clamp(1.5rem, 2vw, 2rem);
   line-height: 1;
   color: var(--ega-blue-900);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ega-dashboard-kpi span {
   color: var(--ega-muted);
   line-height: 1.45;
+}
+
+.ega-dashboard-kpi__status {
+  display: block;
+  max-width: 100%;
+  font-size: clamp(1.05rem, 2vw, 1.45rem) !important;
+  line-height: 1.12 !important;
+  white-space: normal;
 }
 
 .ega-dashboard-grid {
