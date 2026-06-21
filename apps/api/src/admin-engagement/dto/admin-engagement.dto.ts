@@ -1,5 +1,6 @@
-import { LeadStatus } from "@ega/db";
+import type { LeadStatus } from "@ega/db";
 import { IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
+import { LEAD_STATUS_VALUES } from "./lead-status-enum-values";
 
 export class ListLeadsDto {
   @IsOptional()
@@ -8,7 +9,7 @@ export class ListLeadsDto {
   q?: string;
 
   @IsOptional()
-  @IsEnum(LeadStatus)
+  @IsEnum(LEAD_STATUS_VALUES)
   status?: LeadStatus;
 
   @IsOptional()
@@ -18,6 +19,6 @@ export class ListLeadsDto {
 }
 
 export class UpdateLeadStatusDto {
-  @IsEnum(LeadStatus)
+  @IsEnum(LEAD_STATUS_VALUES)
   status!: LeadStatus;
 }
