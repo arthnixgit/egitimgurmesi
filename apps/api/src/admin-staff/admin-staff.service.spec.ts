@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { BadRequestException, ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
 import { AuthActorType, ROLE_KEYS, StaffStatus } from "@ega/db";
 import { AdminStaffService } from "./admin-staff.service";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
@@ -21,6 +21,8 @@ type MockRole = {
 
 type MockStaffUser = {
   id: string;
+  organizationId: string | null;
+  primaryBranchId: string | null;
   email: string;
   firstName: string;
   lastName: string;
@@ -39,10 +41,33 @@ type MockStaffUserRole = {
   assignedByStaffUserId: string | null;
 };
 
+type MockBranch = {
+  id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+};
+
+type MockBranchStaffAssignment = {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  staffUserId: string;
+  roleKey: string;
+  isPrimary: boolean;
+  assignedByStaffUserId: string | null;
+  assignedAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type MockState = {
   roles: MockRole[];
   staffUsers: MockStaffUser[];
   staffUserRoles: MockStaffUserRole[];
+  branches: MockBranch[];
+  branchStaffAssignments: MockBranchStaffAssignment[];
   auditLogs: Array<Record<string, unknown>>;
 };
 
@@ -92,6 +117,8 @@ type StaffUserCreateArgs = {
     roles?: {
       create: StaffUserCreateRoleInput[];
     };
+    organizationId?: string | null;
+    primaryBranchId?: string | null;
   };
   include?: unknown;
 };
@@ -194,6 +221,74 @@ describe("AdminStaffService.createUser", () => {
       false
     );
     assert.equal(prisma.state.staffUserRoles.length, 0);
+    assert.equal(prisma.state.branchStaffAssignments.length, 0);
+  });
+
+  it("creates a branch-scoped staff account with an initial branch assignment", async () => {
+    const { prisma, service } = createHarness();
+    const branchAuth = makeAuthContext("staff_branch_admin", {
+      isSuperAdmin: false,
+      roleKeys: [ROLE_KEYS.branchAdmin],
+      permissionKeys: ["staff.manage"],
+      organizationId: "org_a",
+      primaryBranchId: "branch_a",
+      branchIds: ["branch_a"]
+    });
+
+    const created = await service.createUser(
+      buildCreateDto({
+        roleKeys: [ROLE_KEYS.instructor],
+        branchId: "branch_a"
+      }),
+      branchAuth
+    );
+
+    assert.equal(created.organizationId, "org_a");
+    assert.equal(created.primaryBranchId, "branch_a");
+    assert.equal(prisma.state.branchStaffAssignments.length, 1);
+    assert.equal(prisma.state.branchStaffAssignments[0].staffUserId, created.id);
+    assert.equal(prisma.state.branchStaffAssignments[0].roleKey, "INSTRUCTOR");
+  });
+
+  it("does not create an orphan account when a branch admin omits branch scope", async () => {
+    const { prisma, service } = createHarness();
+    const branchAuth = makeAuthContext("staff_branch_admin", {
+      isSuperAdmin: false,
+      roleKeys: [ROLE_KEYS.branchAdmin],
+      permissionKeys: ["staff.manage"],
+      organizationId: "org_a",
+      branchIds: ["branch_a"]
+    });
+
+    await assert.rejects(
+      () => service.createUser(buildCreateDto({ roleKeys: [ROLE_KEYS.instructor] }), branchAuth),
+      BadRequestException
+    );
+
+    assert.equal(
+      prisma.state.staffUsers.some((staffUser) => staffUser.email === "new.staff@example.com"),
+      false
+    );
+  });
+
+  it("rejects branch-admin creation with privileged global roles", async () => {
+    const { service } = createHarness();
+    const branchAuth = makeAuthContext("staff_branch_admin", {
+      isSuperAdmin: false,
+      roleKeys: [ROLE_KEYS.branchAdmin],
+      permissionKeys: ["staff.manage"],
+      organizationId: "org_a",
+      branchIds: ["branch_a"]
+    });
+
+    await assert.rejects(
+      () => service.createUser(buildCreateDto({ roleKeys: [ROLE_KEYS.admin], branchId: "branch_a" }), branchAuth),
+      (error: unknown) => {
+        assert.ok(error instanceof ForbiddenException);
+        assert.equal(error.getStatus(), 403);
+        return true;
+      }
+    );
   });
 });
 
@@ -207,6 +302,15 @@ function createHarness(options: { failAuditCreate?: boolean } = {}) {
     ],
     staffUsers: [creator],
     staffUserRoles: [],
+    branches: [
+      {
+        id: "branch_a",
+        organizationId: "org_a",
+        name: "Branch A",
+        slug: "branch-a"
+      }
+    ],
+    branchStaffAssignments: [],
     auditLogs: []
   };
   const prisma = createPrismaMock(state, options);
@@ -228,6 +332,7 @@ function createPrismaMock(
 ): MockPrisma {
   let nextStaffUserId = 1;
   let nextAssignmentId = 1;
+  let nextBranchAssignmentId = 1;
 
   function makeClient(workingState: MockState) {
     return {
@@ -257,6 +362,17 @@ function createPrismaMock(
 
           return args.include ? hydrateStaffUser(staffUser, workingState) : staffUser;
         },
+        findUniqueOrThrow: async (args: StaffUserFindUniqueArgs) => {
+          const staffUser = args.where.email
+            ? workingState.staffUsers.find((candidate) => candidate.email === args.where.email)
+            : workingState.staffUsers.find((candidate) => candidate.id === args.where.id);
+
+          if (!staffUser) {
+            throw new Error("Staff user not found");
+          }
+
+          return args.include ? hydrateStaffUser(staffUser, workingState) : staffUser;
+        },
         create: async (args: StaffUserCreateArgs) => {
           if (workingState.staffUsers.some((staffUser) => staffUser.email === args.data.email)) {
             throw new Error("Unique constraint failed on StaffUser.email");
@@ -268,6 +384,8 @@ function createPrismaMock(
             firstName: args.data.firstName,
             lastName: args.data.lastName,
             passwordHash: args.data.passwordHash,
+            organizationId: args.data.organizationId ?? null,
+            primaryBranchId: args.data.primaryBranchId ?? null,
             status: args.data.status ?? StaffStatus.ACTIVE,
             inviteAcceptedAt: args.data.inviteAcceptedAt
           });
@@ -297,6 +415,55 @@ function createPrismaMock(
           return hydrateStaffUser(staffUser, workingState);
         }
       },
+      branch: {
+        findFirst: async (args: { where: { id?: string | { in?: string[] }; organizationId?: string } }) => {
+          return (
+            workingState.branches.find((branch) => {
+              const idWhere = args.where.id;
+              const idMatches =
+                typeof idWhere === "string"
+                  ? branch.id === idWhere
+                  : idWhere?.in
+                    ? idWhere.in.includes(branch.id)
+                    : true;
+              const organizationMatches = args.where.organizationId
+                ? branch.organizationId === args.where.organizationId
+                : true;
+
+              return idMatches && organizationMatches;
+            }) ?? null
+          );
+        }
+      },
+      branchStaffAssignment: {
+        create: async (args: {
+          data: {
+            organizationId: string;
+            branchId: string;
+            staffUserId: string;
+            roleKey: string;
+            isPrimary: boolean;
+            assignedByStaffUserId: string;
+          };
+        }) => {
+          const now = new Date("2026-01-01T00:00:00.000Z");
+          const assignment = {
+            id: `branch_assignment_${nextBranchAssignmentId++}`,
+            organizationId: args.data.organizationId,
+            branchId: args.data.branchId,
+            staffUserId: args.data.staffUserId,
+            roleKey: args.data.roleKey,
+            isPrimary: args.data.isPrimary,
+            assignedByStaffUserId: args.data.assignedByStaffUserId,
+            assignedAt: now,
+            revokedAt: null,
+            createdAt: now,
+            updatedAt: now
+          };
+          workingState.branchStaffAssignments.push(assignment);
+          return assignment;
+        }
+      },
       auditLog: {
         create: async (args: { data: Record<string, unknown> }) => {
           if (options.failAuditCreate) {
@@ -321,6 +488,8 @@ function createPrismaMock(
       state.roles = workingState.roles;
       state.staffUsers = workingState.staffUsers;
       state.staffUserRoles = workingState.staffUserRoles;
+      state.branches = workingState.branches;
+      state.branchStaffAssignments = workingState.branchStaffAssignments;
       state.auditLogs = workingState.auditLogs;
       return result;
     }
@@ -339,7 +508,10 @@ function buildCreateDto(overrides: Partial<CreateStaffUserDto> = {}): CreateStaf
   };
 }
 
-function makeAuthContext(actorId: string): AuthenticatedRequestContext {
+function makeAuthContext(
+  actorId: string,
+  overrides: Partial<AuthenticatedRequestContext> = {}
+): AuthenticatedRequestContext {
   return {
     actorId,
     email: "creator@example.com",
@@ -349,7 +521,8 @@ function makeAuthContext(actorId: string): AuthenticatedRequestContext {
     permissionKeys: ["staff.manage", "roles.manage"],
     branchIds: [],
     isSuperAdmin: true,
-    branchRoles: []
+    branchRoles: [],
+    ...overrides
   };
 }
 
@@ -369,6 +542,8 @@ function makeStaffUser(overrides: Partial<MockStaffUser> = {}): MockStaffUser {
 
   return {
     id: "staff_default",
+    organizationId: null,
+    primaryBranchId: null,
     email: "staff@example.com",
     firstName: "Staff",
     lastName: "User",
@@ -385,10 +560,20 @@ function makeStaffUser(overrides: Partial<MockStaffUser> = {}): MockStaffUser {
 function hydrateStaffUser(staffUser: MockStaffUser, state: MockState) {
   return {
     ...staffUser,
+    organization: null,
+    primaryBranch: staffUser.primaryBranchId
+      ? state.branches.find((branch) => branch.id === staffUser.primaryBranchId) ?? null
+      : null,
     roles: findAssignmentsForStaffUser(state, staffUser.id).map((assignment) => ({
       ...assignment,
       role: findRoleById(state, assignment.roleId)
-    }))
+    })),
+    branchAssignments: state.branchStaffAssignments
+      .filter((assignment) => assignment.staffUserId === staffUser.id && assignment.revokedAt === null)
+      .map((assignment) => ({
+        ...assignment,
+        branch: findBranchById(state, assignment.branchId)
+      }))
   };
 }
 
@@ -408,6 +593,12 @@ function findRoleById(state: MockState, roleId: string) {
   return role;
 }
 
+function findBranchById(state: MockState, branchId: string) {
+  const branch = state.branches.find((candidate) => candidate.id === branchId);
+  assert.ok(branch, `Expected branch ${branchId} to exist.`);
+  return branch;
+}
+
 function cloneState(state: MockState): MockState {
   return {
     roles: state.roles.map((role) => ({
@@ -416,6 +607,8 @@ function cloneState(state: MockState): MockState {
     })),
     staffUsers: state.staffUsers.map((staffUser) => ({ ...staffUser })),
     staffUserRoles: state.staffUserRoles.map((assignment) => ({ ...assignment })),
+    branches: state.branches.map((branch) => ({ ...branch })),
+    branchStaffAssignments: state.branchStaffAssignments.map((assignment) => ({ ...assignment })),
     auditLogs: state.auditLogs.map((auditLog) => ({ ...auditLog }))
   };
 }

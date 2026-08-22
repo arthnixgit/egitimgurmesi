@@ -5,7 +5,9 @@ import {
   Injectable,
   UnauthorizedException
 } from "@nestjs/common";
+import { ROLE_KEYS } from "@ega/db";
 import type { Request } from "express";
+import { PrismaService } from "../database/prisma.service";
 import type { AuthenticatedRequestContext } from "./auth.types";
 
 type ScopedRequest = Request & {
@@ -40,7 +42,9 @@ export class TenantScopeGuard implements CanActivate {
 
 @Injectable()
 export class BranchScopeGuard implements CanActivate {
-  canActivate(context: ExecutionContext) {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<ScopedRequest>();
     const auth = getAuth(request);
     const requestedBranchId = getFirstValue(
@@ -53,6 +57,20 @@ export class BranchScopeGuard implements CanActivate {
 
     if (auth.branchIds.includes(requestedBranchId)) {
       return true;
+    }
+
+    if (auth.organizationId && auth.roleKeys.includes(ROLE_KEYS.admin)) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          id: requestedBranchId,
+          organizationId: auth.organizationId
+        },
+        select: { id: true }
+      });
+
+      if (branch) {
+        return true;
+      }
     }
 
     throw new ForbiddenException("Bu sube kapsamina erisim yetkiniz yok.");

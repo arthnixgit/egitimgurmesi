@@ -22,14 +22,14 @@ export class AdminStaffController {
 
   @Get("overview")
   @RequirePermissions(PERMISSION_KEYS.staffManage)
-  overview() {
-    return this.adminStaffService.getOverview();
+  overview(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminStaffService.getOverview(auth);
   }
 
   @Get("users")
   @RequirePermissions(PERMISSION_KEYS.staffManage)
-  listUsers() {
-    return this.adminStaffService.listUsers();
+  listUsers(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminStaffService.listUsers(auth);
   }
 
   @Post("users")
@@ -60,8 +60,8 @@ export class AdminStaffController {
 
   @Get("roles")
   @RequirePermissions(PERMISSION_KEYS.rolesManage)
-  listRoles() {
-    return this.adminStaffService.listRoles();
+  listRoles(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminStaffService.listRoles(auth);
   }
 
   @Post("roles")

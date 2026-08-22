@@ -28,6 +28,34 @@ export type AdminAssignedStaffRole = Pick<
 
 export type AdminStaffUser = {
   id: string;
+  organizationId?: string | null;
+  primaryBranchId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  primaryBranch?: {
+    id: string;
+    organizationId: string;
+    name: string;
+    slug: string;
+  } | null;
+  branchAssignments: Array<{
+    id: string;
+    organizationId: string;
+    branchId: string;
+    roleKey: string;
+    isPrimary: boolean;
+    assignedAt: string;
+    revokedAt?: string | null;
+    branch: {
+      id: string;
+      organizationId: string;
+      name: string;
+      slug: string;
+    };
+  }>;
   email: string;
   firstName: string;
   lastName: string;
@@ -42,6 +70,26 @@ export type AdminStaffUser = {
 };
 
 export type AdminStaffManagementOverview = {
+  scope: {
+    kind: "super" | "organization" | "branch" | "none";
+    hasValidScope: boolean;
+    organizationId?: string | null;
+    branchIds: string[];
+    assignableRoleKeys: string[] | null;
+    canManageRoles: boolean;
+    canCreateUnassignedStaff: boolean;
+  };
+  organizations: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+  branches: Array<{
+    id: string;
+    organizationId: string;
+    name: string;
+    slug: string;
+  }>;
   users: AdminStaffUser[];
   roles: AdminStaffRole[];
   permissions: AdminPermission[];
@@ -57,6 +105,9 @@ export function createAdminStaffUser(payload: {
   lastName: string;
   password: string;
   status: AdminStaffStatus;
+  organizationId?: string;
+  branchId?: string;
+  branchRoleKey?: string;
   roleKeys: string[];
 }) {
   return requestWithStaffToken<AdminStaffUser>("/admin-staff/users", {

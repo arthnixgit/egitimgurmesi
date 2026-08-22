@@ -162,6 +162,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       paymentsRead,
       usersRead,
       usersManage,
+      staffManage,
       organizationsRead,
       branchesRead,
       branchesManage,

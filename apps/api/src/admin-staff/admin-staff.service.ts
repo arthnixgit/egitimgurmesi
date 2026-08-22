@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -8,6 +9,21 @@ import { AuditActorType, Prisma, ROLE_KEYS, StaffStatus } from "@ega/db";
 import { PrismaService } from "../database/prisma.service";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { PasswordService } from "../auth/password.service";
+import {
+  STAFF_ACCOUNT_ACCESS_DENIED_MESSAGE,
+  assertBranchRoleAssignmentAllowed,
+  assertRoleAssignmentAllowed,
+  assertStaffCreationAllowed,
+  assertStaffTargetWritable,
+  buildBranchAssignmentWhereInput,
+  buildStaffUserWhereInput,
+  buildVisibleBranchWhereInput,
+  buildVisibleOrganizationWhereInput,
+  deriveBranchRoleFromRoleKeys,
+  resolveStaffManagementScope,
+  type StaffManagementScope,
+  type StaffManagementTarget
+} from "./staff-management-scope";
 import {
   CreateRoleDto,
   CreateStaffUserDto,
@@ -26,6 +42,39 @@ const staffUserInclude = {
               permission: true
             }
           }
+        }
+      }
+    }
+  },
+  organization: {
+    select: {
+      id: true,
+      name: true,
+      slug: true
+    }
+  },
+  primaryBranch: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      organizationId: true
+    }
+  },
+  branchAssignments: {
+    where: {
+      revokedAt: null
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    include: {
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          organizationId: true
         }
       }
     }
@@ -49,6 +98,16 @@ type TransactionClient = Prisma.TransactionClient;
 type StaffUserWithRoles = Prisma.StaffUserGetPayload<{ include: typeof staffUserInclude }>;
 type RoleWithPermissions = Prisma.RoleGetPayload<{ include: typeof roleInclude }>;
 
+function staffUserIncludeForScope(scope: StaffManagementScope) {
+  return {
+    ...staffUserInclude,
+    branchAssignments: {
+      ...staffUserInclude.branchAssignments,
+      where: buildBranchAssignmentWhereInput(scope)
+    }
+  } satisfies Prisma.StaffUserInclude;
+}
+
 @Injectable()
 export class AdminStaffService {
   constructor(
@@ -56,24 +115,60 @@ export class AdminStaffService {
     private readonly passwordService: PasswordService
   ) {}
 
-  async getOverview() {
-    const [users, roles, permissions] = await Promise.all([
+  async getOverview(auth: AuthenticatedRequestContext) {
+    const scope = this.resolveReadableScope(auth);
+    const includePermissionKeys = scope.kind === "super";
+    const roleWhere: Prisma.RoleWhereInput =
+      scope.kind === "super"
+        ? {}
+        : scope.hasValidScope
+          ? { key: { in: scope.assignableRoleKeys ?? [] } }
+          : { key: { in: [] } };
+
+    const [users, roles, permissions, organizations, branches] = await Promise.all([
       this.prisma.staffUser.findMany({
+        where: buildStaffUserWhereInput(scope),
         orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-        include: staffUserInclude
+        include: staffUserIncludeForScope(scope)
       }),
       this.prisma.role.findMany({
+        where: roleWhere,
         orderBy: [{ isSystem: "desc" }, { name: "asc" }],
         include: roleInclude
       }),
-      this.prisma.permission.findMany({
-        orderBy: { key: "asc" }
+      includePermissionKeys
+        ? this.prisma.permission.findMany({
+            orderBy: { key: "asc" }
+          })
+        : Promise.resolve([]),
+      this.prisma.organization.findMany({
+        where: buildVisibleOrganizationWhereInput(scope),
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true }
+      }),
+      this.prisma.branch.findMany({
+        where: buildVisibleBranchWhereInput(scope),
+        orderBy: [{ organizationId: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          organizationId: true,
+          name: true,
+          slug: true
+        }
       })
     ]);
 
     return {
-      users: users.map(mapStaffUser),
-      roles: roles.map(mapRole),
+      scope: mapStaffScope(scope),
+      organizations,
+      branches,
+      users: users.map((user) => mapStaffUser(user, { includePermissionKeys })),
+      roles: roles.map((role) =>
+        mapRole(role, {
+          includePermissionKeys,
+          includeStaffCount: scope.kind === "super"
+        })
+      ),
       permissions: permissions.map((permission) => ({
         id: permission.id,
         key: permission.key,
@@ -83,19 +178,28 @@ export class AdminStaffService {
     };
   }
 
-  listUsers() {
+  listUsers(auth: AuthenticatedRequestContext) {
+    const scope = this.resolveReadableScope(auth);
+    const includePermissionKeys = scope.kind === "super";
+
     return this.prisma.staffUser
       .findMany({
+        where: buildStaffUserWhereInput(scope),
         orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-        include: staffUserInclude
+        include: staffUserIncludeForScope(scope)
       })
-      .then((users) => users.map(mapStaffUser));
+      .then((users) => users.map((user) => mapStaffUser(user, { includePermissionKeys })));
   }
 
   async createUser(dto: CreateStaffUserDto, auth: AuthenticatedRequestContext) {
+    const scope = resolveStaffManagementScope(auth);
     const email = normalizeEmail(dto.email);
     const roleKeys = normalizeUnique(dto.roleKeys);
+    const requestedOrganizationId = emptyToNull(dto.organizationId);
+    const requestedBranchId = emptyToNull(dto.branchId);
 
+    assertStaffCreationAllowed(scope);
+    assertRoleAssignmentAllowed(scope, roleKeys);
     await this.ensureRolesExist(roleKeys);
 
     const existing = await this.prisma.staffUser.findUnique({
@@ -107,10 +211,21 @@ export class AdminStaffService {
     }
 
     const passwordHash = await this.passwordService.hash(dto.password);
+    const branch = await this.resolveCreationBranch(scope, requestedBranchId);
+    const organizationId = this.resolveCreationOrganizationId(scope, requestedOrganizationId, branch);
+    const branchRoleKey = branch
+      ? dto.branchRoleKey ?? deriveBranchRoleFromRoleKeys(roleKeys)
+      : null;
+
+    if (branchRoleKey) {
+      assertBranchRoleAssignmentAllowed(scope, branchRoleKey);
+    }
 
     const created = await this.prisma.$transaction(async (tx) => {
       const staffUser = await tx.staffUser.create({
         data: {
+          organizationId,
+          primaryBranchId: branch?.id ?? null,
           email,
           firstName: dto.firstName.trim(),
           lastName: dto.lastName.trim(),
@@ -131,9 +246,21 @@ export class AdminStaffService {
               }
             }))
           }
-        },
-        include: staffUserInclude
+        }
       });
+
+      if (branch && branchRoleKey) {
+        await tx.branchStaffAssignment.create({
+          data: {
+            organizationId: branch.organizationId,
+            branchId: branch.id,
+            staffUserId: staffUser.id,
+            roleKey: branchRoleKey,
+            isPrimary: true,
+            assignedByStaffUserId: auth.actorId
+          }
+        });
+      }
 
       await recordAuditLog(tx, auth, {
         action: "staff.user.create",
@@ -142,26 +269,33 @@ export class AdminStaffService {
         summary: `${staffUser.email} personel hesabı oluşturuldu.`
       });
 
-      return staffUser;
+      return tx.staffUser.findUniqueOrThrow({
+        where: { id: staffUser.id },
+        include: staffUserIncludeForScope(scope)
+      });
     });
 
-    return mapStaffUser(created);
+    return mapStaffUser(created, { includePermissionKeys: scope.kind === "super" });
   }
 
   async updateUser(staffUserId: string, dto: UpdateStaffUserDto, auth: AuthenticatedRequestContext) {
+    const scope = resolveStaffManagementScope(auth);
     const roleKeys = dto.roleKeys ? normalizeUnique(dto.roleKeys) : undefined;
-
-    if (roleKeys) {
-      await this.ensureRolesExist(roleKeys);
-    }
 
     const existing = await this.prisma.staffUser.findUnique({
       where: { id: staffUserId },
-      include: staffUserInclude
+      include: staffUserIncludeForScope(scope)
     });
 
     if (!existing) {
       throw new NotFoundException("Personel hesabı bulunamadı.");
+    }
+
+    assertStaffTargetWritable(scope, staffUserToTarget(existing));
+
+    if (roleKeys) {
+      assertRoleAssignmentAllowed(scope, roleKeys);
+      await this.ensureRolesExist(roleKeys);
     }
 
     if (auth.actorId === staffUserId && dto.status && dto.status !== StaffStatus.ACTIVE) {
@@ -246,11 +380,11 @@ export class AdminStaffService {
 
       return tx.staffUser.findUniqueOrThrow({
         where: { id: staffUserId },
-        include: staffUserInclude
+        include: staffUserIncludeForScope(scope)
       });
     });
 
-    return mapStaffUser(updated);
+    return mapStaffUser(updated, { includePermissionKeys: scope.kind === "super" });
   }
 
   async updateUserPassword(
@@ -258,13 +392,17 @@ export class AdminStaffService {
     dto: UpdateStaffPasswordDto,
     auth: AuthenticatedRequestContext
   ) {
+    const scope = resolveStaffManagementScope(auth);
     const existing = await this.prisma.staffUser.findUnique({
-      where: { id: staffUserId }
+      where: { id: staffUserId },
+      include: staffUserIncludeForScope(scope)
     });
 
     if (!existing) {
       throw new NotFoundException("Personel hesabı bulunamadı.");
     }
+
+    assertStaffTargetWritable(scope, staffUserToTarget(existing));
 
     const passwordHash = await this.passwordService.hash(dto.password);
 
@@ -291,23 +429,27 @@ export class AdminStaffService {
 
       return tx.staffUser.findUniqueOrThrow({
         where: { id: staffUserId },
-        include: staffUserInclude
+        include: staffUserIncludeForScope(scope)
       });
     });
 
-    return mapStaffUser(updated);
+    return mapStaffUser(updated, { includePermissionKeys: scope.kind === "super" });
   }
 
-  listRoles() {
+  listRoles(auth: AuthenticatedRequestContext) {
+    this.requireSuperAdmin(auth);
+
     return this.prisma.role
       .findMany({
         orderBy: [{ isSystem: "desc" }, { name: "asc" }],
         include: roleInclude
       })
-      .then((roles) => roles.map(mapRole));
+      .then((roles) => roles.map((role) => mapRole(role)));
   }
 
   async createRole(dto: CreateRoleDto, auth: AuthenticatedRequestContext) {
+    this.requireSuperAdmin(auth);
+
     const key = dto.key.trim().toLowerCase();
     const permissionKeys = normalizeUnique(dto.permissionKeys);
 
@@ -361,6 +503,8 @@ export class AdminStaffService {
   }
 
   async updateRole(roleId: string, dto: UpdateRoleDto, auth: AuthenticatedRequestContext) {
+    this.requireSuperAdmin(auth);
+
     const existing = await this.prisma.role.findUnique({
       where: { id: roleId },
       include: roleInclude
@@ -422,6 +566,93 @@ export class AdminStaffService {
     });
 
     return mapRole(updated);
+  }
+
+  private resolveReadableScope(auth: AuthenticatedRequestContext) {
+    const scope = resolveStaffManagementScope(auth);
+
+    if (!scope.hasPolicy) {
+      throw new ForbiddenException(STAFF_ACCOUNT_ACCESS_DENIED_MESSAGE);
+    }
+
+    return scope;
+  }
+
+  private requireSuperAdmin(auth: AuthenticatedRequestContext) {
+    if (!auth.isSuperAdmin) {
+      throw new ForbiddenException("Bu işlem yalnızca Super Admin tarafından yapılabilir.");
+    }
+  }
+
+  private resolveCreationOrganizationId(
+    scope: StaffManagementScope,
+    requestedOrganizationId: string | null,
+    branch: { organizationId: string } | null
+  ) {
+    if (scope.kind === "super") {
+      if (requestedOrganizationId && branch && requestedOrganizationId !== branch.organizationId) {
+        throw new BadRequestException("Seçilen şube bu organizasyona bağlı değil.");
+      }
+
+      return requestedOrganizationId ?? branch?.organizationId ?? null;
+    }
+
+    if (scope.kind === "organization") {
+      if (!scope.organizationId) {
+        throw new ForbiddenException(STAFF_ACCOUNT_ACCESS_DENIED_MESSAGE);
+      }
+
+      if (!requestedOrganizationId) {
+        throw new BadRequestException("Organizasyon seçimi zorunludur.");
+      }
+
+      if (requestedOrganizationId !== scope.organizationId) {
+        throw new ForbiddenException(STAFF_ACCOUNT_ACCESS_DENIED_MESSAGE);
+      }
+
+      return scope.organizationId;
+    }
+
+    if (scope.kind === "branch") {
+      if (!branch) {
+        throw new BadRequestException("Şube seçimi zorunludur.");
+      }
+
+      return branch.organizationId;
+    }
+
+    throw new ForbiddenException(STAFF_ACCOUNT_ACCESS_DENIED_MESSAGE);
+  }
+
+  private async resolveCreationBranch(scope: StaffManagementScope, branchId: string | null) {
+    if (!branchId) {
+      if (scope.kind === "branch") {
+        throw new BadRequestException("Şube seçimi zorunludur.");
+      }
+
+      return null;
+    }
+
+    const branch = await this.prisma.branch.findFirst({
+      where:
+        scope.kind === "super"
+          ? { id: branchId }
+          : scope.kind === "organization"
+            ? { id: branchId, organizationId: scope.organizationId ?? "__none__" }
+            : scope.kind === "branch"
+              ? { id: { in: scope.branchIds.includes(branchId) ? [branchId] : [] } }
+              : { id: "__none__" },
+      select: {
+        id: true,
+        organizationId: true
+      }
+    });
+
+    if (!branch) {
+      throw new ForbiddenException("Bu şube için personel oluşturma yetkiniz bulunmuyor.");
+    }
+
+    return branch;
   }
 
   private async ensureRolesExist(roleKeys: string[]) {
@@ -486,6 +717,11 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function emptyToNull(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 function normalizeUnique(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
@@ -499,16 +735,65 @@ function sameStringSet(left: string[], right: string[]) {
   return left.every((value) => rightSet.has(value));
 }
 
-function mapStaffUser(user: StaffUserWithRoles) {
+function staffUserToTarget(user: StaffUserWithRoles): StaffManagementTarget {
+  return {
+    id: user.id,
+    organizationId: user.organizationId,
+    roleKeys: user.roles.map((assignment) => assignment.role.key),
+    branchAssignments: user.branchAssignments.map((assignment) => ({
+      organizationId: assignment.organizationId,
+      branchId: assignment.branchId,
+      revokedAt: assignment.revokedAt
+    }))
+  };
+}
+
+function mapStaffUser(
+  user: StaffUserWithRoles,
+  options: { includePermissionKeys?: boolean } = {}
+) {
+  const includePermissionKeys = options.includePermissionKeys ?? true;
   const roles = user.roles
-    .map((assignment) => mapAssignedRole(assignment.role))
+    .map((assignment) => mapAssignedRole(assignment.role, { includePermissionKeys }))
     .sort((left, right) => left.name.localeCompare(right.name, "tr"));
   const permissionKeys = Array.from(
-    new Set(roles.flatMap((role) => role.permissionKeys))
+    new Set(includePermissionKeys ? roles.flatMap((role) => role.permissionKeys) : [])
   ).sort();
 
   return {
     id: user.id,
+    organizationId: user.organizationId,
+    primaryBranchId: user.primaryBranchId,
+    organization: user.organization
+      ? {
+          id: user.organization.id,
+          name: user.organization.name,
+          slug: user.organization.slug
+        }
+      : null,
+    primaryBranch: user.primaryBranch
+      ? {
+          id: user.primaryBranch.id,
+          organizationId: user.primaryBranch.organizationId,
+          name: user.primaryBranch.name,
+          slug: user.primaryBranch.slug
+        }
+      : null,
+    branchAssignments: user.branchAssignments.map((assignment) => ({
+      id: assignment.id,
+      organizationId: assignment.organizationId,
+      branchId: assignment.branchId,
+      roleKey: assignment.roleKey,
+      isPrimary: assignment.isPrimary,
+      assignedAt: assignment.assignedAt.toISOString(),
+      revokedAt: assignment.revokedAt?.toISOString() ?? null,
+      branch: {
+        id: assignment.branch.id,
+        organizationId: assignment.branch.organizationId,
+        name: assignment.branch.name,
+        slug: assignment.branch.slug
+      }
+    })),
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
@@ -523,28 +808,50 @@ function mapStaffUser(user: StaffUserWithRoles) {
   };
 }
 
-function mapAssignedRole(role: StaffUserWithRoles["roles"][number]["role"]) {
+function mapAssignedRole(
+  role: StaffUserWithRoles["roles"][number]["role"],
+  options: { includePermissionKeys?: boolean } = {}
+) {
   return {
     id: role.id,
     key: role.key,
     name: role.name,
     description: role.description,
     isSystem: role.isSystem,
-    permissionKeys: role.permissions.map((entry) => entry.permission.key).sort()
+    permissionKeys: options.includePermissionKeys === false
+      ? []
+      : role.permissions.map((entry) => entry.permission.key).sort()
   };
 }
 
-function mapRole(role: RoleWithPermissions) {
+function mapRole(
+  role: RoleWithPermissions,
+  options: { includePermissionKeys?: boolean; includeStaffCount?: boolean } = {}
+) {
   return {
     id: role.id,
     key: role.key,
     name: role.name,
     description: role.description,
     isSystem: role.isSystem,
-    staffCount: role._count.staffAssignments,
-    permissionKeys: role.permissions.map((entry) => entry.permission.key).sort(),
+    staffCount: options.includeStaffCount === false ? 0 : role._count.staffAssignments,
+    permissionKeys: options.includePermissionKeys === false
+      ? []
+      : role.permissions.map((entry) => entry.permission.key).sort(),
     createdAt: role.createdAt.toISOString(),
     updatedAt: role.updatedAt.toISOString()
+  };
+}
+
+function mapStaffScope(scope: StaffManagementScope) {
+  return {
+    kind: scope.kind,
+    hasValidScope: scope.hasValidScope,
+    organizationId: scope.organizationId,
+    branchIds: scope.branchIds,
+    assignableRoleKeys: scope.assignableRoleKeys,
+    canManageRoles: scope.canManageRoles,
+    canCreateUnassignedStaff: scope.canCreateUnassignedStaff
   };
 }
 

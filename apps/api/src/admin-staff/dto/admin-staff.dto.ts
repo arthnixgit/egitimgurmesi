@@ -1,4 +1,4 @@
-import { StaffStatus } from "@ega/db";
+import { StaffBranchRole, StaffStatus } from "@ega/db";
 import {
   ArrayNotEmpty,
   IsArray,
@@ -35,6 +35,18 @@ export class CreateStaffUserDto {
   @IsOptional()
   @IsEnum(StaffStatus)
   status?: StaffStatus;
+
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
+
+  @IsOptional()
+  @IsEnum(StaffBranchRole)
+  branchRoleKey?: StaffBranchRole;
 
   @IsArray()
   @ArrayNotEmpty()

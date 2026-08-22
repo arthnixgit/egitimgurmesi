@@ -5,11 +5,12 @@ import {
   ClassGroupStatus,
   ContentStatus,
   Prisma,
+  ROLE_KEYS,
   StaffBranchRole
 } from "@ega/db";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
-import { assertBranchAccess, assertOrganizationAccess } from "../auth/scope.guard";
+import { assertOrganizationAccess } from "../auth/scope.guard";
 import { PrismaService } from "../database/prisma.service";
 import {
   AddStudentToBranchDto,
@@ -54,12 +55,55 @@ const studentMembershipInclude = {
   }
 } satisfies Prisma.StudentBranchMembershipInclude;
 
+const staffDirectoryTargetInclude = {
+  roles: {
+    include: {
+      role: {
+        select: {
+          key: true
+        }
+      }
+    }
+  },
+  branchAssignments: {
+    where: {
+      revokedAt: null
+    },
+    select: {
+      organizationId: true,
+      branchId: true,
+      revokedAt: true
+    }
+  }
+} satisfies Prisma.StaffUserInclude;
+
+const studentDirectoryTargetInclude = {
+  branchMemberships: {
+    where: {
+      status: BranchMembershipStatus.ACTIVE
+    },
+    select: {
+      organizationId: true,
+      branchId: true,
+      status: true
+    }
+  }
+} satisfies Prisma.UserInclude;
+
 type BranchStaffAssignmentWithRelations = Prisma.BranchStaffAssignmentGetPayload<{
   include: typeof branchStaffAssignmentInclude;
 }>;
 
 type StudentMembershipWithRelations = Prisma.StudentBranchMembershipGetPayload<{
   include: typeof studentMembershipInclude;
+}>;
+
+type StaffDirectoryTarget = Prisma.StaffUserGetPayload<{
+  include: typeof staffDirectoryTargetInclude;
+}>;
+
+type StudentDirectoryTarget = Prisma.UserGetPayload<{
+  include: typeof studentDirectoryTargetInclude;
 }>;
 
 @Injectable()
@@ -72,11 +116,7 @@ export class AdminTenancyService {
       : auth.organizationId
          ? { id: auth.organizationId }
         : { id: "__none__" };
-    const branchWhere = auth.isSuperAdmin
-       ? {}
-      : auth.branchIds.length
-         ? { id: { in: auth.branchIds } }
-        : { id: "__none__" };
+    const branchWhere = this.branchScopeWhere(auth);
 
     const [organizationCount, branchCount, centerCount, classGroupCount] = await Promise.all([
       this.prisma.organization.count({ where: organizationWhere }),
@@ -91,6 +131,8 @@ export class AdminTenancyService {
       this.prisma.classGroup.count({
         where: auth.isSuperAdmin
            ? {}
+          : isOrganizationAdmin(auth) && auth.organizationId
+             ? { organizationId: auth.organizationId }
           : auth.branchIds.length
              ? { branchId: { in: auth.branchIds } }
             : { branchId: "__none__" }
@@ -126,18 +168,24 @@ export class AdminTenancyService {
         : { organizationId: "__none__" };
     const classGroupWhere: Prisma.ClassGroupWhereInput = auth.isSuperAdmin
        ? {}
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId }
       : auth.branchIds.length
          ? { branchId: { in: auth.branchIds } }
         : { branchId: "__none__" };
     const assignmentWhere: Prisma.BranchStaffAssignmentWhereInput = auth.isSuperAdmin
-       ? {}
+       ? { revokedAt: null }
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId, revokedAt: null }
       : auth.branchIds.length
-         ? { branchId: { in: auth.branchIds } }
+         ? { branchId: { in: auth.branchIds }, revokedAt: null }
         : { branchId: "__none__" };
     const membershipWhere: Prisma.StudentBranchMembershipWhereInput = auth.isSuperAdmin
-       ? {}
+       ? { status: BranchMembershipStatus.ACTIVE }
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId, status: BranchMembershipStatus.ACTIVE }
       : auth.branchIds.length
-         ? { branchId: { in: auth.branchIds } }
+         ? { branchId: { in: auth.branchIds }, status: BranchMembershipStatus.ACTIVE }
         : { branchId: "__none__" };
 
     const [
@@ -210,33 +258,55 @@ export class AdminTenancyService {
         : { organizationId: "__none__" };
     const branchScoped: Prisma.BranchStaffAssignmentWhereInput = auth.isSuperAdmin
        ? {}
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId }
       : auth.branchIds.length
          ? { branchId: { in: auth.branchIds } }
         : { branchId: "__none__" };
     const studentMembershipWhere: Prisma.StudentBranchMembershipWhereInput = auth.isSuperAdmin
        ? { status: BranchMembershipStatus.ACTIVE }
+      : isOrganizationAdmin(auth) && auth.organizationId
+        ? {
+            status: BranchMembershipStatus.ACTIVE,
+            organizationId: auth.organizationId
+          }
       : {
           status: BranchMembershipStatus.ACTIVE,
           branchId: auth.branchIds.length ? { in: auth.branchIds } : "__none__"
         };
     const classGroupWhere: Prisma.ClassGroupWhereInput = auth.isSuperAdmin
        ? {}
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId }
       : auth.branchIds.length
          ? { branchId: { in: auth.branchIds } }
         : { branchId: "__none__" };
     const liveSessionWhere: Prisma.LiveSessionWhereInput = auth.isSuperAdmin
        ? {}
+      : isOrganizationAdmin(auth) && auth.organizationId
+         ? { organizationId: auth.organizationId }
       : auth.branchIds.length
          ? { branchId: { in: auth.branchIds } }
         : { branchId: "__none__" };
     const announcementWhere: Prisma.AnnouncementWhereInput = auth.isSuperAdmin
        ? { status: "PUBLISHED" }
+      : isOrganizationAdmin(auth) && auth.organizationId
+        ? {
+            status: "PUBLISHED",
+            organizationId: auth.organizationId
+          }
       : {
           status: "PUBLISHED",
           branchId: auth.branchIds.length ? { in: auth.branchIds } : "__none__"
         };
     const branchVisibleProductWhere: Prisma.ProductWhereInput = auth.isSuperAdmin
        ? { publishStatus: ContentStatus.PUBLISHED, branchId: { not: null } }
+      : isOrganizationAdmin(auth) && auth.organizationId
+        ? {
+            publishStatus: ContentStatus.PUBLISHED,
+            organizationId: auth.organizationId,
+            branchId: { not: null }
+          }
       : {
           publishStatus: ContentStatus.PUBLISHED,
           branchId: auth.branchIds.length ? { in: auth.branchIds } : "__none__"
@@ -410,18 +480,58 @@ export class AdminTenancyService {
     const branchId = query.branchId?.trim();
     const keyword = query.q?.trim();
     const and: Prisma.UserWhereInput[] = [];
+    let membershipWhere: Prisma.StudentBranchMembershipWhereInput;
 
     if (branchId) {
-      assertBranchAccess(auth, branchId);
-      and.push({ branchMemberships: { some: { branchId } } });
+      const branch = await this.ensureBranch(branchId);
+      this.assertBranchRecordAccess(auth, branch);
+      and.push({
+        branchMemberships: {
+          some: {
+            branchId,
+            status: BranchMembershipStatus.ACTIVE
+          }
+        }
+      });
+      membershipWhere = { branchId };
+    } else if (auth.isSuperAdmin) {
+      membershipWhere = {};
+    } else if (isOrganizationAdmin(auth) && auth.organizationId) {
+      and.push({
+        OR: [
+          { organizationId: auth.organizationId },
+          {
+            branchMemberships: {
+              some: {
+                organizationId: auth.organizationId,
+                status: BranchMembershipStatus.ACTIVE
+              }
+            }
+          }
+        ]
+      });
+      membershipWhere = { organizationId: auth.organizationId };
     } else if (!auth.isSuperAdmin) {
       const branchIds = auth.branchIds.length ? auth.branchIds : ["__none__"];
       and.push({
         OR: [
           { primaryBranchId: { in: branchIds } },
-          { branchMemberships: { some: { branchId: { in: branchIds } } } }
+          {
+            branchMemberships: {
+              some: {
+                branchId: { in: branchIds },
+                status: BranchMembershipStatus.ACTIVE
+              }
+            }
+          }
         ]
       });
+      membershipWhere = {
+        branchId: { in: branchIds },
+        status: BranchMembershipStatus.ACTIVE
+      };
+    } else {
+      membershipWhere = {};
     }
 
     if (keyword) {
@@ -436,11 +546,6 @@ export class AdminTenancyService {
     }
 
     const where: Prisma.UserWhereInput = and.length ? { AND: and } : {};
-    const membershipWhere = branchId
-       ? { branchId }
-      : auth.isSuperAdmin
-         ? {}
-        : { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
 
     const [total, users] = await Promise.all([
       this.prisma.user.count({ where }),
@@ -493,10 +598,33 @@ export class AdminTenancyService {
     const branchId = query.branchId?.trim();
     const keyword = query.q?.trim();
     const and: Prisma.StaffUserWhereInput[] = [];
+    let branchAssignmentWhere: Prisma.BranchStaffAssignmentWhereInput;
 
     if (branchId) {
-      assertBranchAccess(auth, branchId);
-      and.push({ branchAssignments: { some: { branchId } } });
+      const branch = await this.ensureBranch(branchId);
+      this.assertBranchRecordAccess(auth, branch);
+      and.push({ branchAssignments: { some: { branchId, revokedAt: null } } });
+      branchAssignmentWhere = { branchId, revokedAt: null };
+    } else if (auth.isSuperAdmin) {
+      branchAssignmentWhere = { revokedAt: null };
+    } else if (isOrganizationAdmin(auth) && auth.organizationId) {
+      and.push({
+        OR: [
+          { organizationId: auth.organizationId },
+          {
+            branchAssignments: {
+              some: {
+                organizationId: auth.organizationId,
+                revokedAt: null
+              }
+            }
+          }
+        ]
+      });
+      branchAssignmentWhere = {
+        organizationId: auth.organizationId,
+        revokedAt: null
+      };
     } else if (!auth.isSuperAdmin) {
       const branchIds = auth.branchIds.length ? auth.branchIds : ["__none__"];
       and.push({
@@ -505,6 +633,12 @@ export class AdminTenancyService {
           { branchAssignments: { some: { branchId: { in: branchIds }, revokedAt: null } } }
         ]
       });
+      branchAssignmentWhere = {
+        branchId: { in: branchIds },
+        revokedAt: null
+      };
+    } else {
+      branchAssignmentWhere = { revokedAt: null };
     }
 
     if (query.role) {
@@ -512,7 +646,30 @@ export class AdminTenancyService {
         branchAssignments: {
           some: {
             roleKey: query.role,
-            ...(branchId ? { branchId } : {})
+            revokedAt: null,
+            ...(branchId
+              ? { branchId }
+              : auth.isSuperAdmin
+                ? {}
+                : isOrganizationAdmin(auth) && auth.organizationId
+                  ? { organizationId: auth.organizationId }
+                  : { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } })
+          }
+        }
+      });
+    }
+
+    const deniedRoleKeys = staffDirectoryDeniedRoleKeys(auth);
+
+    if (deniedRoleKeys.length) {
+      and.push({
+        NOT: {
+          roles: {
+            some: {
+              role: {
+                key: { in: deniedRoleKeys }
+              }
+            }
           }
         }
       });
@@ -529,11 +686,6 @@ export class AdminTenancyService {
     }
 
     const where: Prisma.StaffUserWhereInput = and.length ? { AND: and } : {};
-    const branchAssignmentWhere = branchId
-       ? { branchId }
-      : auth.isSuperAdmin
-         ? {}
-        : { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
 
     const [total, staffUsers] = await Promise.all([
       this.prisma.staffUser.count({ where }),
@@ -755,7 +907,9 @@ export class AdminTenancyService {
       where.organizationId = organizationId;
     }
 
-    if (!auth.isSuperAdmin) {
+    if (!auth.isSuperAdmin && isOrganizationAdmin(auth) && auth.organizationId) {
+      where.organizationId = auth.organizationId;
+    } else if (!auth.isSuperAdmin) {
       where.id = auth.branchIds.length ? { in: auth.branchIds } : "__none__";
     }
 
@@ -818,7 +972,7 @@ export class AdminTenancyService {
 
   async updateBranch(branchId: string, dto: UpdateBranchDto, auth: AuthenticatedRequestContext) {
     const existing = await this.ensureBranch(branchId);
-    assertBranchAccess(auth, branchId);
+    this.assertBranchRecordAccess(auth, existing);
 
     if (dto.educationCenterId) {
       await this.ensureCenterBelongsToOrganization(dto.educationCenterId, existing.organizationId);
@@ -854,13 +1008,19 @@ export class AdminTenancyService {
     auth: AuthenticatedRequestContext
   ) {
     const branch = await this.ensureBranch(branchId);
-    assertBranchAccess(auth, branchId);
+    this.assertBranchRecordAccess(auth, branch);
+    this.assertBranchStaffRoleAllowed(auth, dto.roleKey);
 
-    const staff = await this.prisma.staffUser.findUnique({ where: { id: dto.staffUserId } });
+    const staff = await this.prisma.staffUser.findUnique({
+      where: { id: dto.staffUserId },
+      include: staffDirectoryTargetInclude
+    });
 
     if (!staff) {
       throw new NotFoundException("Personel bulunamadi.");
     }
+
+    this.assertStaffDirectoryTargetWritable(auth, staff);
 
     const assignment = await this.prisma.$transaction(async (tx) => {
       if (dto.isPrimary) {
@@ -916,11 +1076,11 @@ export class AdminTenancyService {
   }
 
   async listBranchStaffAssignments(branchId: string, auth: AuthenticatedRequestContext) {
-    assertBranchAccess(auth, branchId);
-    await this.ensureBranch(branchId);
+    const branch = await this.ensureBranch(branchId);
+    this.assertBranchRecordAccess(auth, branch);
 
     const assignments = await this.prisma.branchStaffAssignment.findMany({
-      where: { branchId },
+      where: { branchId, ...(auth.isSuperAdmin ? {} : { revokedAt: null }) },
       orderBy: { createdAt: "desc" },
       include: branchStaffAssignmentInclude
     });
@@ -942,7 +1102,12 @@ export class AdminTenancyService {
       throw new NotFoundException("Personel sube atamasi bulunamadi.");
     }
 
-    assertBranchAccess(auth, existing.branchId);
+    this.assertBranchRecordAccess(auth, existing);
+    this.assertBranchAssignmentWritable(auth, existing);
+
+    if (dto.roleKey) {
+      this.assertBranchStaffRoleAllowed(auth, dto.roleKey);
+    }
 
     const assignment = await this.prisma.$transaction(async (tx) => {
       if (dto.isPrimary) {
@@ -998,13 +1163,18 @@ export class AdminTenancyService {
     auth: AuthenticatedRequestContext
   ) {
     const branch = await this.ensureBranch(branchId);
-    assertBranchAccess(auth, branchId);
+    this.assertBranchRecordAccess(auth, branch);
 
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+      include: studentDirectoryTargetInclude
+    });
 
     if (!user) {
       throw new NotFoundException("Ogrenci bulunamadi.");
     }
+
+    this.assertStudentDirectoryTargetWritable(auth, user);
 
     const membership = await this.prisma.$transaction(async (tx) => {
       if (dto.isPrimary) {
@@ -1057,11 +1227,11 @@ export class AdminTenancyService {
   }
 
   async listBranchStudentMemberships(branchId: string, auth: AuthenticatedRequestContext) {
-    assertBranchAccess(auth, branchId);
-    await this.ensureBranch(branchId);
+    const branch = await this.ensureBranch(branchId);
+    this.assertBranchRecordAccess(auth, branch);
 
     const memberships = await this.prisma.studentBranchMembership.findMany({
-      where: { branchId },
+      where: { branchId, ...(auth.isSuperAdmin ? {} : { status: BranchMembershipStatus.ACTIVE }) },
       orderBy: { createdAt: "desc" },
       include: studentMembershipInclude
     });
@@ -1083,7 +1253,7 @@ export class AdminTenancyService {
       throw new NotFoundException("Ogrenci sube uyeligi bulunamadi.");
     }
 
-    assertBranchAccess(auth, existing.branchId);
+    this.assertBranchRecordAccess(auth, existing);
 
     const membership = await this.prisma.$transaction(async (tx) => {
       if (dto.isPrimary) {
@@ -1134,7 +1304,8 @@ export class AdminTenancyService {
   }
 
   async listClassGroups(branchId: string, auth: AuthenticatedRequestContext) {
-    assertBranchAccess(auth, branchId);
+    const branch = await this.ensureBranch(branchId);
+    this.assertBranchRecordAccess(auth, branch);
 
     return this.prisma.classGroup.findMany({
       where: { branchId },
@@ -1156,7 +1327,7 @@ export class AdminTenancyService {
     auth: AuthenticatedRequestContext
   ) {
     const branch = await this.ensureBranch(branchId);
-    assertBranchAccess(auth, branchId);
+    this.assertBranchRecordAccess(auth, branch);
 
     const classGroup = await this.prisma.classGroup.create({
       data: {
@@ -1191,7 +1362,7 @@ export class AdminTenancyService {
       throw new NotFoundException("Sinif/grup bulunamadi.");
     }
 
-    assertBranchAccess(auth, existing.branchId);
+    this.assertBranchRecordAccess(auth, existing);
 
     const classGroup = await this.prisma.classGroup.update({
       where: { id: classGroupId },
@@ -1213,6 +1384,133 @@ export class AdminTenancyService {
     return classGroup;
   }
 
+  private assertBranchRecordAccess(
+    auth: AuthenticatedRequestContext,
+    branch: { id: string; organizationId: string }
+  ) {
+    if (
+      auth.isSuperAdmin ||
+      auth.branchIds.includes(branch.id) ||
+      (isOrganizationAdmin(auth) && auth.organizationId === branch.organizationId)
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException("Bu sube kapsamina erisim yetkiniz yok.");
+  }
+
+  private assertBranchStaffRoleAllowed(
+    auth: AuthenticatedRequestContext,
+    roleKey: StaffBranchRole
+  ) {
+    if (auth.isSuperAdmin) {
+      return;
+    }
+
+    const organizationAllowed: StaffBranchRole[] = [
+      StaffBranchRole.BRANCH_ADMIN,
+      StaffBranchRole.INSTRUCTOR,
+      StaffBranchRole.COACH,
+      StaffBranchRole.ACCOUNTANT,
+      StaffBranchRole.STAFF
+    ];
+    const branchAllowed: StaffBranchRole[] = [
+      StaffBranchRole.INSTRUCTOR,
+      StaffBranchRole.COACH,
+      StaffBranchRole.ACCOUNTANT,
+      StaffBranchRole.STAFF
+    ];
+
+    if (isOrganizationAdmin(auth) && auth.organizationId && organizationAllowed.includes(roleKey)) {
+      return;
+    }
+
+    if (isBranchAdmin(auth) && branchAllowed.includes(roleKey)) {
+      return;
+    }
+
+    throw new ForbiddenException("Bu rolü atama yetkiniz bulunmuyor.");
+  }
+
+  private assertBranchAssignmentWritable(
+    auth: AuthenticatedRequestContext,
+    assignment: { branchId: string; organizationId: string; roleKey: StaffBranchRole }
+  ) {
+    this.assertBranchRecordAccess(auth, {
+      id: assignment.branchId,
+      organizationId: assignment.organizationId
+    });
+
+    if (auth.isSuperAdmin || isOrganizationAdmin(auth)) {
+      return;
+    }
+
+    if (assignment.roleKey === StaffBranchRole.BRANCH_ADMIN) {
+      throw new ForbiddenException("Bu personel hesabını görüntüleme veya değiştirme yetkiniz bulunmuyor.");
+    }
+  }
+
+  private assertStaffDirectoryTargetWritable(
+    auth: AuthenticatedRequestContext,
+    staff: StaffDirectoryTarget
+  ) {
+    if (auth.isSuperAdmin) {
+      return;
+    }
+
+    const deniedRoleKeys = staffDirectoryWriteDeniedRoleKeys(auth);
+    const targetRoleKeys = staff.roles.map((assignment) => assignment.role.key);
+
+    if (targetRoleKeys.some((roleKey) => deniedRoleKeys.includes(roleKey))) {
+      throw new ForbiddenException("Bu personel hesabını görüntüleme veya değiştirme yetkiniz bulunmuyor.");
+    }
+
+    if (
+      isOrganizationAdmin(auth) &&
+      auth.organizationId &&
+      (staff.organizationId === auth.organizationId ||
+        staff.branchAssignments.some((assignment) => assignment.organizationId === auth.organizationId))
+    ) {
+      return;
+    }
+
+    if (
+      isBranchAdmin(auth) &&
+      staff.branchAssignments.some((assignment) => auth.branchIds.includes(assignment.branchId))
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException("Bu personel hesabını görüntüleme veya değiştirme yetkiniz bulunmuyor.");
+  }
+
+  private assertStudentDirectoryTargetWritable(
+    auth: AuthenticatedRequestContext,
+    user: StudentDirectoryTarget
+  ) {
+    if (auth.isSuperAdmin) {
+      return;
+    }
+
+    if (
+      isOrganizationAdmin(auth) &&
+      auth.organizationId &&
+      (user.organizationId === auth.organizationId ||
+        user.branchMemberships.some((membership) => membership.organizationId === auth.organizationId))
+    ) {
+      return;
+    }
+
+    if (
+      isBranchAdmin(auth) &&
+      user.branchMemberships.some((membership) => auth.branchIds.includes(membership.branchId))
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException("Bu öğrenci hesabını görüntüleme veya değiştirme yetkiniz bulunmuyor.");
+  }
+
   private organizationScopeWhere(auth: AuthenticatedRequestContext): Prisma.OrganizationWhereInput {
     if (auth.isSuperAdmin) {
       return {};
@@ -1224,6 +1522,10 @@ export class AdminTenancyService {
   private branchScopeWhere(auth: AuthenticatedRequestContext): Prisma.BranchWhereInput {
     if (auth.isSuperAdmin) {
       return {};
+    }
+
+    if (isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
     }
 
     return auth.branchIds.length ? { id: { in: auth.branchIds } } : { id: "__none__" };
@@ -1298,6 +1600,44 @@ export class AdminTenancyService {
       }
     });
   }
+}
+
+function isOrganizationAdmin(auth: AuthenticatedRequestContext) {
+  return !auth.isSuperAdmin && auth.roleKeys.includes(ROLE_KEYS.admin);
+}
+
+function isBranchAdmin(auth: AuthenticatedRequestContext) {
+  return !auth.isSuperAdmin && auth.roleKeys.includes(ROLE_KEYS.branchAdmin);
+}
+
+function staffDirectoryDeniedRoleKeys(auth: AuthenticatedRequestContext): string[] {
+  if (auth.isSuperAdmin) {
+    return [];
+  }
+
+  if (isOrganizationAdmin(auth)) {
+    return [ROLE_KEYS.superAdmin, ROLE_KEYS.technician, ROLE_KEYS.accounting];
+  }
+
+  return [ROLE_KEYS.superAdmin, ROLE_KEYS.admin, ROLE_KEYS.technician, ROLE_KEYS.accounting];
+}
+
+function staffDirectoryWriteDeniedRoleKeys(auth: AuthenticatedRequestContext): string[] {
+  if (auth.isSuperAdmin) {
+    return [];
+  }
+
+  if (isOrganizationAdmin(auth)) {
+    return [ROLE_KEYS.superAdmin, ROLE_KEYS.admin, ROLE_KEYS.technician, ROLE_KEYS.accounting];
+  }
+
+  return [
+    ROLE_KEYS.superAdmin,
+    ROLE_KEYS.admin,
+    ROLE_KEYS.branchAdmin,
+    ROLE_KEYS.technician,
+    ROLE_KEYS.accounting
+  ];
 }
 
 function slugify(value: string) {

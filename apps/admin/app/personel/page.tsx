@@ -34,6 +34,8 @@ type UserDraft = {
   lastName: string;
   status: AdminStaffStatus;
   password: string;
+  organizationId: string;
+  branchId: string;
   roleKeys: string[];
 };
 
@@ -50,6 +52,8 @@ const emptyUserDraft: UserDraft = {
   lastName: "",
   status: "ACTIVE",
   password: "",
+  organizationId: "",
+  branchId: "",
   roleKeys: []
 };
 
@@ -182,11 +186,19 @@ export default function AdminStaffManagementPage() {
     [management?.roles, selectedRoleId]
   );
 
-  const canManageRoles = overview?.permissionKeys.includes("roles.manage") ?? false;
+  const userGroups = useMemo(() => buildUserGroups(management), [management]);
+
+  const canManageRoles = management?.scope.canManageRoles ?? false;
   const canManageStaff = overview?.permissionKeys.includes("staff.manage") ?? false;
   const userIsCreateMode = selectedUserId === "__new";
   const roleIsCreateMode = selectedRoleId === "__new";
   const roleIsReadOnly = Boolean(selectedRole && selectedRole.isSystem);
+
+  useEffect(() => {
+    if (!canManageRoles && activePanel === "roles") {
+      setActivePanel("users");
+    }
+  }, [activePanel, canManageRoles]);
 
   async function reloadManagement(nextUserId?: string, nextRoleId?: string) {
     const managementResponse = await fetchAdminStaffManagementOverview();
@@ -225,10 +237,7 @@ export default function AdminStaffManagementPage() {
 
   function startNewUser() {
     setSelectedUserId("__new");
-    setUserDraft({
-      ...emptyUserDraft,
-      roleKeys: management?.roles.find((role) => role.key === "admin") ? ["admin"] : []
-    });
+    setUserDraft(newUserDraftForScope(management));
     setActivePanel("users");
     setUserFormError("");
     setUserFormSuccess("");
@@ -280,7 +289,7 @@ export default function AdminStaffManagementPage() {
       return;
     }
 
-    const validationError = validateUserDraft(userDraft, userIsCreateMode);
+    const validationError = validateUserDraft(userDraft, userIsCreateMode, management?.scope.kind);
 
     if (validationError) {
       setUserFormError(validationError);
@@ -302,6 +311,9 @@ export default function AdminStaffManagementPage() {
           lastName: userDraft.lastName,
           password: userDraft.password,
           status: userDraft.status,
+          organizationId: userDraft.organizationId || undefined,
+          branchId: userDraft.branchId || undefined,
+          branchRoleKey: userDraft.branchId ? deriveBranchRoleKey(userDraft.roleKeys) : undefined,
           roleKeys: userDraft.roleKeys
         });
         await reloadManagement(created.id);
@@ -472,6 +484,8 @@ export default function AdminStaffManagementPage() {
             <button
               className={`admin-tab ${activePanel === "roles" ? "admin-tab--active" : ""}`}
               type="button"
+              style={{ display: canManageRoles ? undefined : "none" }}
+              disabled={!canManageRoles}
               onClick={() => setActivePanel("roles")}
             >
               <strong>Roller ve Yetkiler</strong>
@@ -494,7 +508,13 @@ export default function AdminStaffManagementPage() {
               <button className="admin-button--ghost" type="button" onClick={startNewUser}>
                 Yeni Personel
               </button>
-              <button className="admin-button--ghost" type="button" onClick={startNewRole}>
+              <button
+                className="admin-button--ghost"
+                type="button"
+                style={{ display: canManageRoles ? undefined : "none" }}
+                disabled={!canManageRoles}
+                onClick={startNewRole}
+              >
                 Yeni Rol
               </button>
             </div>
@@ -512,24 +532,30 @@ export default function AdminStaffManagementPage() {
                       </div>
                     </button>
                   ) : null}
-                  {management?.users.map((user) => (
-                    <button
-                      key={user.id}
-                      className={`admin-record-item ${selectedUserId === user.id ? "admin-record-item--active" : ""}`}
-                      type="button"
-                      onClick={() => selectUser(user)}
-                    >
-                      <div className="admin-record-item__top">
-                        <strong>{user.firstName} {user.lastName}</strong>
-                        <span className={`admin-status-pill admin-status-pill--${user.status.toLowerCase()}`}>
-                          {formatStatus(user.status)}
-                        </span>
-                      </div>
-                      <div className="admin-record-item__meta">
-                        <span>{user.email}</span>
-                        <span>{user.roleKeys.join(", ") || "Rol yok"}</span>
-                      </div>
-                    </button>
+                  {userGroups.map((group) => (
+                    <div className="admin-stack" key={group.key}>
+                      <span className="admin-badge">{group.label}</span>
+                      {group.users.map((user) => (
+                        <button
+                          key={`${group.key}-${user.id}`}
+                          className={`admin-record-item ${selectedUserId === user.id ? "admin-record-item--active" : ""}`}
+                          type="button"
+                          onClick={() => selectUser(user)}
+                        >
+                          <div className="admin-record-item__top">
+                            <strong>{user.firstName} {user.lastName}</strong>
+                            <span className={`admin-status-pill admin-status-pill--${user.status.toLowerCase()}`}>
+                              {formatStatus(user.status)}
+                            </span>
+                          </div>
+                          <div className="admin-record-item__meta">
+                            <span>{user.email}</span>
+                            <span>{formatUserBranchMeta(user)}</span>
+                            <span>{user.roleKeys.join(", ") || "Rol yok"}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -538,6 +564,8 @@ export default function AdminStaffManagementPage() {
                 <StaffUserForm
                   draft={userDraft}
                   roles={management?.roles ?? []}
+                  branches={management?.branches ?? []}
+                  scopeKind={management?.scope.kind ?? "none"}
                   isCreateMode={userIsCreateMode}
                   isSelf={selectedUser?.id === staff?.staffUser.id}
                   saving={saving}
@@ -552,7 +580,7 @@ export default function AdminStaffManagementPage() {
             </section>
           ) : null}
 
-          {activePanel === "roles" ? (
+          {activePanel === "roles" && canManageRoles ? (
             <section className="admin-record-grid">
               <div className="admin-record-list">
                 <div className="admin-record-list__items">
@@ -609,6 +637,8 @@ export default function AdminStaffManagementPage() {
 function StaffUserForm({
   draft,
   roles,
+  branches,
+  scopeKind,
   isCreateMode,
   isSelf,
   saving,
@@ -621,6 +651,8 @@ function StaffUserForm({
 }: {
   draft: UserDraft;
   roles: AdminStaffRole[];
+  branches: AdminStaffManagementOverview["branches"];
+  scopeKind: AdminStaffManagementOverview["scope"]["kind"];
   isCreateMode: boolean;
   isSelf: boolean;
   saving: boolean;
@@ -706,6 +738,27 @@ function StaffUserForm({
           onChange={(event) => onDraftChange({ ...draft, password: event.target.value })}
         />
       </label>
+
+      {isCreateMode && (scopeKind === "organization" || scopeKind === "branch") ? (
+        <label className="admin-field">
+          <span>Şube</span>
+          <select
+            className="admin-input admin-select"
+            value={draft.branchId}
+            disabled={scopeKind === "branch" && branches.length === 1}
+            onChange={(event) => onDraftChange({ ...draft, branchId: event.target.value })}
+          >
+            {scopeKind === "organization" ? (
+              <option value="">Organizasyona bağlı, henüz şubeye atanmamış</option>
+            ) : null}
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div className="admin-subpanel">
         <strong>Rol atamaları</strong>
@@ -843,6 +896,8 @@ function toUserDraft(user: AdminStaffUser): UserDraft {
     lastName: user.lastName,
     status: user.status,
     password: "",
+    organizationId: user.organizationId ?? "",
+    branchId: user.primaryBranchId ?? user.branchAssignments.find((assignment) => assignment.isPrimary)?.branchId ?? "",
     roleKeys: user.roleKeys
   };
 }
@@ -860,7 +915,93 @@ function toggleValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
 }
 
-function validateUserDraft(draft: UserDraft, isCreateMode: boolean) {
+function newUserDraftForScope(
+  management: AdminStaffManagementOverview | null
+): UserDraft {
+  const firstAssignableRole = management?.roles[0]?.key ?? "";
+  const firstBranch = management?.branches[0] ?? null;
+
+  return {
+    ...emptyUserDraft,
+    organizationId: management?.scope.organizationId ?? "",
+    branchId: management?.scope.kind === "branch" ? firstBranch?.id ?? "" : "",
+    roleKeys: firstAssignableRole ? [firstAssignableRole] : []
+  };
+}
+
+function deriveBranchRoleKey(roleKeys: string[]) {
+  if (roleKeys.includes("branch-admin")) {
+    return "BRANCH_ADMIN";
+  }
+
+  if (roleKeys.includes("instructor")) {
+    return "INSTRUCTOR";
+  }
+
+  if (roleKeys.includes("coach")) {
+    return "COACH";
+  }
+
+  if (roleKeys.includes("accountant")) {
+    return "ACCOUNTANT";
+  }
+
+  return "STAFF";
+}
+
+function buildUserGroups(management: AdminStaffManagementOverview | null) {
+  if (!management) {
+    return [];
+  }
+
+  const groupedUserIds = new Set<string>();
+  const groups = management.branches
+    .map((branch) => {
+      const users = management.users.filter((user) =>
+        user.branchAssignments.some((assignment) => assignment.branchId === branch.id)
+      );
+
+      users.forEach((user) => groupedUserIds.add(user.id));
+
+      return {
+        key: `branch:${branch.id}`,
+        label: branch.name,
+        users
+      };
+    })
+    .filter((group) => group.users.length > 0);
+
+  const unassignedUsers = management.users.filter((user) => !groupedUserIds.has(user.id));
+
+  if (unassignedUsers.length) {
+    groups.push({
+      key: "unassigned",
+      label: "Organizasyona bağlı, henüz şubeye atanmamış",
+      users: unassignedUsers
+    });
+  }
+
+  return groups.length
+    ? groups
+    : [
+        {
+          key: "empty",
+          label: "Personel",
+          users: []
+        }
+      ];
+}
+
+function formatUserBranchMeta(user: AdminStaffUser) {
+  const branchNames = user.branchAssignments.map((assignment) => assignment.branch.name);
+  return branchNames.length ? branchNames.join(", ") : "Şube ataması yok";
+}
+
+function validateUserDraft(
+  draft: UserDraft,
+  isCreateMode: boolean,
+  scopeKind: AdminStaffManagementOverview["scope"]["kind"] | undefined
+) {
   if (!draft.firstName.trim() || !draft.lastName.trim()) {
     return "Ad ve soyad zorunludur.";
   }
@@ -879,6 +1020,14 @@ function validateUserDraft(draft: UserDraft, isCreateMode: boolean) {
 
   if (draft.roleKeys.length === 0) {
     return "En az bir rol seçin.";
+  }
+
+  if (isCreateMode && scopeKind === "organization" && !draft.organizationId) {
+    return "Organizasyon seçimi zorunludur.";
+  }
+
+  if (isCreateMode && scopeKind === "branch" && !draft.branchId) {
+    return "Şube seçimi zorunludur.";
   }
 
   return "";
