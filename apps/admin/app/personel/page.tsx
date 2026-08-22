@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import {
   clearStaffTokens,
@@ -74,6 +74,27 @@ export default function AdminStaffManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [userFormError, setUserFormError] = useState("");
+  const [userFormSuccess, setUserFormSuccess] = useState("");
+  const userFormAlertRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!userFormError && !userFormSuccess) {
+      return;
+    }
+
+    const alertElement = userFormAlertRef.current;
+
+    if (!alertElement) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      alertElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      alertElement.focus({ preventScroll: true });
+    });
+  }, [userFormError, userFormSuccess]);
+
 
   useEffect(() => {
     let active = true;
@@ -82,6 +103,8 @@ export default function AdminStaffManagementPage() {
       setLoading(true);
       setError("");
       setSuccess("");
+      setUserFormError("");
+      setUserFormSuccess("");
 
       try {
         const bootstrapStatus = await fetchBootstrapStatus();
@@ -194,6 +217,8 @@ export default function AdminStaffManagementPage() {
   function selectUser(user: AdminStaffUser) {
     setSelectedUserId(user.id);
     setUserDraft(toUserDraft(user));
+    setUserFormError("");
+    setUserFormSuccess("");
     setError("");
     setSuccess("");
   }
@@ -205,6 +230,8 @@ export default function AdminStaffManagementPage() {
       roleKeys: management?.roles.find((role) => role.key === "admin") ? ["admin"] : []
     });
     setActivePanel("users");
+    setUserFormError("");
+    setUserFormSuccess("");
     setError("");
     setSuccess("");
   }
@@ -212,6 +239,8 @@ export default function AdminStaffManagementPage() {
   function selectRole(role: AdminStaffRole) {
     setSelectedRoleId(role.id);
     setRoleDraft(toRoleDraft(role));
+    setUserFormError("");
+    setUserFormSuccess("");
     setError("");
     setSuccess("");
   }
@@ -220,6 +249,8 @@ export default function AdminStaffManagementPage() {
     setSelectedRoleId("__new");
     setRoleDraft(emptyRoleDraft);
     setActivePanel("roles");
+    setUserFormError("");
+    setUserFormSuccess("");
     setError("");
     setSuccess("");
   }
@@ -239,21 +270,29 @@ export default function AdminStaffManagementPage() {
   }
 
   async function saveUser() {
+    if (saving) {
+      return;
+    }
+
     if (!canManageStaff) {
-      setError("Bu işlem için staff.manage yetkisi gerekli.");
+      setUserFormError("Bu işlem için staff.manage yetkisi gerekli.");
+      setUserFormSuccess("");
       return;
     }
 
     const validationError = validateUserDraft(userDraft, userIsCreateMode);
 
     if (validationError) {
-      setError(validationError);
+      setUserFormError(validationError);
+      setUserFormSuccess("");
       return;
     }
 
     setSaving(true);
     setError("");
     setSuccess("");
+    setUserFormError("");
+    setUserFormSuccess("");
 
     try {
       if (userIsCreateMode) {
@@ -266,7 +305,7 @@ export default function AdminStaffManagementPage() {
           roleKeys: userDraft.roleKeys
         });
         await reloadManagement(created.id);
-        setSuccess("Personel hesabı oluşturuldu.");
+        setUserFormSuccess("Personel hesabı oluşturuldu.");
         return;
       }
 
@@ -287,9 +326,9 @@ export default function AdminStaffManagementPage() {
       }
 
       await reloadManagement(updated.id);
-      setSuccess(userDraft.password.trim() ? "Personel ve şifre güncellendi." : "Personel güncellendi.");
+      setUserFormSuccess(userDraft.password.trim() ? "Personel ve şifre güncellendi." : "Personel güncellendi.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Personel kaydı tamamlanamadı.");
+      setUserFormError(getStaffUserSaveErrorMessage(saveError, userIsCreateMode));
     } finally {
       setSaving(false);
     }
@@ -503,6 +542,9 @@ export default function AdminStaffManagementPage() {
                   isSelf={selectedUser?.id === staff?.staffUser.id}
                   saving={saving}
                   onDraftChange={setUserDraft}
+                  error={userFormError}
+                  success={userFormSuccess}
+                  alertRef={userFormAlertRef}
                   onToggleRole={toggleUserRole}
                   onSave={() => void saveUser()}
                 />
@@ -570,6 +612,9 @@ function StaffUserForm({
   isCreateMode,
   isSelf,
   saving,
+  error,
+  success,
+  alertRef,
   onDraftChange,
   onToggleRole,
   onSave
@@ -580,6 +625,9 @@ function StaffUserForm({
   isSelf: boolean;
   saving: boolean;
   onDraftChange: (draft: UserDraft) => void;
+  error: string;
+  success: string;
+  alertRef: RefObject<HTMLDivElement | null>;
   onToggleRole: (roleKey: string) => void;
   onSave: () => void;
 }) {
@@ -589,6 +637,18 @@ function StaffUserForm({
         <span className="admin-badge">{isCreateMode ? "Yeni hesap" : "Personel düzenleme"}</span>
         <h2>{isCreateMode ? "Yeni personel oluştur" : "Personel hesabını güncelle"}</h2>
       </div>
+
+      {error ? (
+        <div ref={alertRef} className="admin-message admin-message--error" role="alert" tabIndex={-1}>
+          {error}
+        </div>
+      ) : null}
+
+      {!error && success ? (
+        <div ref={alertRef} className="admin-message admin-message--success" role="status" tabIndex={-1}>
+          {success}
+        </div>
+      ) : null}
 
       <div className="admin-form-grid">
         <label className="admin-field">
@@ -838,6 +898,23 @@ function validateRoleDraft(draft: RoleDraft, isCreateMode: boolean) {
   }
 
   return "";
+}
+
+function getStaffUserSaveErrorMessage(error: unknown, isCreateMode: boolean) {
+  const fallback = isCreateMode
+    ? "Personel hesab\u0131 olu\u015Fturulamad\u0131. L\u00FCtfen tekrar deneyin."
+    : "Personel kayd\u0131 tamamlanamad\u0131. L\u00FCtfen tekrar deneyin.";
+  const message = getAdminRequestErrorMessage(error, {
+    server: fallback,
+    network: "Personel servisine ula\u015F\u0131lamad\u0131. L\u00FCtfen tekrar deneyin.",
+    fallback
+  });
+
+  if (message.trim().toLowerCase() === "internal server error") {
+    return fallback;
+  }
+
+  return message;
 }
 
 function groupPermissions(permissions: AdminPermission[]) {

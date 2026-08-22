@@ -119,7 +119,11 @@ export class AdminStaffService {
           inviteAcceptedAt: new Date(),
           roles: {
             create: roleKeys.map((roleKey) => ({
-              assignedByStaffUserId: auth.actorId,
+              assignedBy: {
+                connect: {
+                  id: auth.actorId
+                }
+              },
               role: {
                 connect: {
                   key: roleKey
