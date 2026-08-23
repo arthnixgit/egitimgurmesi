@@ -180,6 +180,7 @@ export class AdminTenancyService {
       : auth.branchIds.length
          ? { branchId: { in: auth.branchIds }, revokedAt: null }
         : { branchId: "__none__" };
+    const readableAssignmentWhere = this.branchStaffAssignmentReadWhere(auth, assignmentWhere);
     const membershipWhere: Prisma.StudentBranchMembershipWhereInput = auth.isSuperAdmin
        ? { status: BranchMembershipStatus.ACTIVE }
       : isOrganizationAdmin(auth) && auth.organizationId
@@ -204,7 +205,7 @@ export class AdminTenancyService {
       this.prisma.educationCenter.count({ where: educationCenterWhere }),
       this.prisma.branch.count({ where: branchWhere }),
       this.prisma.classGroup.count({ where: classGroupWhere }),
-      this.prisma.branchStaffAssignment.count({ where: assignmentWhere }),
+      this.prisma.branchStaffAssignment.count({ where: readableAssignmentWhere }),
       this.prisma.studentBranchMembership.count({ where: membershipWhere }),
       this.prisma.branch.findMany({
         where: branchWhere,
@@ -220,7 +221,7 @@ export class AdminTenancyService {
         }
       }),
       this.prisma.branchStaffAssignment.findMany({
-        where: assignmentWhere,
+        where: readableAssignmentWhere,
         orderBy: { createdAt: "desc" },
         take: 5,
         include: branchStaffAssignmentInclude
@@ -1080,7 +1081,10 @@ export class AdminTenancyService {
     this.assertBranchRecordAccess(auth, branch);
 
     const assignments = await this.prisma.branchStaffAssignment.findMany({
-      where: { branchId, ...(auth.isSuperAdmin ? {} : { revokedAt: null }) },
+      where: this.branchStaffAssignmentReadWhere(auth, {
+        branchId,
+        ...(auth.isSuperAdmin ? {} : { revokedAt: null })
+      }),
       orderBy: { createdAt: "desc" },
       include: branchStaffAssignmentInclude
     });
@@ -1382,6 +1386,36 @@ export class AdminTenancyService {
     });
 
     return classGroup;
+  }
+
+  private branchStaffAssignmentReadWhere(
+    auth: AuthenticatedRequestContext,
+    where: Prisma.BranchStaffAssignmentWhereInput
+  ): Prisma.BranchStaffAssignmentWhereInput {
+    const deniedRoleKeys = staffDirectoryDeniedRoleKeys(auth);
+
+    if (!deniedRoleKeys.length) {
+      return where;
+    }
+
+    return {
+      AND: [
+        where,
+        {
+          NOT: {
+            staffUser: {
+              roles: {
+                some: {
+                  role: {
+                    key: { in: deniedRoleKeys }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    };
   }
 
   private assertBranchRecordAccess(

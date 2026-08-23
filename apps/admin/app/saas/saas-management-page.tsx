@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  getAdminRequestErrorMessage,
   clearStaffTokens,
   fetchBootstrapStatus,
   fetchCurrentStaffUser,
@@ -51,16 +52,18 @@ import {
   type TenancyStaffSearchItem,
   type TenancyStudentSearchItem
 } from "../../lib/admin-tenancy-client";
+import {
+  getAssignableBranchStaffRoles,
+  getBranchStaffAssignmentDisplay,
+  getBranchAccessMessage,
+  getSaasSectionLoadPlan,
+  resolveInitialBranchId,
+  resolveInitialOrganizationId,
+  shouldShowReadOnlyBranchLabel,
+  type SaasSectionKey
+} from "../../lib/saas-section-loading";
 
-type SectionKey =
-  | "overview"
-  | "organizations"
-  | "centers"
-  | "branches"
-  | "staffAssignments"
-  | "studentMemberships"
-  | "classGroups"
-  | "scope";
+type SectionKey = SaasSectionKey;
 
 type StaffOverviewResponse = Awaited<ReturnType<typeof fetchStaffOverview>>;
 type StaffMeResponse = Awaited<ReturnType<typeof fetchCurrentStaffUser>>;
@@ -262,12 +265,24 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   const [sectionLoading, setSectionLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sectionError, setSectionError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const sectionPlan = useMemo(
+    () => getSaasSectionLoadPlan(initialSection, staffOverview, scope),
+    [initialSection, staffOverview, scope]
+  );
+  const canReadOrganizations = hasPermission(staffOverview, "organizations.read");
+  const canReadBranches = hasPermission(staffOverview, "branches.read");
+  const canReadAssignments = hasPermission(staffOverview, "assignments.read");
+  const canReadClasses = hasPermission(staffOverview, "classes.read");
   const canManageOrganizations = hasPermission(staffOverview, "organizations.manage");
-  const canManageBranches = hasPermission(staffOverview, "branches.manage");
   const canManageAssignments = hasPermission(staffOverview, "assignments.manage");
   const canManageClasses = hasPermission(staffOverview, "classes.manage");
+  const visibleStaffRoles = useMemo(
+    () => getAssignableBranchStaffRoles(staffOverview, scope, staffRoles),
+    [staffOverview, scope]
+  );
 
   useEffect(() => {
     let active = true;
@@ -275,6 +290,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     async function load() {
       setLoading(true);
       setError("");
+      setSectionError("");
       setSuccess("");
 
       try {
@@ -287,30 +303,31 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           return;
         }
 
-        const [
-          staffResponse,
-          staffOverviewResponse,
-          scopeResponse,
-          tenancyOverviewResponse,
-          organizationResponse,
-          branchResponse,
-          staffResponseList,
-          studentResponseList
-        ] = await Promise.all([
+        const [staffResponse, staffOverviewResponse, scopeResponse, tenancyOverviewResponse] = await Promise.all([
           fetchCurrentStaffUser(),
           fetchStaffOverview(),
           getTenancyScope(),
-          getTenancyOverview(),
-          listOrganizations(),
-          listBranches(),
-          listStaff({ limit: 50 }),
-          listStudents({ limit: 50 })
+          getTenancyOverview()
         ]);
 
         if (!active) return;
 
-        const firstOrganizationId = organizationResponse[0]?.id ?? "";
-        const firstBranchId = branchResponse[0]?.id ?? "";
+        const plan = getSaasSectionLoadPlan(initialSection, staffOverviewResponse, scopeResponse);
+        const [organizationResponse, branchResponse] = await Promise.all([
+          plan.loadOrganizations ? listOrganizations() : Promise.resolve([]),
+          plan.loadBranches
+            ? listBranches(
+                scopeResponse.actor.organizationId && !scopeResponse.actor.isSuperAdmin
+                  ? { organizationId: scopeResponse.actor.organizationId }
+                  : undefined
+              )
+            : Promise.resolve([])
+        ]);
+
+        if (!active) return;
+
+        const firstOrganizationId = resolveInitialOrganizationId(organizationResponse, branchResponse, scopeResponse);
+        const firstBranchId = resolveInitialBranchId(branchResponse, scopeResponse);
 
         setStaff(staffResponse);
         setStaffOverview(staffOverviewResponse);
@@ -318,27 +335,17 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         setTenancyOverview(tenancyOverviewResponse);
         setOrganizations(organizationResponse);
         setBranches(branchResponse);
-        setStaffDirectory(staffResponseList.items);
-        setStudentDirectory(studentResponseList.items);
+        setStaffDirectory([]);
+        setStudentDirectory([]);
         setSelectedOrganizationId(firstOrganizationId);
         setSelectedBranchId(firstBranchId);
-        setSelectedStaffUserId(staffResponseList.items[0]?.id ?? "");
-        setSelectedStudentId(studentResponseList.items[0]?.id ?? "");
-
-        const [centerResponse, groupResponse, assignmentResponse, membershipResponse] =
-          await Promise.all([
-            firstOrganizationId ? listEducationCenters(firstOrganizationId).catch(() => []) : [],
-            firstBranchId ? listClassGroups(firstBranchId).catch(() => []) : [],
-            firstBranchId ? listBranchStaffAssignments(firstBranchId).catch(() => []) : [],
-            firstBranchId ? listBranchStudentMemberships(firstBranchId).catch(() => []) : []
-          ]);
-
-        if (!active) return;
-
-        setCenters(centerResponse);
-        setClassGroups(groupResponse);
-        setStaffAssignments(assignmentResponse);
-        setStudentMemberships(membershipResponse);
+        setSelectedStaffUserId("");
+        setSelectedStudentId("");
+        setCenters([]);
+        setClassGroups([]);
+        setStaffAssignments([]);
+        setStudentMemberships([]);
+        setSectionError(plan.unavailableMessage);
       } catch (requestError) {
         if (!active) return;
 
@@ -359,10 +366,10 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [initialSection, router]);
 
   useEffect(() => {
-    if (!selectedOrganizationId) {
+    if (!sectionPlan.loadEducationCenters || !selectedOrganizationId) {
       setCenters([]);
       return;
     }
@@ -375,7 +382,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         if (active) setCenters(response);
       })
       .catch((requestError) => {
-        if (active) setError(toFriendlyError(requestError, "Eğitim merkezleri yüklenemedi."));
+        if (active) setSectionError(toFriendlyError(requestError, "Eğitim merkezleri yüklenemedi."));
       })
       .finally(() => {
         if (active) setSectionLoading(false);
@@ -384,32 +391,88 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     return () => {
       active = false;
     };
-  }, [selectedOrganizationId]);
+  }, [sectionPlan.loadEducationCenters, selectedOrganizationId]);
 
   useEffect(() => {
-    if (!selectedBranchId) {
+    if (!visibleStaffRoles.some((role) => role.value === selectedStaffRole)) {
+      setSelectedStaffRole(visibleStaffRoles[0]?.value ?? "STAFF");
+    }
+  }, [selectedStaffRole, visibleStaffRoles]);
+
+  useEffect(() => {
+    if (!sectionPlan.loadClassGroups) {
       setClassGroups([]);
+    }
+
+    if (!sectionPlan.loadStaffAssignments) {
       setStaffAssignments([]);
+    }
+
+    if (!sectionPlan.loadStudentMemberships) {
       setStudentMemberships([]);
+    }
+
+    if (!sectionPlan.loadStaffDirectory) {
+      setStaffDirectory([]);
+      setSelectedStaffUserId("");
+    }
+
+    if (!sectionPlan.loadStudentDirectory) {
+      setStudentDirectory([]);
+      setSelectedStudentId("");
+    }
+
+    if (
+      !selectedBranchId ||
+      (!sectionPlan.loadClassGroups &&
+        !sectionPlan.loadStaffAssignments &&
+        !sectionPlan.loadStudentMemberships &&
+        !sectionPlan.loadStaffDirectory &&
+        !sectionPlan.loadStudentDirectory)
+    ) {
       return;
     }
 
     let active = true;
     setSectionLoading(true);
+    setSectionError("");
+
+    const staffDirectoryParams = {
+      limit: 50,
+      ...(sectionPlan.staffDirectoryRequiresSelectedBranch ? { branchId: selectedBranchId } : {})
+    };
+    const studentDirectoryParams = {
+      limit: 50,
+      ...(sectionPlan.studentDirectoryRequiresSelectedBranch ? { branchId: selectedBranchId } : {})
+    };
 
     Promise.all([
-      listClassGroups(selectedBranchId),
-      listBranchStaffAssignments(selectedBranchId),
-      listBranchStudentMemberships(selectedBranchId)
+      sectionPlan.loadClassGroups ? listClassGroups(selectedBranchId) : Promise.resolve([]),
+      sectionPlan.loadStaffAssignments ? listBranchStaffAssignments(selectedBranchId) : Promise.resolve([]),
+      sectionPlan.loadStudentMemberships ? listBranchStudentMemberships(selectedBranchId) : Promise.resolve([]),
+      sectionPlan.loadStaffDirectory ? listStaff(staffDirectoryParams) : Promise.resolve(emptyStaffSearchResponse()),
+      sectionPlan.loadStudentDirectory ? listStudents(studentDirectoryParams) : Promise.resolve(emptyStudentSearchResponse())
     ])
-      .then(([groupResponse, assignmentResponse, membershipResponse]) => {
+      .then(([groupResponse, assignmentResponse, membershipResponse, staffResponseList, studentResponseList]) => {
         if (!active) return;
         setClassGroups(groupResponse);
         setStaffAssignments(assignmentResponse);
         setStudentMemberships(membershipResponse);
+        setStaffDirectory(staffResponseList.items);
+        setStudentDirectory(studentResponseList.items);
+        setSelectedStaffUserId((current) =>
+          current && staffResponseList.items.some((item) => item.id === current)
+            ? current
+            : staffResponseList.items[0]?.id ?? ""
+        );
+        setSelectedStudentId((current) =>
+          current && studentResponseList.items.some((item) => item.id === current)
+            ? current
+            : studentResponseList.items[0]?.id ?? ""
+        );
       })
       .catch((requestError) => {
-        if (active) setError(toFriendlyError(requestError, "Şube bağlantıları yüklenemedi."));
+        if (active) setSectionError(toFriendlyError(requestError, "Şube bağlantıları yüklenemedi."));
       })
       .finally(() => {
         if (active) setSectionLoading(false);
@@ -418,7 +481,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     return () => {
       active = false;
     };
-  }, [selectedBranchId]);
+  }, [sectionPlan, selectedBranchId]);
 
   const selectedOrganization = organizations.find((organization) => organization.id === selectedOrganizationId);
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId);
@@ -535,26 +598,62 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
 
   async function reloadBranchConnections(branchId = selectedBranchId) {
     if (!branchId) return;
-    const [groups, assignments, memberships] = await Promise.all([
-      listClassGroups(branchId),
-      listBranchStaffAssignments(branchId),
-      listBranchStudentMemberships(branchId)
+    const [groups, assignments, memberships, staffResponseList, studentResponseList] = await Promise.all([
+      sectionPlan.loadClassGroups ? listClassGroups(branchId) : Promise.resolve([]),
+      sectionPlan.loadStaffAssignments ? listBranchStaffAssignments(branchId) : Promise.resolve([]),
+      sectionPlan.loadStudentMemberships ? listBranchStudentMemberships(branchId) : Promise.resolve([]),
+      sectionPlan.loadStaffDirectory ? listStaff(buildStaffDirectoryParams(branchId)) : Promise.resolve(emptyStaffSearchResponse()),
+      sectionPlan.loadStudentDirectory ? listStudents(buildStudentDirectoryParams(branchId)) : Promise.resolve(emptyStudentSearchResponse())
     ]);
     setClassGroups(groups);
     setStaffAssignments(assignments);
     setStudentMemberships(memberships);
+    setStaffDirectory(staffResponseList.items);
+    setStudentDirectory(studentResponseList.items);
+  }
+
+  function buildStaffDirectoryParams(branchId: string, query = staffSearch) {
+    return {
+      q: optionalDraft(query),
+      limit: 50,
+      ...(sectionPlan.staffDirectoryRequiresSelectedBranch && branchId ? { branchId } : {})
+    };
+  }
+
+  function buildStudentDirectoryParams(branchId: string, query = studentSearch) {
+    return {
+      q: optionalDraft(query),
+      limit: 50,
+      ...(sectionPlan.studentDirectoryRequiresSelectedBranch && branchId ? { branchId } : {})
+    };
   }
 
   async function loadStaffDirectory() {
-    const response = await listStaff({ q: optionalDraft(staffSearch), limit: 50 });
+    if (sectionPlan.staffDirectoryRequiresSelectedBranch && !selectedBranchId) {
+      setStaffDirectory([]);
+      setSelectedStaffUserId("");
+      return;
+    }
+
+    const response = await listStaff(buildStaffDirectoryParams(selectedBranchId, staffSearch));
     setStaffDirectory(response.items);
-    setSelectedStaffUserId((current) => current || response.items[0]?.id || "");
+    setSelectedStaffUserId((current) =>
+      current && response.items.some((item) => item.id === current) ? current : response.items[0]?.id || ""
+    );
   }
 
   async function loadStudentDirectory() {
-    const response = await listStudents({ q: optionalDraft(studentSearch), limit: 50 });
+    if (sectionPlan.studentDirectoryRequiresSelectedBranch && !selectedBranchId) {
+      setStudentDirectory([]);
+      setSelectedStudentId("");
+      return;
+    }
+
+    const response = await listStudents(buildStudentDirectoryParams(selectedBranchId, studentSearch));
     setStudentDirectory(response.items);
-    setSelectedStudentId((current) => current || response.items[0]?.id || "");
+    setSelectedStudentId((current) =>
+      current && response.items.some((item) => item.id === current) ? current : response.items[0]?.id || ""
+    );
   }
 
   async function handleLogout() {
@@ -917,6 +1016,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
       </nav>
 
       {error ? <div className="admin-alert admin-alert--error">{error}</div> : null}
+      {sectionError ? <div className="admin-alert admin-alert--error">{sectionError}</div> : null}
       {success ? <div className="admin-alert admin-alert--success">{success}</div> : null}
 
       {initialSection === "overview" ? renderOverview() : null}
@@ -929,6 +1029,16 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
       {initialSection === "scope" ? renderScope() : null}
     </main>
   );
+
+  function renderSectionUnavailable(message = sectionPlan.unavailableMessage) {
+    return (
+      <section className="admin-saas-grid">
+        <article className="admin-card admin-saas-main-card">
+          <EmptyState title="Yetki yok" body={message || "Bu bölüm için yetkiniz bulunmuyor."} />
+        </article>
+      </section>
+    );
+  }
 
   function renderOverview() {
     return (
@@ -1033,6 +1143,10 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   }
 
   function renderOrganizations() {
+    if (!canReadOrganizations) {
+      return renderSectionUnavailable("Bu bölüm için organizasyon görüntüleme yetkiniz bulunmuyor.");
+    }
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1077,6 +1191,10 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   }
 
   function renderCenters() {
+    if (!canReadOrganizations) {
+      return renderSectionUnavailable("Bu bölüm için eğitim merkezi görüntüleme yetkiniz bulunmuyor.");
+    }
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1123,6 +1241,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   }
 
   function renderBranches() {
+    if (!canReadBranches) {
+      return renderSectionUnavailable("Bu bölüm için şube görüntüleme yetkiniz bulunmuyor.");
+    }
+
+    const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1132,15 +1256,21 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               <h2>Yetkili olduğun şubeler</h2>
             </div>
             <div className="admin-saas-filter-stack">
-              <OrganizationSelect />
-              <select className="admin-input" value={centerFilterId} onChange={(event) => setCenterFilterId(event.target.value)}>
-                <option value="">Tüm merkezler</option>
-                {centers.map((center) => <option key={center.id} value={center.id}>{center.name}</option>)}
-              </select>
+              {canReadOrganizations ? (
+                <>
+                  <OrganizationSelect />
+                  <select className="admin-input" value={centerFilterId} onChange={(event) => setCenterFilterId(event.target.value)}>
+                    <option value="">Tüm merkezler</option>
+                    {centers.map((center) => <option key={center.id} value={center.id}>{center.name}</option>)}
+                  </select>
+                </>
+              ) : null}
               <input className="admin-input" placeholder="Şube ara" value={branchSearch} onChange={(event) => setBranchSearch(event.target.value)} />
             </div>
           </div>
-          {filteredBranches.length ? (
+          {branchAccessMessage ? (
+            <EmptyState title="Şube erişimi yok" body={branchAccessMessage} />
+          ) : filteredBranches.length ? (
             <div className="admin-saas-card-grid">
               {filteredBranches.map((branch) => (
                 <article key={branch.id} className="admin-saas-branch-card">
@@ -1166,33 +1296,42 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             <EmptyState title="Şube bulunamadı" body="Filtreleri temizleyin veya yeni şube oluşturun." />
           )}
         </article>
-        <article className="admin-card admin-saas-form-card">
-          <span className="admin-badge">{editingBranchId ? "Güncelle" : "Yeni Şube"}</span>
-          <p className="admin-saas-muted">Organizasyon: {selectedOrganization?.name ?? "Seçilmedi"}</p>
-          <FormGrid>
-            <Field label="Şube Adı"><input className="admin-input" value={branchDraft.name} onChange={(event) => setBranchDraft({ ...branchDraft, name: event.target.value })} /></Field>
-            <Field label="Slug"><input className="admin-input" value={branchDraft.slug} onChange={(event) => setBranchDraft({ ...branchDraft, slug: event.target.value })} disabled={Boolean(editingBranchId)} /></Field>
-            <Field label="Eğitim Merkezi">
-              <select className="admin-input" value={branchDraft.educationCenterId} onChange={(event) => setBranchDraft({ ...branchDraft, educationCenterId: event.target.value })}>
-                <option value="">Merkez seçilmedi</option>
-                {centers.map((center) => <option key={center.id} value={center.id}>{center.name}</option>)}
-              </select>
-            </Field>
-            <Field label="Şube Kodu"><input className="admin-input" value={branchDraft.code} onChange={(event) => setBranchDraft({ ...branchDraft, code: event.target.value })} /></Field>
-            <Field label="Şehir"><input className="admin-input" value={branchDraft.city} onChange={(event) => setBranchDraft({ ...branchDraft, city: event.target.value })} /></Field>
-            <Field label="İlçe"><input className="admin-input" value={branchDraft.district} onChange={(event) => setBranchDraft({ ...branchDraft, district: event.target.value })} /></Field>
-            <Field label="Telefon"><input className="admin-input" value={branchDraft.phone} onChange={(event) => setBranchDraft({ ...branchDraft, phone: event.target.value })} /></Field>
-            <Field label="E-posta"><input className="admin-input" value={branchDraft.email} onChange={(event) => setBranchDraft({ ...branchDraft, email: event.target.value })} /></Field>
-            <Field label="Durum"><Select value={branchDraft.status} onChange={(value) => setBranchDraft({ ...branchDraft, status: value as BranchStatus })} options={branchStatuses} /></Field>
-          </FormGrid>
-          <Field label="Adres"><textarea className="admin-input admin-textarea admin-textarea--compact" value={branchDraft.address} onChange={(event) => setBranchDraft({ ...branchDraft, address: event.target.value })} /></Field>
-          <FormActions saving={saving} saveLabel={editingBranchId ? "Güncelle" : "Kaydet"} onSave={saveBranch} onCancel={() => { setEditingBranchId(""); setBranchDraft(emptyBranchDraft); }} />
-        </article>
+        {!branchAccessMessage ? (
+          <article className="admin-card admin-saas-form-card">
+            <span className="admin-badge">{editingBranchId ? "Güncelle" : "Yeni Şube"}</span>
+            <p className="admin-saas-muted">Organizasyon: {selectedOrganization?.name ?? "Seçilmedi"}</p>
+            <FormGrid>
+              <Field label="Şube Adı"><input className="admin-input" value={branchDraft.name} onChange={(event) => setBranchDraft({ ...branchDraft, name: event.target.value })} /></Field>
+              <Field label="Slug"><input className="admin-input" value={branchDraft.slug} onChange={(event) => setBranchDraft({ ...branchDraft, slug: event.target.value })} disabled={Boolean(editingBranchId)} /></Field>
+              <Field label="Eğitim Merkezi">
+                <select className="admin-input" value={branchDraft.educationCenterId} onChange={(event) => setBranchDraft({ ...branchDraft, educationCenterId: event.target.value })}>
+                  <option value="">Merkez seçilmedi</option>
+                  {centers.map((center) => <option key={center.id} value={center.id}>{center.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Şube Kodu"><input className="admin-input" value={branchDraft.code} onChange={(event) => setBranchDraft({ ...branchDraft, code: event.target.value })} /></Field>
+              <Field label="Şehir"><input className="admin-input" value={branchDraft.city} onChange={(event) => setBranchDraft({ ...branchDraft, city: event.target.value })} /></Field>
+              <Field label="İlçe"><input className="admin-input" value={branchDraft.district} onChange={(event) => setBranchDraft({ ...branchDraft, district: event.target.value })} /></Field>
+              <Field label="Telefon"><input className="admin-input" value={branchDraft.phone} onChange={(event) => setBranchDraft({ ...branchDraft, phone: event.target.value })} /></Field>
+              <Field label="E-posta"><input className="admin-input" value={branchDraft.email} onChange={(event) => setBranchDraft({ ...branchDraft, email: event.target.value })} /></Field>
+              <Field label="Durum"><Select value={branchDraft.status} onChange={(value) => setBranchDraft({ ...branchDraft, status: value as BranchStatus })} options={branchStatuses} /></Field>
+            </FormGrid>
+            <Field label="Adres"><textarea className="admin-input admin-textarea admin-textarea--compact" value={branchDraft.address} onChange={(event) => setBranchDraft({ ...branchDraft, address: event.target.value })} /></Field>
+            <FormActions saving={saving} saveLabel={editingBranchId ? "Güncelle" : "Kaydet"} onSave={saveBranch} onCancel={() => { setEditingBranchId(""); setBranchDraft(emptyBranchDraft); }} />
+          </article>
+        ) : null}
       </section>
     );
   }
 
   function renderStaffAssignments() {
+    if (!canReadAssignments) {
+      return renderSectionUnavailable("Bu bölüm için personel ataması görüntüleme yetkiniz bulunmuyor.");
+    }
+
+    const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
+    const canUseAssignmentForm = Boolean(selectedBranchId && !branchAccessMessage && canManageAssignments);
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1203,25 +1342,38 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             </div>
             <BranchSelect />
           </div>
-          <FormGrid>
-            <Field label="Personel Ara">
-              <div className="admin-saas-inline-search">
-                <input className="admin-input" value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Ad, soyad veya e-posta" />
-                <button className="admin-button--ghost" type="button" onClick={loadStaffDirectory}>Ara</button>
+          {branchAccessMessage ? (
+            <EmptyState title="Şube erişimi yok" body={branchAccessMessage} />
+          ) : null}
+          {!branchAccessMessage && !selectedBranchId ? (
+            <EmptyState title="Şube seçilmedi" body="Personel ataması yapmak için yetkili bir şube seçin." />
+          ) : null}
+          {!branchAccessMessage && selectedBranchId && !canManageAssignments ? (
+            <EmptyState title="Atama yetkisi yok" body="Bu bölümde yalnızca mevcut atamaları görüntüleyebilirsiniz." />
+          ) : null}
+          {canUseAssignmentForm ? (
+            <>
+              <FormGrid>
+                <Field label="Personel Ara">
+                  <div className="admin-saas-inline-search">
+                    <input className="admin-input" value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Ad, soyad veya e-posta" />
+                    <button className="admin-button--ghost" type="button" onClick={loadStaffDirectory}>Ara</button>
+                  </div>
+                </Field>
+                <Field label="Personel Seç">
+                  <select className="admin-input" value={selectedStaffUserId} onChange={(event) => setSelectedStaffUserId(event.target.value)}>
+                    <option value="">Personel seç</option>
+                    {staffDirectory.map((user) => <option key={user.id} value={user.id}>{user.name} · {user.email}</option>)}
+                  </select>
+                </Field>
+                <Field label="Rol"><Select value={selectedStaffRole} onChange={(value) => setSelectedStaffRole(value as StaffBranchRole)} options={visibleStaffRoles} /></Field>
+                <label className="admin-saas-check"><input type="checkbox" checked={staffPrimary} onChange={(event) => setStaffPrimary(event.target.checked)} /> Birincil şube olarak işaretle</label>
+              </FormGrid>
+              <div className="admin-actions">
+                <button className="admin-button" type="button" disabled={saving || !canManageAssignments || !selectedStaffUserId} onClick={saveStaffAssignment}>{saving ? "Kaydediliyor..." : "Atama Yap"}</button>
               </div>
-            </Field>
-            <Field label="Personel Seç">
-              <select className="admin-input" value={selectedStaffUserId} onChange={(event) => setSelectedStaffUserId(event.target.value)}>
-                <option value="">Personel seç</option>
-                {staffDirectory.map((user) => <option key={user.id} value={user.id}>{user.name} · {user.email}</option>)}
-              </select>
-            </Field>
-            <Field label="Rol"><Select value={selectedStaffRole} onChange={(value) => setSelectedStaffRole(value as StaffBranchRole)} options={staffRoles} /></Field>
-            <label className="admin-saas-check"><input type="checkbox" checked={staffPrimary} onChange={(event) => setStaffPrimary(event.target.checked)} /> Birincil şube olarak işaretle</label>
-          </FormGrid>
-          <div className="admin-actions">
-            <button className="admin-button" type="button" disabled={saving || !canManageAssignments} onClick={saveStaffAssignment}>{saving ? "Kaydediliyor..." : "Atama Yap"}</button>
-          </div>
+            </>
+          ) : null}
         </article>
         <article className="admin-card">
           <span className="admin-badge">Mevcut Atamalar</span>
@@ -1229,32 +1381,39 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           {sectionLoading ? <p className="admin-empty-state">Atamalar yükleniyor...</p> : null}
           {!sectionLoading && staffAssignments.length ? (
             <div className="admin-saas-record-list">
-              {staffAssignments.map((assignment) => (
-                <div className="admin-saas-record-row" key={assignment.id}>
-                  <span>
-                    <strong>{assignment.staffUser?.displayName ?? assignment.staffUserId}</strong>
-                    <small>{assignment.staffUser?.email ?? ""} · {roleLabel(assignment.roleKey)} · {assignment.status === "REVOKED" ? "Pasif" : "Aktif"}</small>
-                  </span>
-                  <div className="admin-actions">
-                    <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
-                    <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
+              {staffAssignments.map((assignment) => {
+                const display = getBranchStaffAssignmentDisplay(assignment, roleLabel(assignment.roleKey));
+
+                return (
+                  <div className="admin-saas-record-row" key={assignment.id}>
+                    <span>
+                      <strong>{display.title}</strong>
+                      <small>{display.meta}</small>
+                    </span>
+                    <div className="admin-actions">
+                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
+                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
-          {!sectionLoading && !staffAssignments.length ? (
-            <EmptyState
-              title="Personel ataması yok"
-              body="Şube yöneticisi, eğitmen, koç veya finans yetkilisini seçili şubeye bağlayarak operasyon akışını başlatın."
-            />
-          ) : null}
+          {!sectionLoading && !branchAccessMessage && selectedBranchId && !staffAssignments.length ? <EmptyState title="Atama yok" body="Bu şubeye atanmış personel bulunmuyor." /> : null}
+          {!sectionLoading && branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
         </article>
       </section>
     );
   }
 
   function renderStudentMemberships() {
+    if (!canReadAssignments) {
+      return renderSectionUnavailable("Bu bölüm için öğrenci üyeliği görüntüleme yetkiniz bulunmuyor.");
+    }
+
+    const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
+    const canUseMembershipForm = Boolean(selectedBranchId && !branchAccessMessage && canManageAssignments);
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1265,25 +1424,36 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             </div>
             <BranchSelect />
           </div>
-          <FormGrid>
-            <Field label="Öğrenci Ara">
-              <div className="admin-saas-inline-search">
-                <input className="admin-input" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Ad, soyad, e-posta veya telefon" />
-                <button className="admin-button--ghost" type="button" onClick={loadStudentDirectory}>Ara</button>
+          {branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
+          {!branchAccessMessage && !selectedBranchId ? (
+            <EmptyState title="Şube seçilmedi" body="Öğrenci üyeliği için yetkili bir şube seçin." />
+          ) : null}
+          {!branchAccessMessage && selectedBranchId && !canManageAssignments ? (
+            <EmptyState title="Atama yetkisi yok" body="Bu bölümde yalnızca mevcut üyelikleri görüntüleyebilirsiniz." />
+          ) : null}
+          {canUseMembershipForm ? (
+            <>
+              <FormGrid>
+                <Field label="Öğrenci Ara">
+                  <div className="admin-saas-inline-search">
+                    <input className="admin-input" value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Ad, soyad, e-posta veya telefon" />
+                    <button className="admin-button--ghost" type="button" onClick={loadStudentDirectory}>Ara</button>
+                  </div>
+                </Field>
+                <Field label="Öğrenci Seç">
+                  <select className="admin-input" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)}>
+                    <option value="">Öğrenci seç</option>
+                    {studentDirectory.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.email}</option>)}
+                  </select>
+                </Field>
+                <Field label="Üyelik Durumu"><Select value={studentStatus} onChange={(value) => setStudentStatus(value as BranchMembershipStatus)} options={membershipStatuses} /></Field>
+                <label className="admin-saas-check"><input type="checkbox" checked={studentPrimary} onChange={(event) => setStudentPrimary(event.target.checked)} /> Birincil şube olarak işaretle</label>
+              </FormGrid>
+              <div className="admin-actions">
+                <button className="admin-button" type="button" disabled={saving || !selectedStudentId} onClick={saveStudentMembership}>{saving ? "Kaydediliyor..." : "Şubeye Ekle"}</button>
               </div>
-            </Field>
-            <Field label="Öğrenci Seç">
-              <select className="admin-input" value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)}>
-                <option value="">Öğrenci seç</option>
-                {studentDirectory.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.email}</option>)}
-              </select>
-            </Field>
-            <Field label="Üyelik Durumu"><Select value={studentStatus} onChange={(value) => setStudentStatus(value as BranchMembershipStatus)} options={membershipStatuses} /></Field>
-            <label className="admin-saas-check"><input type="checkbox" checked={studentPrimary} onChange={(event) => setStudentPrimary(event.target.checked)} /> Birincil şube olarak işaretle</label>
-          </FormGrid>
-          <div className="admin-actions">
-            <button className="admin-button" type="button" disabled={saving || !canManageAssignments} onClick={saveStudentMembership}>{saving ? "Kaydediliyor..." : "Şubeye Ekle"}</button>
-          </div>
+            </>
+          ) : null}
           <div className="admin-saas-workflow-note">
             <strong>Öğrenci operasyon akışı</strong>
             <p>Üyelik sonrası öğrenciyi sınıf/gruba alın. Sipariş ve ödeme kontrollerini Paket & Satış alanından takip edin.</p>
@@ -1314,18 +1484,26 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               ))}
             </div>
           ) : null}
-          {!sectionLoading && !studentMemberships.length ? (
+          {!sectionLoading && !branchAccessMessage && selectedBranchId && !studentMemberships.length ? (
             <EmptyState
               title="Öğrenci üyeliği yok"
               body="Öğrenci kaydı hazırsa bu ekrandan şubeye bağlayın; ardından sınıf/grup ve koçluk akışına dahil edebilirsiniz."
             />
           ) : null}
+          {!sectionLoading && branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
         </article>
       </section>
     );
   }
 
   function renderClassGroups() {
+    if (!canReadClasses) {
+      return renderSectionUnavailable("Bu bölüm için sınıf/grup görüntüleme yetkiniz bulunmuyor.");
+    }
+
+    const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
+    const canUseClassGroupForm = Boolean(selectedBranchId && !branchAccessMessage && canManageClasses);
+
     return (
       <section className="admin-saas-grid">
         <article className="admin-card admin-saas-main-card">
@@ -1336,6 +1514,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             </div>
             <BranchSelect />
           </div>
+          {branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
           {sectionLoading ? <p className="admin-empty-state">Sınıf/grup kayıtları yükleniyor...</p> : null}
           {!sectionLoading && classGroups.length ? (
             <div className="admin-saas-table">
@@ -1350,36 +1529,38 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               ))}
             </div>
           ) : null}
-          {!sectionLoading && !classGroups.length ? (
+          {!sectionLoading && !branchAccessMessage && selectedBranchId && !classGroups.length ? (
             <EmptyState
               title="Sınıf/grup yok"
               body="Öğrencileri, eğitmenleri ve koçları ortak bir akışta toplamak için ilk sınıf veya çalışma grubunu oluşturun."
             />
           ) : null}
         </article>
-        <article className="admin-card admin-saas-form-card">
-          <span className="admin-badge">{editingClassGroupId ? "Güncelle" : "Yeni Sınıf / Grup"}</span>
-          <p className="admin-saas-muted">Şube: {selectedBranch?.name ?? "Seçilmedi"}</p>
-          <FormGrid>
-            <Field label="Grup Adı"><input className="admin-input" value={classGroupDraft.name} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, name: event.target.value })} /></Field>
-            <Field label="Slug"><input className="admin-input" value={classGroupDraft.slug} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, slug: event.target.value })} disabled={Boolean(editingClassGroupId)} /></Field>
-            <Field label="Seviye">
-              <select className="admin-input" value={classGroupDraft.gradeLevel} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, gradeLevel: event.target.value as ClassGroupDraft["gradeLevel"] })}>
-                <option value="">Seviye seçilmedi</option>
-                {gradeLevels.map((grade) => <option key={grade.value} value={grade.value}>{grade.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Ders / Alan">
-              <select className="admin-input" value={classGroupDraft.studyTrack} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, studyTrack: event.target.value as ClassGroupDraft["studyTrack"] })}>
-                <option value="">Alan seçilmedi</option>
-                {studyTracks.map((track) => <option key={track.value} value={track.value}>{track.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Durum"><Select value={classGroupDraft.status} onChange={(value) => setClassGroupDraft({ ...classGroupDraft, status: value as ClassGroupStatus })} options={classGroupStatuses} /></Field>
-          </FormGrid>
-          <Field label="Açıklama"><textarea className="admin-input admin-textarea admin-textarea--compact" value={classGroupDraft.description} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, description: event.target.value })} /></Field>
-          <FormActions saving={saving} saveLabel={editingClassGroupId ? "Güncelle" : "Kaydet"} onSave={saveClassGroup} onCancel={() => { setEditingClassGroupId(""); setClassGroupDraft(emptyClassGroupDraft); }} />
-        </article>
+        {canUseClassGroupForm ? (
+          <article className="admin-card admin-saas-form-card">
+            <span className="admin-badge">{editingClassGroupId ? "Güncelle" : "Yeni Sınıf / Grup"}</span>
+            <p className="admin-saas-muted">Şube: {selectedBranch?.name ?? "Seçilmedi"}</p>
+            <FormGrid>
+              <Field label="Grup Adı"><input className="admin-input" value={classGroupDraft.name} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, name: event.target.value })} /></Field>
+              <Field label="Slug"><input className="admin-input" value={classGroupDraft.slug} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, slug: event.target.value })} disabled={Boolean(editingClassGroupId)} /></Field>
+              <Field label="Seviye">
+                <select className="admin-input" value={classGroupDraft.gradeLevel} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, gradeLevel: event.target.value as ClassGroupDraft["gradeLevel"] })}>
+                  <option value="">Seviye seçilmedi</option>
+                  {gradeLevels.map((grade) => <option key={grade.value} value={grade.value}>{grade.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Ders / Alan">
+                <select className="admin-input" value={classGroupDraft.studyTrack} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, studyTrack: event.target.value as ClassGroupDraft["studyTrack"] })}>
+                  <option value="">Alan seçilmedi</option>
+                  {studyTracks.map((track) => <option key={track.value} value={track.value}>{track.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Durum"><Select value={classGroupDraft.status} onChange={(value) => setClassGroupDraft({ ...classGroupDraft, status: value as ClassGroupStatus })} options={classGroupStatuses} /></Field>
+            </FormGrid>
+            <Field label="Açıklama"><textarea className="admin-input admin-textarea admin-textarea--compact" value={classGroupDraft.description} onChange={(event) => setClassGroupDraft({ ...classGroupDraft, description: event.target.value })} /></Field>
+            <FormActions saving={saving} saveLabel={editingClassGroupId ? "Güncelle" : "Kaydet"} onSave={saveClassGroup} onCancel={() => { setEditingClassGroupId(""); setClassGroupDraft(emptyClassGroupDraft); }} />
+          </article>
+        ) : null}
       </section>
     );
   }
@@ -1429,6 +1610,10 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   }
 
   function BranchSelect() {
+    if (shouldShowReadOnlyBranchLabel(staffOverview, scope, branches)) {
+      return <input className="admin-input" value={branches[0]?.name ?? selectedBranch?.name ?? "Şube seçilmedi"} readOnly />;
+    }
+
     return (
       <select className="admin-input" value={selectedBranchId} onChange={(event) => setSelectedBranchId(event.target.value)}>
         <option value="">Şube Seç</option>
@@ -1554,14 +1739,29 @@ function nullableDraft(value: string) {
   return trimmed || null;
 }
 
+function emptyStaffSearchResponse() {
+  return {
+    total: 0,
+    page: 1,
+    limit: 50,
+    items: [] as TenancyStaffSearchItem[]
+  };
+}
+
+function emptyStudentSearchResponse() {
+  return {
+    total: 0,
+    page: 1,
+    limit: 50,
+    items: [] as TenancyStudentSearchItem[]
+  };
+}
+
 function toFriendlyError(error: unknown, fallback: string) {
-  const message = error instanceof Error ? error.message : "";
-
-  if (message.toLocaleLowerCase("tr-TR").includes("forbidden") || message.includes("yetki")) {
-    return "Bu işlem için yetkiniz bulunmuyor.";
-  }
-
-  return message || fallback;
+  return getAdminRequestErrorMessage(error, {
+    forbidden: "Bu işlem için yetkiniz bulunmuyor.",
+    fallback
+  });
 }
 
 function statusLabel(value?: string | null) {
