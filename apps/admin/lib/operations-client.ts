@@ -154,6 +154,24 @@ export type ClassGroupRoster = {
   coaches: Array<{ id: string; staffUserId: string; name: string; email: string; startsAt: string }>;
 };
 
+export type AssignmentCandidate = {
+  staffUserId: string;
+  name: string;
+  email: string;
+  branchAssignmentId: string;
+};
+
+export type ClassGroupAssignmentCandidates = {
+  classGroup: {
+    id: string;
+    branchId: string;
+    organizationId: string;
+    name: string;
+  };
+  instructors: AssignmentCandidate[];
+  coaches: AssignmentCandidate[];
+};
+
 export function getOperationalDashboard() {
   return requestWithStaffToken<OperationalDashboard>("/operations/staff-dashboard");
 }
@@ -161,6 +179,12 @@ export function getOperationalDashboard() {
 export function getClassGroupRoster(classGroupId: string) {
   return requestWithStaffToken<ClassGroupRoster>(
     `/operations/class-groups/${encodeURIComponent(classGroupId)}/roster`
+  );
+}
+
+export function getClassGroupAssignmentCandidates(classGroupId: string) {
+  return requestWithStaffToken<ClassGroupAssignmentCandidates>(
+    `/operations/class-groups/${encodeURIComponent(classGroupId)}/assignment-candidates`
   );
 }
 

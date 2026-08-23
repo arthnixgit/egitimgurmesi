@@ -37,6 +37,14 @@ export class OperationsController {
     return this.operationsService.listClassGroupRoster(classGroupId, auth);
   }
 
+  @Get("class-groups/:classGroupId/assignment-candidates")
+  getClassGroupAssignmentCandidates(
+    @Param("classGroupId") classGroupId: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.operationsService.listClassGroupAssignmentCandidates(classGroupId, auth);
+  }
+
   @Post("class-groups/:classGroupId/students")
   addStudentToClassGroup(
     @Param("classGroupId") classGroupId: string,

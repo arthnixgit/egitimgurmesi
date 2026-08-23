@@ -250,6 +250,33 @@ describe("AdminStaffService.createUser", () => {
     assert.equal(prisma.state.branchStaffAssignments[0].roleKey, "INSTRUCTOR");
   });
 
+  it("creates branch assignments for every selected operational staff role", async () => {
+    const { prisma, service } = createHarness();
+    const branchAuth = makeAuthContext("staff_branch_admin", {
+      isSuperAdmin: false,
+      roleKeys: [ROLE_KEYS.branchAdmin],
+      permissionKeys: ["staff.manage"],
+      organizationId: "org_a",
+      primaryBranchId: "branch_a",
+      branchIds: ["branch_a"]
+    });
+
+    const created = await service.createUser(
+      buildCreateDto({
+        roleKeys: [ROLE_KEYS.instructor, ROLE_KEYS.coach],
+        branchId: "branch_a"
+      }),
+      branchAuth
+    );
+
+    const branchRoleKeys = prisma.state.branchStaffAssignments
+      .filter((assignment) => assignment.staffUserId === created.id)
+      .map((assignment) => assignment.roleKey)
+      .sort();
+
+    assert.deepEqual(branchRoleKeys, ["COACH", "INSTRUCTOR"]);
+  });
+
   it("does not create an orphan account when a branch admin omits branch scope", async () => {
     const { prisma, service } = createHarness();
     const branchAuth = makeAuthContext("staff_branch_admin", {

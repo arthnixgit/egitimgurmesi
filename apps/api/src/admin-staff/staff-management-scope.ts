@@ -404,6 +404,35 @@ export function deriveBranchRoleFromRoleKeys(roleKeys: string[]) {
   return StaffBranchRole.STAFF;
 }
 
+export function deriveBranchRolesFromRoleKeys(
+  roleKeys: string[],
+  requestedBranchRoleKey?: StaffBranchRole
+) {
+  const branchRoleKeys: StaffBranchRole[] = [];
+
+  if (requestedBranchRoleKey) {
+    branchRoleKeys.push(requestedBranchRoleKey);
+  }
+
+  if (roleKeys.includes(ROLE_KEYS.branchAdmin)) {
+    branchRoleKeys.push(StaffBranchRole.BRANCH_ADMIN);
+  }
+
+  if (roleKeys.includes(ROLE_KEYS.instructor)) {
+    branchRoleKeys.push(StaffBranchRole.INSTRUCTOR);
+  }
+
+  if (roleKeys.includes(ROLE_KEYS.coach)) {
+    branchRoleKeys.push(StaffBranchRole.COACH);
+  }
+
+  if (roleKeys.includes(ROLE_KEYS.accountant)) {
+    branchRoleKeys.push(StaffBranchRole.ACCOUNTANT);
+  }
+
+  return uniqueValues(branchRoleKeys.length ? branchRoleKeys : [StaffBranchRole.STAFF]);
+}
+
 export function isOrganizationAdminContext(auth: AuthenticatedRequestContext) {
   return !auth.isSuperAdmin && auth.roleKeys.includes(ROLE_KEYS.admin);
 }
@@ -461,6 +490,6 @@ function hasAnyRole(roleKeys: string[], deniedRoleKeys: string[]) {
   return roleKeys.some((roleKey) => denied.has(roleKey));
 }
 
-function uniqueValues(values: string[]) {
+function uniqueValues<T extends string>(values: T[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }

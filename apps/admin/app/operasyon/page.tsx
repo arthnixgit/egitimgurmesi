@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   listBranches,
-  listStaff,
   listStudents,
   type TenancyBranch,
-  type TenancyStaffSearchItem,
   type TenancyStudentSearchItem
 } from "../../lib/admin-tenancy-client";
+import {
+  assignmentCandidateGuidance,
+  isAssignmentSubmitDisabled,
+  keepSelectedAssignmentCandidate,
+  type AssignmentCandidateKind
+} from "../../lib/operations-assignment-ui";
 import {
   addStudentToClassGroup,
   assignCoachToClassGroup,
@@ -17,9 +22,11 @@ import {
   createCoachingNote,
   createCoachingPlan,
   createLiveSession,
+  getClassGroupAssignmentCandidates,
   getClassGroupRoster,
   getOperationalDashboard,
   updateLiveSessionStatus,
+  type ClassGroupAssignmentCandidates,
   type ClassGroupRoster,
   type OperationalDashboard
 } from "../../lib/operations-client";
@@ -86,9 +93,10 @@ export default function OperationsPage() {
   const [dashboard, setDashboard] = useState<OperationalDashboard | null>(null);
   const [branches, setBranches] = useState<TenancyBranch[]>([]);
   const [students, setStudents] = useState<TenancyStudentSearchItem[]>([]);
-  const [staff, setStaff] = useState<TenancyStaffSearchItem[]>([]);
   const [selectedClassGroupId, setSelectedClassGroupId] = useState("");
   const [roster, setRoster] = useState<ClassGroupRoster | null>(null);
+  const [assignmentCandidates, setAssignmentCandidates] =
+    useState<ClassGroupAssignmentCandidates | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [selectedCoachId, setSelectedCoachId] = useState("");
@@ -96,6 +104,7 @@ export default function OperationsPage() {
   const [announcementForm, setAnnouncementForm] = useState<AnnouncementForm>(emptyAnnouncementForm);
   const [coachingForm, setCoachingForm] = useState<CoachingForm>(emptyCoachingForm);
   const [loading, setLoading] = useState(true);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -105,17 +114,15 @@ export default function OperationsPage() {
     setError("");
 
     try {
-      const [dashboardResponse, branchResponse, studentResponse, staffResponse] = await Promise.all([
+      const [dashboardResponse, branchResponse, studentResponse] = await Promise.all([
         getOperationalDashboard(),
         listBranches(),
-        listStudents({ limit: 80 }),
-        listStaff({ limit: 80 })
+        listStudents({ limit: 80 })
       ]);
 
       setDashboard(dashboardResponse);
       setBranches(branchResponse);
       setStudents(studentResponse.items);
-      setStaff(staffResponse.items);
 
       const firstBranchId = branchResponse[0]?.id || "";
       setSessionForm((current) => ({ ...current, branchId: current.branchId || firstBranchId }));
@@ -133,22 +140,37 @@ export default function OperationsPage() {
   }, []);
 
   useEffect(() => {
+    setSelectedInstructorId("");
+    setSelectedCoachId("");
+
     if (!selectedClassGroupId) {
       setRoster(null);
+      setAssignmentCandidates(null);
+      setCandidatesLoading(false);
       return;
     }
 
     let active = true;
+    setCandidatesLoading(true);
 
-    getClassGroupRoster(selectedClassGroupId)
-      .then((response) => {
+    Promise.all([
+      getClassGroupRoster(selectedClassGroupId),
+      getClassGroupAssignmentCandidates(selectedClassGroupId)
+    ])
+      .then(([rosterResponse, candidatesResponse]) => {
         if (active) {
-          setRoster(response);
+          setRoster(rosterResponse);
+          setAssignmentCandidates(candidatesResponse);
         }
       })
       .catch((requestError) => {
         if (active) {
           setError(requestError instanceof Error ? requestError.message : "Grup listesi alınamadı.");
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setCandidatesLoading(false);
         }
       });
 
@@ -157,19 +179,12 @@ export default function OperationsPage() {
     };
   }, [selectedClassGroupId]);
 
-  const instructors = useMemo(
-    () =>
-      staff.filter((item) =>
-        item.roles.some((role) => role.key === "instructor" || role.key === "branch-admin")
-      ),
-    [staff]
-  );
-  const coaches = useMemo(
-    () => staff.filter((item) => item.roles.some((role) => role.key === "coach" || role.key === "branch-admin")),
-    [staff]
-  );
+  const instructors = assignmentCandidates?.instructors ?? [];
+  const coaches = assignmentCandidates?.coaches ?? [];
   const canManageBranchOperations = Boolean(
-    dashboard?.actor.isSuperAdmin || dashboard?.capability.branchAdmin
+    dashboard?.actor.isSuperAdmin ||
+      dashboard?.actor.roles.includes("admin") ||
+      dashboard?.capability.branchAdmin
   );
   const canUseCoachTools = Boolean(canManageBranchOperations || dashboard?.capability.coach);
   const canUseInstructorTools = Boolean(dashboard?.capability.instructor);
@@ -177,17 +192,28 @@ export default function OperationsPage() {
     dashboard?.actor.isSuperAdmin || dashboard?.capability.branchAdmin || dashboard?.capability.accountant
   );
 
-  async function runAction(label: string, action: () => Promise<unknown>) {
+  async function runAction(label: string, action: () => Promise<unknown>, successMessage?: string) {
     setSaving(label);
     setError("");
     setSuccess("");
 
     try {
       await action();
-      setSuccess("İşlem tamamlandı.");
+      setSuccess(successMessage ?? "İşlem tamamlandı.");
       await load();
       if (selectedClassGroupId) {
-        setRoster(await getClassGroupRoster(selectedClassGroupId));
+        const [rosterResponse, candidatesResponse] = await Promise.all([
+          getClassGroupRoster(selectedClassGroupId),
+          getClassGroupAssignmentCandidates(selectedClassGroupId)
+        ]);
+        setRoster(rosterResponse);
+        setAssignmentCandidates(candidatesResponse);
+        setSelectedInstructorId((current) =>
+          keepSelectedAssignmentCandidate(current, candidatesResponse.instructors)
+        );
+        setSelectedCoachId((current) =>
+          keepSelectedAssignmentCandidate(current, candidatesResponse.coaches)
+        );
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "İşlem tamamlanamadı.");
@@ -276,7 +302,9 @@ export default function OperationsPage() {
               <div className="admin-ops-roster__summary">
                 <strong>{roster.classGroup.name}</strong>
                 <span>{roster.classGroup.branch?.name || "Şube yok"}</span>
-                <small>{roster.students.length} öğrenci</small>
+                <small>
+                  {roster.students.length} öğrenci · {roster.instructors.length} eğitmen · {roster.coaches.length} koç
+                </small>
               </div>
 
               <div className="admin-form-grid">
@@ -301,14 +329,20 @@ export default function OperationsPage() {
                     className="admin-select"
                     value={selectedInstructorId}
                     onChange={(event) => setSelectedInstructorId(event.target.value)}
+                    disabled={candidatesLoading || instructors.length === 0}
                   >
                     <option value="">Eğitmen seç</option>
                     {instructors.map((person) => (
-                      <option key={person.id} value={person.id}>
+                      <option key={person.staffUserId} value={person.staffUserId}>
                         {person.name} - {person.email}
                       </option>
                     ))}
                   </select>
+                  {candidatesLoading ? (
+                    <div className="admin-empty-state">Adaylar yükleniyor...</div>
+                  ) : instructors.length === 0 ? (
+                    <AssignmentCandidateGuidance kind="instructor" />
+                  ) : null}
                 </label>
                 <label className="admin-field">
                   <span>Koç ata</span>
@@ -316,14 +350,20 @@ export default function OperationsPage() {
                     className="admin-select"
                     value={selectedCoachId}
                     onChange={(event) => setSelectedCoachId(event.target.value)}
+                    disabled={candidatesLoading || coaches.length === 0}
                   >
                     <option value="">Koç seç</option>
                     {coaches.map((person) => (
-                      <option key={person.id} value={person.id}>
+                      <option key={person.staffUserId} value={person.staffUserId}>
                         {person.name} - {person.email}
                       </option>
                     ))}
                   </select>
+                  {candidatesLoading ? (
+                    <div className="admin-empty-state">Adaylar yükleniyor...</div>
+                  ) : coaches.length === 0 ? (
+                    <AssignmentCandidateGuidance kind="coach" />
+                  ) : null}
                 </label>
               </div>
 
@@ -331,37 +371,91 @@ export default function OperationsPage() {
                 <button
                   className="admin-button"
                   type="button"
-                  disabled={!selectedStudentId || saving === "student"}
+                  disabled={!selectedStudentId || Boolean(saving)}
                   onClick={() =>
-                    void runAction("student", () =>
-                      addStudentToClassGroup(selectedClassGroupId, selectedStudentId)
+                    void runAction(
+                      "student",
+                      () => addStudentToClassGroup(selectedClassGroupId, selectedStudentId),
+                      "Öğrenci gruba eklendi."
                     )
                   }
                 >
-                  Öğrenciyi Gruba Ekle
+                  {saving === "student" ? "Ekleniyor..." : "Öğrenciyi Gruba Ekle"}
                 </button>
                 <button
                   className="admin-button admin-button--ghost"
                   type="button"
-                  disabled={!selectedInstructorId || saving === "instructor"}
+                  disabled={isAssignmentSubmitDisabled({
+                    selectedStaffUserId: selectedInstructorId,
+                    saving,
+                    candidatesLoading
+                  })}
                   onClick={() =>
-                    void runAction("instructor", () =>
-                      assignInstructorToClassGroup(selectedClassGroupId, selectedInstructorId)
+                    void runAction(
+                      "instructor",
+                      () => assignInstructorToClassGroup(selectedClassGroupId, selectedInstructorId),
+                      "Eğitmen sınıf/gruba atandı."
                     )
                   }
                 >
-                  Eğitmen Ata
+                  {saving === "instructor" ? "Atanıyor..." : "Eğitmen Ata"}
                 </button>
                 <button
                   className="admin-button admin-button--ghost"
                   type="button"
-                  disabled={!selectedCoachId || saving === "coach"}
+                  disabled={isAssignmentSubmitDisabled({
+                    selectedStaffUserId: selectedCoachId,
+                    saving,
+                    candidatesLoading
+                  })}
                   onClick={() =>
-                    void runAction("coach", () => assignCoachToClassGroup(selectedClassGroupId, selectedCoachId))
+                    void runAction(
+                      "coach",
+                      () => assignCoachToClassGroup(selectedClassGroupId, selectedCoachId),
+                      "Koç sınıf/gruba atandı."
+                    )
                   }
                 >
-                  Koç Ata
+                  {saving === "coach" ? "Atanıyor..." : "Koç Ata"}
                 </button>
+              </div>
+
+              <div className="admin-stack">
+                <strong>Atanmış eğitmenler</strong>
+                {roster.instructors.length ? (
+                  roster.instructors.map((assignment) => (
+                    <div className="admin-record-item" key={assignment.id}>
+                      <div className="admin-record-item__top">
+                        <strong>{assignment.name}</strong>
+                        <span>Eğitmen</span>
+                      </div>
+                      <div className="admin-record-item__meta">
+                        <span>{assignment.email}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="admin-empty-state">Bu gruba atanmış eğitmen yok.</div>
+                )}
+              </div>
+
+              <div className="admin-stack">
+                <strong>Atanmış koçlar</strong>
+                {roster.coaches.length ? (
+                  roster.coaches.map((assignment) => (
+                    <div className="admin-record-item" key={assignment.id}>
+                      <div className="admin-record-item__top">
+                        <strong>{assignment.name}</strong>
+                        <span>Koç</span>
+                      </div>
+                      <div className="admin-record-item__meta">
+                        <span>{assignment.email}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="admin-empty-state">Bu gruba atanmış koç yok.</div>
+                )}
               </div>
 
               <div className="admin-stack">
@@ -382,6 +476,13 @@ export default function OperationsPage() {
                   <div className="admin-empty-state">Bu grupta henüz öğrenci yok.</div>
                 )}
               </div>
+            </div>
+          ) : dashboard?.classGroups.length === 0 ? (
+            <div className="admin-empty-state">
+              <p>Personel atamadan önce bu şubede bir sınıf veya grup oluşturun.</p>
+              <Link className="admin-button admin-button--compact" href="/saas/sinif-gruplar">
+                Sınıf / Grup Yönetimi
+              </Link>
             </div>
           ) : (
             <div className="admin-empty-state">Roster yönetimi için önce sınıf/grup seç.</div>
@@ -664,6 +765,24 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
       />
     </label>
+  );
+}
+
+function AssignmentCandidateGuidance({ kind }: { kind: AssignmentCandidateKind }) {
+  const message = assignmentCandidateGuidance(kind);
+
+  return (
+    <div className="admin-empty-state">
+      <p>{message}</p>
+      <div className="admin-toolbar">
+        <Link className="admin-button admin-button--compact" href="/personel">
+          Personel ve Roller
+        </Link>
+        <Link className="admin-button admin-button--ghost admin-button--compact" href="/saas/sinif-gruplar">
+          Sınıf / Grup Yönetimi
+        </Link>
+      </div>
+    </div>
   );
 }
 

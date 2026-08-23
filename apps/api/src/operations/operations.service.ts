@@ -6,7 +6,9 @@ import {
   LiveSessionStatus,
   PERMISSION_KEYS,
   Prisma,
-  ROLE_KEYS
+  ROLE_KEYS,
+  StaffBranchRole,
+  StaffStatus
 } from "@ega/db";
 import {
   BadRequestException,
@@ -15,7 +17,6 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
-import { assertBranchAccess } from "../auth/scope.guard";
 import { PrismaService } from "../database/prisma.service";
 import {
   AddClassGroupStudentDto,
@@ -27,6 +28,19 @@ import {
   ListOperationalQueryDto,
   UpdateLiveSessionStatusDto
 } from "./dto/operations.dto";
+
+const CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE =
+  "Bu sınıf veya grup için personel atama yetkiniz bulunmuyor.";
+const STAFF_NOT_IN_CLASS_GROUP_BRANCH_MESSAGE =
+  "Bu personel seçilen şubeye bağlı değildir.";
+const SUSPENDED_STAFF_ASSIGNMENT_MESSAGE =
+  "Askıdaki personel sınıf veya gruba atanamaz.";
+const PRIVILEGED_PLATFORM_ROLE_KEYS = [
+  ROLE_KEYS.superAdmin,
+  ROLE_KEYS.admin,
+  ROLE_KEYS.technician,
+  ROLE_KEYS.accounting
+] as string[];
 
 const classGroupStudentInclude = {
   user: {
@@ -76,6 +90,7 @@ type ClassGroupStudentWithRelations = Prisma.ClassGroupStudentGetPayload<{
   include: typeof classGroupStudentInclude;
 }>;
 type LiveSessionWithRelations = Prisma.LiveSessionGetPayload<{ include: typeof liveSessionInclude }>;
+type AssignmentStaffRole = "instructor" | "coach";
 
 @Injectable()
 export class OperationsService {
@@ -284,16 +299,44 @@ export class OperationsService {
     };
   }
 
+  async listClassGroupAssignmentCandidates(
+    classGroupId: string,
+    auth: AuthenticatedRequestContext
+  ) {
+    const classGroup = await this.ensureClassGroup(classGroupId, auth);
+    this.requireAnyPermission(
+      auth,
+      [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
+      CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
+    );
+
+    const [instructors, coaches] = await Promise.all([
+      this.listAssignmentCandidatesForRole(classGroup, "instructor"),
+      this.listAssignmentCandidatesForRole(classGroup, "coach")
+    ]);
+
+    return {
+      classGroup: {
+        id: classGroup.id,
+        branchId: classGroup.branchId,
+        organizationId: classGroup.organizationId,
+        name: classGroup.name
+      },
+      instructors,
+      coaches
+    };
+  }
+
   async addStudentToClassGroup(
     classGroupId: string,
     dto: AddClassGroupStudentDto,
     auth: AuthenticatedRequestContext
   ) {
+    const classGroup = await this.ensureClassGroup(classGroupId, auth);
     this.requireAnyPermission(auth, [
       PERMISSION_KEYS.classesManage,
       PERMISSION_KEYS.assignmentsManage
     ]);
-    const classGroup = await this.ensureClassGroup(classGroupId, auth);
 
     const membership = await this.prisma.studentBranchMembership.findFirst({
       where: {
@@ -341,12 +384,26 @@ export class OperationsService {
     dto: AssignClassGroupStaffDto,
     auth: AuthenticatedRequestContext
   ) {
-    this.requireAnyPermission(auth, [
-      PERMISSION_KEYS.classesManage,
-      PERMISSION_KEYS.assignmentsManage
-    ]);
     const classGroup = await this.ensureClassGroup(classGroupId, auth);
-    await this.ensureStaff(dto.staffUserId);
+    this.requireAnyPermission(
+      auth,
+      [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
+      CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
+    );
+    await this.ensureClassGroupStaffEligibility(classGroup, dto.staffUserId, "instructor");
+
+    const existingAssignment = await this.prisma.instructorAssignment.findFirst({
+      where: {
+        classGroupId: classGroup.id,
+        staffUserId: dto.staffUserId,
+        isActive: true
+      },
+      include: { instructor: { select: { id: true, firstName: true, lastName: true, email: true } } }
+    });
+
+    if (existingAssignment) {
+      return mapStaffClassGroupAssignment(existingAssignment, "instructor");
+    }
 
     const assignment = await this.prisma.instructorAssignment.create({
       data: {
@@ -365,12 +422,7 @@ export class OperationsService {
       summary: "Eğitmen sınıf/gruba atandı."
     });
 
-    return {
-      id: assignment.id,
-      staffUserId: assignment.staffUserId,
-      name: displayStaffName(assignment.instructor),
-      email: assignment.instructor.email
-    };
+    return mapStaffClassGroupAssignment(assignment, "instructor");
   }
 
   async assignCoachToClassGroup(
@@ -378,12 +430,26 @@ export class OperationsService {
     dto: AssignClassGroupStaffDto,
     auth: AuthenticatedRequestContext
   ) {
-    this.requireAnyPermission(auth, [
-      PERMISSION_KEYS.classesManage,
-      PERMISSION_KEYS.assignmentsManage
-    ]);
     const classGroup = await this.ensureClassGroup(classGroupId, auth);
-    await this.ensureStaff(dto.staffUserId);
+    this.requireAnyPermission(
+      auth,
+      [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
+      CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
+    );
+    await this.ensureClassGroupStaffEligibility(classGroup, dto.staffUserId, "coach");
+
+    const existingAssignment = await this.prisma.coachAssignment.findFirst({
+      where: {
+        classGroupId: classGroup.id,
+        staffUserId: dto.staffUserId,
+        isActive: true
+      },
+      include: { coach: { select: { id: true, firstName: true, lastName: true, email: true } } }
+    });
+
+    if (existingAssignment) {
+      return mapStaffClassGroupAssignment(existingAssignment, "coach");
+    }
 
     const assignment = await this.prisma.coachAssignment.create({
       data: {
@@ -402,12 +468,7 @@ export class OperationsService {
       summary: "Koç sınıf/gruba atandı."
     });
 
-    return {
-      id: assignment.id,
-      staffUserId: assignment.staffUserId,
-      name: displayStaffName(assignment.coach),
-      email: assignment.coach.email
-    };
+    return mapStaffClassGroupAssignment(assignment, "coach");
   }
 
   async listLiveSessions(query: ListOperationalQueryDto, auth: AuthenticatedRequestContext) {
@@ -524,7 +585,7 @@ export class OperationsService {
     }
 
     if (existing.branchId) {
-      assertBranchAccess(auth, existing.branchId);
+      await this.ensureBranch(existing.branchId, auth);
     }
 
     const session = await this.prisma.liveSession.update({
@@ -600,8 +661,8 @@ export class OperationsService {
     const where = this.coachingScopeWhere(auth);
 
     if (query.branchId) {
-      assertBranchAccess(auth, query.branchId);
-      where.branchId = query.branchId;
+      const branch = await this.ensureBranch(query.branchId, auth);
+      where.branchId = branch.id;
     }
 
     return (
@@ -719,8 +780,8 @@ export class OperationsService {
     const where = this.liveSessionScopeWhere(auth);
 
     if (input.branchId) {
-      assertBranchAccess(auth, input.branchId);
-      where.branchId = input.branchId;
+      const branch = await this.ensureBranch(input.branchId, auth);
+      where.branchId = branch.id;
     }
 
     if (input.classGroupId) {
@@ -751,8 +812,8 @@ export class OperationsService {
     const where = this.announcementScopeWhere(auth);
 
     if (input.branchId) {
-      assertBranchAccess(auth, input.branchId);
-      where.branchId = input.branchId;
+      const branch = await this.ensureBranch(input.branchId, auth);
+      where.branchId = branch.id;
     }
 
     if (input.classGroupId) {
@@ -806,19 +867,35 @@ export class OperationsService {
       return {};
     }
 
+    if (this.isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
+    }
+
     return { id: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
   }
 
   private branchEntityScopeWhere(auth: AuthenticatedRequestContext) {
-    return auth.isSuperAdmin
-       ? {}
-      : { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
+    if (auth.isSuperAdmin) {
+      return {};
+    }
+
+    if (this.isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
+    }
+
+    return { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
   }
 
   private classGroupScopeWhere(auth: AuthenticatedRequestContext): Prisma.ClassGroupWhereInput {
-    return auth.isSuperAdmin
-       ? {}
-      : { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
+    if (auth.isSuperAdmin) {
+      return {};
+    }
+
+    if (this.isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
+    }
+
+    return { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
   }
 
   private instructorAssignmentWhere(auth: AuthenticatedRequestContext): Prisma.InstructorAssignmentWhereInput {
@@ -866,6 +943,10 @@ export class OperationsService {
       return {};
     }
 
+    if (this.isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
+    }
+
     return { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
   }
 
@@ -874,17 +955,21 @@ export class OperationsService {
       return {};
     }
 
+    if (this.isOrganizationAdmin(auth) && auth.organizationId) {
+      return { organizationId: auth.organizationId };
+    }
+
     return { branchId: { in: auth.branchIds.length ? auth.branchIds : ["__none__"] } };
   }
 
   private async ensureBranch(branchId: string, auth: AuthenticatedRequestContext) {
-    assertBranchAccess(auth, branchId);
     const branch = await this.prisma.branch.findUnique({ where: { id: branchId } });
 
     if (!branch) {
       throw new NotFoundException("Şube bulunamadı.");
     }
 
+    this.assertBranchRecordAccess(auth, branch);
     return branch;
   }
 
@@ -898,15 +983,142 @@ export class OperationsService {
       throw new NotFoundException("Sınıf/grup bulunamadı.");
     }
 
-    assertBranchAccess(auth, classGroup.branchId);
+    this.assertBranchRecordAccess(auth, {
+      id: classGroup.branchId,
+      organizationId: classGroup.organizationId
+    });
     return classGroup;
   }
 
-  private async ensureStaff(staffUserId: string) {
-    const staff = await this.prisma.staffUser.findUnique({ where: { id: staffUserId } });
+  private async listAssignmentCandidatesForRole(
+    classGroup: ClassGroupWithRelations,
+    role: AssignmentStaffRole
+  ) {
+    const config = assignmentRoleConfig(role);
+    const staffUserWhere: Prisma.StaffUserWhereInput = {
+      organizationId: classGroup.organizationId,
+      status: StaffStatus.ACTIVE,
+      roles: {
+        some: {
+          role: {
+            key: config.globalRoleKey
+          }
+        }
+      },
+      NOT: {
+        roles: {
+          some: {
+            role: {
+              key: { in: PRIVILEGED_PLATFORM_ROLE_KEYS }
+            }
+          }
+        }
+      }
+    };
+
+    if (role === "instructor") {
+      staffUserWhere.instructorAssignments = {
+        none: {
+          classGroupId: classGroup.id,
+          isActive: true
+        }
+      };
+    } else {
+      staffUserWhere.coachAssignments = {
+        none: {
+          classGroupId: classGroup.id,
+          isActive: true
+        }
+      };
+    }
+
+    const assignments = await this.prisma.branchStaffAssignment.findMany({
+      where: {
+        organizationId: classGroup.organizationId,
+        branchId: classGroup.branchId,
+        roleKey: config.branchRoleKey,
+        revokedAt: null,
+        staffUser: staffUserWhere
+      },
+      include: {
+        staffUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      },
+      orderBy: [{ isPrimary: "desc" }, { assignedAt: "desc" }]
+    });
+
+    return assignments
+      .map((assignment) => ({
+        staffUserId: assignment.staffUserId,
+        name: displayStaffName(assignment.staffUser),
+        email: assignment.staffUser.email,
+        branchAssignmentId: assignment.id
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name, "tr"));
+  }
+
+  private async ensureClassGroupStaffEligibility(
+    classGroup: ClassGroupWithRelations,
+    staffUserId: string,
+    role: AssignmentStaffRole
+  ) {
+    const config = assignmentRoleConfig(role);
+    const staff = await this.prisma.staffUser.findUnique({
+      where: { id: staffUserId },
+      include: {
+        roles: {
+          include: {
+            role: {
+              select: { key: true }
+            }
+          }
+        },
+        branchAssignments: {
+          where: {
+            organizationId: classGroup.organizationId,
+            branchId: classGroup.branchId,
+            revokedAt: null
+          },
+          select: {
+            id: true,
+            organizationId: true,
+            branchId: true,
+            roleKey: true
+          }
+        }
+      }
+    });
 
     if (!staff) {
       throw new NotFoundException("Personel bulunamadı.");
+    }
+
+    if (staff.organizationId !== classGroup.organizationId || !staff.branchAssignments.length) {
+      throw new BadRequestException(STAFF_NOT_IN_CLASS_GROUP_BRANCH_MESSAGE);
+    }
+
+    if (staff.status !== StaffStatus.ACTIVE) {
+      throw new BadRequestException(SUSPENDED_STAFF_ASSIGNMENT_MESSAGE);
+    }
+
+    const roleKeys = staff.roles.map((assignment) => assignment.role.key);
+
+    if (roleKeys.some((roleKey) => PRIVILEGED_PLATFORM_ROLE_KEYS.includes(roleKey))) {
+      throw new BadRequestException(config.roleMissingMessage);
+    }
+
+    if (!staff.branchAssignments.some((assignment) => assignment.roleKey === config.branchRoleKey)) {
+      throw new BadRequestException(config.roleMissingMessage);
+    }
+
+    if (!roleKeys.includes(config.globalRoleKey)) {
+      throw new BadRequestException(config.roleMissingMessage);
     }
 
     return staff;
@@ -927,7 +1139,7 @@ export class OperationsService {
     userId: string,
     branchId: string
   ) {
-    assertBranchAccess(auth, branchId);
+    await this.ensureBranch(branchId, auth);
 
     if (auth.isSuperAdmin || this.hasAnyPermission(auth, [PERMISSION_KEYS.assignmentsManage])) {
       return;
@@ -967,18 +1179,41 @@ export class OperationsService {
     }
   }
 
+  private assertBranchRecordAccess(
+    auth: AuthenticatedRequestContext,
+    branch: { id: string; organizationId: string }
+  ) {
+    if (
+      auth.isSuperAdmin ||
+      auth.branchIds.includes(branch.id) ||
+      (this.isOrganizationAdmin(auth) && auth.organizationId === branch.organizationId)
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException("Bu sube kapsamina erisim yetkiniz yok.");
+  }
+
+  private isOrganizationAdmin(auth: AuthenticatedRequestContext) {
+    return !auth.isSuperAdmin && auth.roleKeys.includes(ROLE_KEYS.admin);
+  }
+
   private requireStaff(auth: AuthenticatedRequestContext) {
     if (auth.actorType !== "STAFF") {
       throw new ForbiddenException("Bu alan yalnızca personel erişimine açıktır.");
     }
   }
 
-  private requireAnyPermission(auth: AuthenticatedRequestContext, permissions: string[]) {
+  private requireAnyPermission(
+    auth: AuthenticatedRequestContext,
+    permissions: string[],
+    message = "Bu işlem için yetkiniz bulunmuyor."
+  ) {
     if (this.hasAnyPermission(auth, permissions)) {
       return;
     }
 
-    throw new ForbiddenException("Bu işlem için yetkiniz bulunmuyor.");
+    throw new ForbiddenException(message);
   }
 
   private hasAnyPermission(auth: AuthenticatedRequestContext, permissions: string[]) {
@@ -1011,6 +1246,43 @@ export class OperationsService {
       }
     });
   }
+}
+
+function assignmentRoleConfig(role: AssignmentStaffRole) {
+  if (role === "instructor") {
+    return {
+      branchRoleKey: StaffBranchRole.INSTRUCTOR,
+      globalRoleKey: ROLE_KEYS.instructor,
+      roleMissingMessage: "Seçilen personelin bu şubede eğitmen yetkisi bulunmuyor."
+    };
+  }
+
+  return {
+    branchRoleKey: StaffBranchRole.COACH,
+    globalRoleKey: ROLE_KEYS.coach,
+    roleMissingMessage: "Seçilen personelin bu şubede koç yetkisi bulunmuyor."
+  };
+}
+
+function mapStaffClassGroupAssignment(
+  assignment: {
+    id: string;
+    staffUserId: string;
+    startsAt: Date;
+    instructor?: { firstName: string; lastName: string; email: string } | null;
+    coach?: { firstName: string; lastName: string; email: string } | null;
+  },
+  role: AssignmentStaffRole
+) {
+  const staff = role === "instructor" ? assignment.instructor : assignment.coach;
+
+  return {
+    id: assignment.id,
+    staffUserId: assignment.staffUserId,
+    name: staff ? displayStaffName(staff) : "Personel",
+    email: staff?.email ?? "",
+    startsAt: assignment.startsAt
+  };
 }
 
 function mapClassGroup(classGroup: ClassGroupWithRelations) {

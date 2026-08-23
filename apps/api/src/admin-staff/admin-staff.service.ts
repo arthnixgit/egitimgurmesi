@@ -19,7 +19,7 @@ import {
   buildStaffUserWhereInput,
   buildVisibleBranchWhereInput,
   buildVisibleOrganizationWhereInput,
-  deriveBranchRoleFromRoleKeys,
+  deriveBranchRolesFromRoleKeys,
   resolveStaffManagementScope,
   type StaffManagementScope,
   type StaffManagementTarget
@@ -213,11 +213,11 @@ export class AdminStaffService {
     const passwordHash = await this.passwordService.hash(dto.password);
     const branch = await this.resolveCreationBranch(scope, requestedBranchId);
     const organizationId = this.resolveCreationOrganizationId(scope, requestedOrganizationId, branch);
-    const branchRoleKey = branch
-      ? dto.branchRoleKey ?? deriveBranchRoleFromRoleKeys(roleKeys)
-      : null;
+    const branchRoleKeys = branch
+      ? deriveBranchRolesFromRoleKeys(roleKeys, dto.branchRoleKey)
+      : [];
 
-    if (branchRoleKey) {
+    for (const branchRoleKey of branchRoleKeys) {
       assertBranchRoleAssignmentAllowed(scope, branchRoleKey);
     }
 
@@ -249,17 +249,19 @@ export class AdminStaffService {
         }
       });
 
-      if (branch && branchRoleKey) {
-        await tx.branchStaffAssignment.create({
-          data: {
-            organizationId: branch.organizationId,
-            branchId: branch.id,
-            staffUserId: staffUser.id,
-            roleKey: branchRoleKey,
-            isPrimary: true,
-            assignedByStaffUserId: auth.actorId
-          }
-        });
+      if (branch) {
+        for (const [index, branchRoleKey] of branchRoleKeys.entries()) {
+          await tx.branchStaffAssignment.create({
+            data: {
+              organizationId: branch.organizationId,
+              branchId: branch.id,
+              staffUserId: staffUser.id,
+              roleKey: branchRoleKey,
+              isPrimary: index === 0,
+              assignedByStaffUserId: auth.actorId
+            }
+          });
+        }
       }
 
       await recordAuditLog(tx, auth, {

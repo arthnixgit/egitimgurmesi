@@ -16,6 +16,7 @@ import {
   canReadStaffTarget,
   canWriteStaffTarget,
   deriveBranchRoleFromRoleKeys,
+  deriveBranchRolesFromRoleKeys,
   resolveStaffManagementScope,
   type StaffManagementTarget
 } from "./staff-management-scope";
@@ -182,6 +183,17 @@ describe("staff management scope policy", () => {
     assert.equal(deriveBranchRoleFromRoleKeys([ROLE_KEYS.instructor]), StaffBranchRole.INSTRUCTOR);
     assert.equal(deriveBranchRoleFromRoleKeys([ROLE_KEYS.coach]), StaffBranchRole.COACH);
     assert.equal(deriveBranchRoleFromRoleKeys([ROLE_KEYS.accountant]), StaffBranchRole.ACCOUNTANT);
+  });
+
+  it("derives every branch operational role from multiple selected global roles", () => {
+    assert.deepEqual(
+      deriveBranchRolesFromRoleKeys([ROLE_KEYS.instructor, ROLE_KEYS.coach]),
+      [StaffBranchRole.INSTRUCTOR, StaffBranchRole.COACH]
+    );
+    assert.deepEqual(
+      deriveBranchRolesFromRoleKeys([ROLE_KEYS.coach], StaffBranchRole.INSTRUCTOR),
+      [StaffBranchRole.INSTRUCTOR, StaffBranchRole.COACH]
+    );
   });
 
   it("denies custom staff.manage roles without an explicit scoped policy", () => {
