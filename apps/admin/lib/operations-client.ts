@@ -172,6 +172,44 @@ export type ClassGroupAssignmentCandidates = {
   coaches: AssignmentCandidate[];
 };
 
+export type StaffClassGroupAssignmentRole = "instructor" | "coach";
+
+export type StaffClassGroupOption = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+};
+
+export type StaffClassGroupAssignmentSummary = {
+  assignmentId: string;
+  classGroupId: string;
+  classGroupName: string;
+  isActive: boolean;
+  startsAt: string;
+};
+
+export type BranchStaffClassGroupAssignments = {
+  staff: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  branch: {
+    id: string;
+    name: string;
+  };
+  roles: {
+    instructor: boolean;
+    coach: boolean;
+  };
+  classGroups: StaffClassGroupOption[];
+  instructorAssignments: StaffClassGroupAssignmentSummary[];
+  coachAssignments: StaffClassGroupAssignmentSummary[];
+  availableInstructorClassGroups: StaffClassGroupOption[];
+  availableCoachClassGroups: StaffClassGroupOption[];
+};
+
 export function getOperationalDashboard() {
   return requestWithStaffToken<OperationalDashboard>("/operations/staff-dashboard");
 }
@@ -185,6 +223,12 @@ export function getClassGroupRoster(classGroupId: string) {
 export function getClassGroupAssignmentCandidates(classGroupId: string) {
   return requestWithStaffToken<ClassGroupAssignmentCandidates>(
     `/operations/class-groups/${encodeURIComponent(classGroupId)}/assignment-candidates`
+  );
+}
+
+export function getBranchStaffClassGroupAssignments(branchId: string, staffUserId: string) {
+  return requestWithStaffToken<BranchStaffClassGroupAssignments>(
+    `/operations/branches/${encodeURIComponent(branchId)}/staff/${encodeURIComponent(staffUserId)}/class-group-assignments`
   );
 }
 

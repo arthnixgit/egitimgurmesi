@@ -108,6 +108,9 @@ describe("SaaS section loading policy", () => {
     const display = getBranchStaffAssignmentDisplay(
       {
         staffUserId: "staff_instructor",
+        branch: {
+          name: "Merkez Şube"
+        },
         staffUser: {
           displayName: "Ayşe Eğitmen",
           email: "ayse@example.com"
@@ -120,7 +123,7 @@ describe("SaaS section loading policy", () => {
     );
 
     assert.equal(display.title, "Ayşe Eğitmen");
-    assert.equal(display.meta, "ayse@example.com · Eğitmen · Aktif · Birincil şube");
+    assert.equal(display.meta, "ayse@example.com · Merkez Şube · Eğitmen · Aktif · Birincil şube");
     assert.doesNotMatch(display.title, /staff_instructor/);
   });
 
@@ -128,6 +131,9 @@ describe("SaaS section loading policy", () => {
     const display = getBranchStaffAssignmentDisplay(
       {
         staffUserId: "staff_coach",
+        branch: {
+          name: "Merkez Şube"
+        },
         staffUser: {
           displayName: "Can Koç",
           email: "can@example.com"
@@ -140,7 +146,7 @@ describe("SaaS section loading policy", () => {
     );
 
     assert.equal(display.title, "Can Koç");
-    assert.equal(display.meta, "can@example.com · Koç · Pasif · İkincil şube");
+    assert.equal(display.meta, "can@example.com · Merkez Şube · Koç · Pasif · İkincil şube");
   });
 });
 

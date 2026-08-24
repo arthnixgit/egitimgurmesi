@@ -53,6 +53,13 @@ import {
   type TenancyStudentSearchItem
 } from "../../lib/admin-tenancy-client";
 import {
+  assignCoachToClassGroup,
+  assignInstructorToClassGroup,
+  getBranchStaffClassGroupAssignments,
+  type BranchStaffClassGroupAssignments,
+  type StaffClassGroupAssignmentRole
+} from "../../lib/operations-client";
+import {
   getAssignableBranchStaffRoles,
   getBranchStaffAssignmentDisplay,
   getBranchAccessMessage,
@@ -62,6 +69,26 @@ import {
   shouldShowReadOnlyBranchLabel,
   type SaasSectionKey
 } from "../../lib/saas-section-loading";
+import {
+  alreadyAssignedMessage,
+  branchAssignmentButtonLabel,
+  branchConnectionDescription,
+  branchConnectionTitle,
+  canShowClassGroupStaffingAction,
+  classGroupCreateLinkLabel,
+  classGroupStaffingActionLabel,
+  classGroupStaffingDescription,
+  classGroupStaffingEmptyMessage,
+  classGroupStaffingTitle,
+  classGroupStaffingRoleLabel,
+  classGroupStaffingRoleMissingMessage,
+  classGroupStaffingSuccessMessage,
+  getAvailableClassGroupsForStaffing,
+  getClassGroupStaffingRole,
+  getCurrentAssignmentsForStaffing,
+  isClassGroupStaffingSubmitDisabled,
+  noClassGroupForStaffingMessage
+} from "../../lib/saas-staffing-ui";
 
 type SectionKey = SaasSectionKey;
 
@@ -123,7 +150,7 @@ const sectionLinks: Array<{
   { key: "organizations", href: "/saas/organizasyonlar", label: "Organizasyonlar", description: "Ana kurum kayıtları" },
   { key: "centers", href: "/saas/egitim-merkezleri", label: "Eğitim Merkezleri", description: "Okul ve merkez yapısı" },
   { key: "branches", href: "/saas/subeler", label: "Şubeler", description: "Şube operasyon kapsamı" },
-  { key: "staffAssignments", href: "/saas/personel-atamalari", label: "Personel Atamaları", description: "Şube rol bağlantıları" },
+  { key: "staffAssignments", href: "/saas/personel-atamalari", label: "Personel Bağlantıları", description: "Şube rolü ve sınıf/grup görevleri" },
   { key: "studentMemberships", href: "/saas/ogrenci-uyelikleri", label: "Öğrenci Üyelikleri", description: "Öğrenciyi şubeye bağla" },
   { key: "classGroups", href: "/saas/sinif-gruplar", label: "Sınıf / Grup Yönetimi", description: "Şube sınıfları ve gruplar" },
   { key: "scope", href: "/saas/kapsam", label: "Yetki Özeti", description: "Rol ve şube kapsamı" }
@@ -249,6 +276,15 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStaffUserId, setSelectedStaffUserId] = useState("");
   const [selectedStaffRole, setSelectedStaffRole] = useState<StaffBranchRole>("BRANCH_ADMIN");
+  const [classGroupStaffingAssignment, setClassGroupStaffingAssignment] =
+    useState<BranchStaffAssignment | null>(null);
+  const [classGroupStaffingSnapshot, setClassGroupStaffingSnapshot] =
+    useState<BranchStaffClassGroupAssignments | null>(null);
+  const [classGroupStaffingRole, setClassGroupStaffingRole] =
+    useState<StaffClassGroupAssignmentRole>("instructor");
+  const [selectedStaffingClassGroupId, setSelectedStaffingClassGroupId] = useState("");
+  const [classGroupStaffingLoading, setClassGroupStaffingLoading] = useState(false);
+  const [classGroupStaffingSaving, setClassGroupStaffingSaving] = useState(false);
   const [staffPrimary, setStaffPrimary] = useState(true);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [studentStatus, setStudentStatus] = useState<BranchMembershipStatus>("ACTIVE");
@@ -400,6 +436,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   }, [selectedStaffRole, visibleStaffRoles]);
 
   useEffect(() => {
+    setClassGroupStaffingAssignment(null);
+    setClassGroupStaffingSnapshot(null);
+    setSelectedStaffingClassGroupId("");
+  }, [selectedBranchId]);
+
+  useEffect(() => {
     if (!sectionPlan.loadClassGroups) {
       setClassGroups([]);
     }
@@ -541,18 +583,18 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         description: "Operasyonun yürütüleceği şubeyi açın."
       },
       {
-        label: "Personel Ataması",
+        label: "Personel Şube Bağlantısı",
         href: "/saas/personel-atamalari",
         count: staffAssignmentCount,
         done: staffAssignmentCount > 0,
-        description: "Şube yöneticisi, eğitmen, koç ve finans rollerini bağlayın."
+        description: "Personeli şubeye bağlayın ve şube rolünü belirleyin."
       },
       {
         label: "Sınıf / Grup",
         href: "/saas/sinif-gruplar",
         count: classGroupCount,
         done: classGroupCount > 0,
-        description: "Öğrencileri ders ve takip gruplarında toplayın."
+        description: "Sınıf veya grubu oluşturun; ardından eğitmen ve koç görevlendirmelerini tamamlayın."
       },
       {
         label: "Öğrenci Üyeliği",
@@ -654,6 +696,89 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     setSelectedStudentId((current) =>
       current && response.items.some((item) => item.id === current) ? current : response.items[0]?.id || ""
     );
+  }
+
+  async function loadClassGroupStaffingSnapshot(
+    assignment: BranchStaffAssignment,
+    role: StaffClassGroupAssignmentRole
+  ) {
+    setClassGroupStaffingLoading(true);
+    setError("");
+
+    try {
+      const snapshot = await getBranchStaffClassGroupAssignments(assignment.branchId, assignment.staffUserId);
+      const availableGroups = getAvailableClassGroupsForStaffing(snapshot, role);
+      setClassGroupStaffingSnapshot(snapshot);
+      setSelectedStaffingClassGroupId((current) =>
+        current && availableGroups.some((group) => group.id === current)
+          ? current
+          : availableGroups[0]?.id ?? ""
+      );
+      return snapshot;
+    } catch (requestError) {
+      setClassGroupStaffingSnapshot(null);
+      setSelectedStaffingClassGroupId("");
+      setError(toFriendlyError(requestError, "Sınıf/grup görevlendirmeleri yüklenemedi."));
+      return null;
+    } finally {
+      setClassGroupStaffingLoading(false);
+    }
+  }
+
+  async function openClassGroupStaffing(assignment: BranchStaffAssignment) {
+    const role = getClassGroupStaffingRole(assignment);
+
+    if (!role) {
+      setError(
+        classGroupStaffingRoleMissingMessage(assignment.roleKey === "COACH" ? "coach" : "instructor")
+      );
+      return;
+    }
+
+    if (selectedBranchId && assignment.branchId !== selectedBranchId) {
+      setError("Bu personel veya sınıf seçili şube kapsamında değildir.");
+      return;
+    }
+
+    setClassGroupStaffingAssignment(assignment);
+    setClassGroupStaffingSnapshot(null);
+    setClassGroupStaffingRole(role);
+    setSuccess("");
+    await loadClassGroupStaffingSnapshot(assignment, role);
+  }
+
+  function closeClassGroupStaffing() {
+    setClassGroupStaffingAssignment(null);
+    setClassGroupStaffingSnapshot(null);
+    setSelectedStaffingClassGroupId("");
+  }
+
+  async function assignSelectedClassGroupStaffing() {
+    if (!classGroupStaffingAssignment) return;
+    if (!selectedStaffingClassGroupId) {
+      setError(classGroupStaffingEmptyMessage(classGroupStaffingSnapshot, classGroupStaffingRole) || "Sınıf/grup seçmelisiniz.");
+      return;
+    }
+
+    setClassGroupStaffingSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (classGroupStaffingRole === "instructor") {
+        await assignInstructorToClassGroup(selectedStaffingClassGroupId, classGroupStaffingAssignment.staffUserId);
+      } else {
+        await assignCoachToClassGroup(selectedStaffingClassGroupId, classGroupStaffingAssignment.staffUserId);
+      }
+
+      await Promise.all([reloadBranchConnections(), refreshScopeAndOverview()]);
+      await loadClassGroupStaffingSnapshot(classGroupStaffingAssignment, classGroupStaffingRole);
+      setSuccess(classGroupStaffingSuccessMessage(classGroupStaffingRole));
+    } catch (requestError) {
+      setError(toFriendlyError(requestError, "Sınıf/grup görevlendirmesi yapılamadı."));
+    } finally {
+      setClassGroupStaffingSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -817,9 +942,9 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         isPrimary: staffPrimary
       });
       await Promise.all([reloadBranchConnections(), reloadBranches(), refreshScopeAndOverview()]);
-      setSuccess("Personel ataması kaydedildi.");
+      setSuccess("Personel seçili şubeye bağlandı.");
     } catch (requestError) {
-      setError(toFriendlyError(requestError, "Personel ataması yapılamadı."));
+      setError(toFriendlyError(requestError, "Personel şubeye bağlanamadı."));
     } finally {
       setSaving(false);
     }
@@ -855,9 +980,9 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     try {
       await updateBranchStaffAssignment(assignmentId, { status });
       await Promise.all([reloadBranchConnections(), refreshScopeAndOverview()]);
-      setSuccess("Personel ataması güncellendi.");
+      setSuccess("Personel şube bağlantısı güncellendi.");
     } catch (requestError) {
-      setError(toFriendlyError(requestError, "Personel ataması güncellenemedi."));
+      setError(toFriendlyError(requestError, "Personel şube bağlantısı güncellenemedi."));
     } finally {
       setSaving(false);
     }
@@ -1049,7 +1174,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               <div>
                 <span className="admin-badge">Genel Bakış</span>
                 <h2>Platform operasyon özeti</h2>
-                <p>Kurum, şube ve atama durumunu tek bakışta izleyin.</p>
+            <p>Kurum, şube ve bağlantı durumunu tek bakışta izleyin.</p>
               </div>
             </div>
             <div className="admin-saas-stat-grid">
@@ -1057,7 +1182,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               <StatCard label="Eğitim Merkezi" value={tenancyOverview?.educationCenterCount ?? 0} />
               <StatCard label="Şube" value={tenancyOverview?.branchCount ?? 0} />
               <StatCard label="Sınıf / Grup" value={tenancyOverview?.classGroupCount ?? 0} />
-              <StatCard label="Personel Ataması" value={tenancyOverview?.staffAssignmentCount ?? 0} />
+              <StatCard label="Personel Şube Bağlantısı" value={tenancyOverview?.staffAssignmentCount ?? 0} />
               <StatCard label="Öğrenci Üyeliği" value={tenancyOverview?.studentMembershipCount ?? 0} />
             </div>
             <div className="admin-saas-quick-actions">
@@ -1069,7 +1194,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           </article>
           <article className="admin-card">
             <span className="admin-badge">Son İşlemler</span>
-            <h3>Yeni şubeler ve atamalar</h3>
+            <h3>Yeni şubeler ve bağlantılar</h3>
             <div className="admin-saas-record-list">
               {tenancyOverview?.recentBranches.map((branch) => (
                 <RecordRow key={branch.id} title={branch.name} meta={branch.organization?.name ?? "Organizasyon"} detail={formatDate(branch.createdAt)} />
@@ -1093,7 +1218,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
               {!tenancyOverview?.recentBranches.length &&
               !tenancyOverview?.recentStaffAssignments.length &&
               !tenancyOverview?.recentStudentMemberships.length ? (
-                <EmptyState title="Henüz işlem yok" body="Yeni şube, personel ataması ve öğrenci üyelikleri burada görünür." />
+                <EmptyState title="Henüz işlem yok" body="Yeni şube, personel şube bağlantısı ve öğrenci üyelikleri burada görünür." />
               ) : null}
             </div>
           </article>
@@ -1133,7 +1258,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           <div className="admin-saas-shortcut-grid">
             <WorkflowShortcut href="/saas/ogrenci-uyelikleri" label="Öğrenciler" body="Öğrenciyi şubeye bağla." />
             <WorkflowShortcut href="/saas/sinif-gruplar" label="Sınıf / Grup" body="Grup yapısını hazırla." />
-            <WorkflowShortcut href="/saas/personel-atamalari" label="Personel" body="Eğitmen ve koç ataması yap." />
+            <WorkflowShortcut href="/saas/personel-atamalari" label="Personel" body="Eğitmen ve koçu şubeye bağlayıp sınıf/gruba görevlendir." />
             <WorkflowShortcut href="/operasyon" label="Canlı Dersler" body="Oturum ve programı yönet." />
             <WorkflowShortcut href="/operasyon" label="Duyurular" body="Şube ve grup mesajlarını yayınla." />
           </div>
@@ -1281,7 +1406,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
                   </div>
                   <dl>
                     <div><dt>Sınıflar / Gruplar</dt><dd>{branch._count?.classGroups ?? 0}</dd></div>
-                    <div><dt>Personel Atamaları</dt><dd>{branch._count?.staffAssignments ?? 0}</dd></div>
+                    <div><dt>Personel Bağlantıları</dt><dd>{branch._count?.staffAssignments ?? 0}</dd></div>
                     <div><dt>Öğrenci Üyelikleri</dt><dd>{branch._count?.studentMemberships ?? 0}</dd></div>
                   </dl>
                   <div className="admin-actions">
@@ -1326,7 +1451,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
 
   function renderStaffAssignments() {
     if (!canReadAssignments) {
-      return renderSectionUnavailable("Bu bölüm için personel ataması görüntüleme yetkiniz bulunmuyor.");
+      return renderSectionUnavailable("Bu bölüm için personel şube bağlantısı görüntüleme yetkiniz bulunmuyor.");
     }
 
     const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
@@ -1337,8 +1462,9 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
         <article className="admin-card admin-saas-main-card">
           <div className="admin-saas-section-head">
             <div>
-              <span className="admin-badge">Personel Atamaları</span>
-              <h2>Şubeye personel rolü ata</h2>
+              <span className="admin-badge">{branchConnectionTitle}</span>
+              <h2>Personeli şubeye bağla</h2>
+              <p>{branchConnectionDescription}</p>
             </div>
             <BranchSelect />
           </div>
@@ -1346,10 +1472,10 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             <EmptyState title="Şube erişimi yok" body={branchAccessMessage} />
           ) : null}
           {!branchAccessMessage && !selectedBranchId ? (
-            <EmptyState title="Şube seçilmedi" body="Personel ataması yapmak için yetkili bir şube seçin." />
+            <EmptyState title="Şube seçilmedi" body="Personeli şubeye bağlamak için yetkili bir şube seçin." />
           ) : null}
           {!branchAccessMessage && selectedBranchId && !canManageAssignments ? (
-            <EmptyState title="Atama yetkisi yok" body="Bu bölümde yalnızca mevcut atamaları görüntüleyebilirsiniz." />
+            <EmptyState title="Şube bağlantısı yetkisi yok" body="Bu bölümde yalnızca mevcut şube bağlantılarını görüntüleyebilirsiniz." />
           ) : null}
           {canUseAssignmentForm ? (
             <>
@@ -1370,39 +1496,152 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
                 <label className="admin-saas-check"><input type="checkbox" checked={staffPrimary} onChange={(event) => setStaffPrimary(event.target.checked)} /> Birincil şube olarak işaretle</label>
               </FormGrid>
               <div className="admin-actions">
-                <button className="admin-button" type="button" disabled={saving || !canManageAssignments || !selectedStaffUserId} onClick={saveStaffAssignment}>{saving ? "Kaydediliyor..." : "Atama Yap"}</button>
+                <button className="admin-button" type="button" disabled={saving || !canManageAssignments || !selectedStaffUserId} onClick={saveStaffAssignment}>{saving ? "Kaydediliyor..." : branchAssignmentButtonLabel}</button>
               </div>
             </>
           ) : null}
         </article>
         <article className="admin-card">
-          <span className="admin-badge">Mevcut Atamalar</span>
+          <div className="admin-saas-section-head">
+            <div>
+              <span className="admin-badge">{classGroupStaffingTitle}</span>
+              <h2>Mevcut Atamalar</h2>
+              <p>{classGroupStaffingDescription}</p>
+            </div>
+          </div>
           <p className="admin-saas-muted">Şube: {selectedBranch?.name ?? "Seçilmedi"}</p>
-          {sectionLoading ? <p className="admin-empty-state">Atamalar yükleniyor...</p> : null}
+          {sectionLoading ? <p className="admin-empty-state">Şube bağlantıları yükleniyor...</p> : null}
           {!sectionLoading && staffAssignments.length ? (
             <div className="admin-saas-record-list">
               {staffAssignments.map((assignment) => {
                 const display = getBranchStaffAssignmentDisplay(assignment, roleLabel(assignment.roleKey));
+                const canShowClassGroupAction = canShowClassGroupStaffingAction(assignment);
+                const isPanelOpen = classGroupStaffingAssignment?.id === assignment.id;
 
                 return (
-                  <div className="admin-saas-record-row" key={assignment.id}>
-                    <span>
-                      <strong>{display.title}</strong>
-                      <small>{display.meta}</small>
-                    </span>
-                    <div className="admin-actions">
-                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
-                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
+                  <div className="admin-saas-assignment-card" key={assignment.id}>
+                    <div className="admin-saas-record-row">
+                      <span>
+                        <strong>{display.title}</strong>
+                        <small>{display.meta}</small>
+                      </span>
+                      <div className="admin-actions">
+                        {canShowClassGroupAction ? (
+                          <button
+                            className="admin-button--ghost admin-button--compact"
+                            type="button"
+                            disabled={classGroupStaffingLoading || classGroupStaffingSaving}
+                            onClick={() => openClassGroupStaffing(assignment)}
+                          >
+                            Sınıf / Gruba Görevlendir
+                          </button>
+                        ) : null}
+                        <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
+                        <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
+                      </div>
                     </div>
+                    {isPanelOpen ? renderClassGroupStaffingPanel(assignment) : null}
                   </div>
                 );
               })}
             </div>
           ) : null}
-          {!sectionLoading && !branchAccessMessage && selectedBranchId && !staffAssignments.length ? <EmptyState title="Atama yok" body="Bu şubeye atanmış personel bulunmuyor." /> : null}
+          {!sectionLoading && !branchAccessMessage && selectedBranchId && !staffAssignments.length ? <EmptyState title="Şube bağlantısı yok" body="Bu şubeye atanmış personel bulunmuyor." /> : null}
           {!sectionLoading && branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
         </article>
       </section>
+    );
+  }
+
+  function renderClassGroupStaffingPanel(assignment: BranchStaffAssignment) {
+    const snapshot = classGroupStaffingSnapshot;
+    const currentAssignments = getCurrentAssignmentsForStaffing(snapshot, classGroupStaffingRole);
+    const availableGroups = getAvailableClassGroupsForStaffing(snapshot, classGroupStaffingRole);
+    const emptyMessage = classGroupStaffingEmptyMessage(snapshot, classGroupStaffingRole);
+    const noClassGroups = Boolean(snapshot && !snapshot.classGroups.length);
+    const roleEnabled = Boolean(snapshot?.roles[classGroupStaffingRole]);
+    const submitDisabled = isClassGroupStaffingSubmitDisabled({
+      selectedClassGroupId: selectedStaffingClassGroupId,
+      saving: classGroupStaffingSaving,
+      loading: classGroupStaffingLoading
+    });
+
+    return (
+      <div className="admin-saas-staffing-panel">
+        <div className="admin-saas-section-head admin-saas-section-head--compact">
+          <div>
+            <span className="admin-badge">{classGroupStaffingTitle}</span>
+            <h3>{snapshot?.staff.name ?? assignment.staffUser?.displayName ?? "Personel hesabı"}</h3>
+            <p>
+              {(snapshot?.staff.email ?? assignment.staffUser?.email ?? "E-posta yok")} · {(snapshot?.branch.name ?? assignment.branch?.name ?? "Şube yok")} · {classGroupStaffingRoleLabel(classGroupStaffingRole)}
+            </p>
+          </div>
+          <button className="admin-button--ghost admin-button--compact" type="button" onClick={closeClassGroupStaffing}>
+            Kapat
+          </button>
+        </div>
+        <p className="admin-saas-muted">{classGroupStaffingDescription}</p>
+        {classGroupStaffingLoading ? <p className="admin-empty-state">Sınıf/grup görevleri yükleniyor...</p> : null}
+        {snapshot ? (
+          <>
+            <div className="admin-saas-staffing-columns">
+              <div>
+                <strong>Aktif Sınıf / Gruplar</strong>
+                {snapshot.classGroups.length ? (
+                  <ul className="admin-saas-plain-list">
+                    {snapshot.classGroups.map((classGroup) => (
+                      <li key={classGroup.id}>{classGroup.name}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="admin-saas-guidance-block">
+                    <p>{noClassGroupForStaffingMessage}</p>
+                    <Link href="/saas/sinif-gruplar">{classGroupCreateLinkLabel}</Link>
+                  </div>
+                )}
+              </div>
+              <div>
+                <strong>Mevcut Sınıf / Grup Görevleri</strong>
+                {currentAssignments.length ? (
+                  <ul className="admin-saas-plain-list">
+                    {currentAssignments.map((currentAssignment) => (
+                      <li key={currentAssignment.assignmentId}>
+                        {currentAssignment.classGroupName} · {currentAssignment.isActive ? "Aktif" : "Pasif"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="admin-saas-muted">Bu personelin seçili şubede aktif sınıf/grup görevi bulunmuyor.</p>
+                )}
+              </div>
+            </div>
+            {!noClassGroups && !roleEnabled ? (
+              <EmptyState title="Rol uygun değil" body={emptyMessage} />
+            ) : null}
+            {!noClassGroups && roleEnabled && !availableGroups.length ? (
+              <EmptyState title="Yeni görev yok" body={emptyMessage || alreadyAssignedMessage} />
+            ) : null}
+            {!noClassGroups && roleEnabled && availableGroups.length ? (
+              <>
+                <FormGrid>
+                  <Field label="Sınıf / Grup Seç">
+                    <select className="admin-input" value={selectedStaffingClassGroupId} onChange={(event) => setSelectedStaffingClassGroupId(event.target.value)}>
+                      {availableGroups.map((classGroup) => (
+                        <option key={classGroup.id} value={classGroup.id}>{classGroup.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </FormGrid>
+                <div className="admin-actions">
+                  <button className="admin-button" type="button" disabled={submitDisabled} onClick={assignSelectedClassGroupStaffing}>
+                    {classGroupStaffingSaving ? "Kaydediliyor..." : classGroupStaffingActionLabel(classGroupStaffingRole)}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </div>
     );
   }
 
@@ -1429,7 +1668,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             <EmptyState title="Şube seçilmedi" body="Öğrenci üyeliği için yetkili bir şube seçin." />
           ) : null}
           {!branchAccessMessage && selectedBranchId && !canManageAssignments ? (
-            <EmptyState title="Atama yetkisi yok" body="Bu bölümde yalnızca mevcut üyelikleri görüntüleyebilirsiniz." />
+            <EmptyState title="Üyelik yetkisi yok" body="Bu bölümde yalnızca mevcut üyelikleri görüntüleyebilirsiniz." />
           ) : null}
           {canUseMembershipForm ? (
             <>

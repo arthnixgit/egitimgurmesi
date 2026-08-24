@@ -135,6 +135,7 @@ export type BranchStaffAssignment = {
     lastName: string;
     email: string;
     status: string;
+    roles?: Array<{ id: string; key: string; name: string }>;
   };
   roleKey: StaffBranchRole;
   status?: "ACTIVE" | "REVOKED";

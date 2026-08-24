@@ -2,6 +2,7 @@ import {
   AnnouncementAudience,
   AnnouncementStatus,
   AuditActorType,
+  ClassGroupStatus,
   ClassGroupStudentStatus,
   LiveSessionStatus,
   PERMISSION_KEYS,
@@ -35,6 +36,8 @@ const STAFF_NOT_IN_CLASS_GROUP_BRANCH_MESSAGE =
   "Bu personel seçilen şubeye bağlı değildir.";
 const SUSPENDED_STAFF_ASSIGNMENT_MESSAGE =
   "Askıdaki personel sınıf veya gruba atanamaz.";
+const STAFF_OR_CLASS_GROUP_OUT_OF_SCOPE_MESSAGE =
+  "Bu personel veya sınıf seçili şube kapsamında değildir.";
 const PRIVILEGED_PLATFORM_ROLE_KEYS = [
   ROLE_KEYS.superAdmin,
   ROLE_KEYS.admin,
@@ -327,6 +330,111 @@ export class OperationsService {
     };
   }
 
+  async listBranchStaffClassGroupAssignments(
+    branchId: string,
+    staffUserId: string,
+    auth: AuthenticatedRequestContext
+  ) {
+    const branch = await this.ensureBranch(branchId, auth);
+    this.requireAnyPermission(
+      auth,
+      [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
+      CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
+    );
+    const eligibility = await this.loadBranchStaffClassGroupEligibility(branch, staffUserId);
+
+    const [classGroups, instructorAssignments, coachAssignments] = await Promise.all([
+      this.prisma.classGroup.findMany({
+        where: {
+          organizationId: branch.organizationId,
+          branchId,
+          status: ClassGroupStatus.ACTIVE
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true
+        }
+      }),
+      this.prisma.instructorAssignment.findMany({
+        where: {
+          organizationId: branch.organizationId,
+          branchId,
+          staffUserId,
+          isActive: true,
+          classGroupId: { not: null },
+          classGroup: {
+            status: ClassGroupStatus.ACTIVE
+          }
+        },
+        orderBy: { startsAt: "desc" },
+        include: {
+          classGroup: { select: { id: true, name: true } }
+        }
+      }),
+      this.prisma.coachAssignment.findMany({
+        where: {
+          organizationId: branch.organizationId,
+          branchId,
+          staffUserId,
+          isActive: true,
+          classGroupId: { not: null },
+          classGroup: {
+            status: ClassGroupStatus.ACTIVE
+          }
+        },
+        orderBy: { startsAt: "desc" },
+        include: {
+          classGroup: { select: { id: true, name: true } }
+        }
+      })
+    ]);
+
+    const activeClassGroups = classGroups.map((classGroup) => ({
+      id: classGroup.id,
+      name: classGroup.name,
+      slug: classGroup.slug,
+      status: classGroup.status
+    }));
+    const assignedInstructorClassGroupIds = new Set(
+      instructorAssignments
+        .map((assignment) => assignment.classGroupId)
+        .filter((classGroupId): classGroupId is string => Boolean(classGroupId))
+    );
+    const assignedCoachClassGroupIds = new Set(
+      coachAssignments
+        .map((assignment) => assignment.classGroupId)
+        .filter((classGroupId): classGroupId is string => Boolean(classGroupId))
+    );
+
+    return {
+      staff: {
+        id: eligibility.staff.id,
+        name: displayStaffName(eligibility.staff),
+        email: eligibility.staff.email
+      },
+      branch: {
+        id: branch.id,
+        name: branch.name
+      },
+      roles: {
+        instructor: eligibility.canAssignInstructor,
+        coach: eligibility.canAssignCoach
+      },
+      classGroups: activeClassGroups,
+      instructorAssignments: instructorAssignments.map(mapStaffClassGroupAssignmentSummary),
+      coachAssignments: coachAssignments.map(mapStaffClassGroupAssignmentSummary),
+      availableInstructorClassGroups: eligibility.canAssignInstructor
+        ? activeClassGroups.filter((classGroup) => !assignedInstructorClassGroupIds.has(classGroup.id))
+        : [],
+      availableCoachClassGroups: eligibility.canAssignCoach
+        ? activeClassGroups.filter((classGroup) => !assignedCoachClassGroupIds.has(classGroup.id))
+        : []
+    };
+  }
+
   async addStudentToClassGroup(
     classGroupId: string,
     dto: AddClassGroupStudentDto,
@@ -390,6 +498,7 @@ export class OperationsService {
       [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
       CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
     );
+    this.ensureClassGroupIsActive(classGroup);
     await this.ensureClassGroupStaffEligibility(classGroup, dto.staffUserId, "instructor");
 
     const existingAssignment = await this.prisma.instructorAssignment.findFirst({
@@ -436,6 +545,7 @@ export class OperationsService {
       [PERMISSION_KEYS.classesManage, PERMISSION_KEYS.assignmentsManage],
       CLASS_GROUP_ASSIGN_PERMISSION_DENIED_MESSAGE
     );
+    this.ensureClassGroupIsActive(classGroup);
     await this.ensureClassGroupStaffEligibility(classGroup, dto.staffUserId, "coach");
 
     const existingAssignment = await this.prisma.coachAssignment.findFirst({
@@ -1124,6 +1234,68 @@ export class OperationsService {
     return staff;
   }
 
+  private async loadBranchStaffClassGroupEligibility(
+    branch: { id: string; organizationId: string },
+    staffUserId: string
+  ) {
+    const staff = await this.prisma.staffUser.findUnique({
+      where: { id: staffUserId },
+      include: {
+        roles: {
+          include: {
+            role: {
+              select: { key: true }
+            }
+          }
+        },
+        branchAssignments: {
+          where: {
+            organizationId: branch.organizationId,
+            branchId: branch.id,
+            revokedAt: null
+          },
+          select: {
+            roleKey: true
+          }
+        }
+      }
+    });
+
+    if (!staff) {
+      throw new NotFoundException("Personel bulunamadı.");
+    }
+
+    if (staff.organizationId !== branch.organizationId || !staff.branchAssignments.length) {
+      throw new BadRequestException(STAFF_OR_CLASS_GROUP_OUT_OF_SCOPE_MESSAGE);
+    }
+
+    if (staff.status !== StaffStatus.ACTIVE) {
+      throw new BadRequestException(SUSPENDED_STAFF_ASSIGNMENT_MESSAGE);
+    }
+
+    const roleKeys = staff.roles.map((assignment) => assignment.role.key);
+
+    if (roleKeys.some((roleKey) => PRIVILEGED_PLATFORM_ROLE_KEYS.includes(roleKey))) {
+      throw new BadRequestException(STAFF_OR_CLASS_GROUP_OUT_OF_SCOPE_MESSAGE);
+    }
+
+    return {
+      staff,
+      canAssignInstructor:
+        roleKeys.includes(ROLE_KEYS.instructor) &&
+        staff.branchAssignments.some((assignment) => assignment.roleKey === StaffBranchRole.INSTRUCTOR),
+      canAssignCoach:
+        roleKeys.includes(ROLE_KEYS.coach) &&
+        staff.branchAssignments.some((assignment) => assignment.roleKey === StaffBranchRole.COACH)
+    };
+  }
+
+  private ensureClassGroupIsActive(classGroup: { status: ClassGroupStatus }) {
+    if (classGroup.status !== ClassGroupStatus.ACTIVE) {
+      throw new BadRequestException("Seçili sınıf veya grup aktif değildir.");
+    }
+  }
+
   private async ensureStudent(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
@@ -1281,6 +1453,22 @@ function mapStaffClassGroupAssignment(
     staffUserId: assignment.staffUserId,
     name: staff ? displayStaffName(staff) : "Personel",
     email: staff?.email ?? "",
+    startsAt: assignment.startsAt
+  };
+}
+
+function mapStaffClassGroupAssignmentSummary(assignment: {
+  id: string;
+  classGroupId: string | null;
+  classGroup?: { id: string; name: string } | null;
+  isActive: boolean;
+  startsAt: Date;
+}) {
+  return {
+    assignmentId: assignment.id,
+    classGroupId: assignment.classGroup?.id ?? assignment.classGroupId ?? "",
+    classGroupName: assignment.classGroup?.name ?? "Sınıf/grup",
+    isActive: assignment.isActive,
     startsAt: assignment.startsAt
   };
 }

@@ -264,6 +264,11 @@
   margin-top: 16px;
 }
 
+.admin-saas-assignment-card {
+  display: grid;
+  gap: 10px;
+}
+
 .admin-saas-record-row,
 .admin-saas-row {
   width: 100%;
@@ -304,6 +309,60 @@
 .admin-saas-record-row time {
   color: var(--admin-muted);
   font-size: 0.86rem;
+}
+
+.admin-saas-section-head--compact {
+  margin-bottom: 8px;
+}
+
+.admin-saas-section-head--compact h3 {
+  margin: 8px 0 6px;
+  font-size: 1.05rem;
+}
+
+.admin-saas-staffing-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(12, 111, 114, 0.18);
+  background: rgba(12, 111, 114, 0.05);
+}
+
+.admin-saas-staffing-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-saas-staffing-columns > div,
+.admin-saas-guidance-block {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 47, 85, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-saas-plain-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+.admin-saas-guidance-block p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-saas-guidance-block a {
+  color: #0c6f72;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .admin-saas-table {
@@ -467,6 +526,7 @@
 
   .admin-saas-stat-grid,
   .admin-saas-card-grid,
+  .admin-saas-staffing-columns,
   .admin-saas-step-grid,
   .admin-saas-shortcut-grid {
     grid-template-columns: 1fr;

@@ -45,6 +45,15 @@ export class OperationsController {
     return this.operationsService.listClassGroupAssignmentCandidates(classGroupId, auth);
   }
 
+  @Get("branches/:branchId/staff/:staffUserId/class-group-assignments")
+  getBranchStaffClassGroupAssignments(
+    @Param("branchId") branchId: string,
+    @Param("staffUserId") staffUserId: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.operationsService.listBranchStaffClassGroupAssignments(branchId, staffUserId, auth);
+  }
+
   @Post("class-groups/:classGroupId/students")
   addStudentToClassGroup(
     @Param("classGroupId") classGroupId: string,

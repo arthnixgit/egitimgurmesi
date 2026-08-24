@@ -31,6 +31,9 @@ export type BranchLike = {
 
 export type BranchStaffAssignmentDisplayLike = {
   staffUserId: string;
+  branch?: {
+    name?: string | null;
+  } | null;
   staffUser?: {
     displayName?: string | null;
     email?: string | null;
@@ -223,6 +226,7 @@ export function getBranchStaffAssignmentDisplay(
     title: assignment.staffUser?.displayName || assignment.staffUser?.email || "Personel hesabı",
     meta: [
       assignment.staffUser?.email || "E-posta yok",
+      assignment.branch?.name || "Şube yok",
       roleLabel,
       assignment.status === "REVOKED" ? "Pasif" : "Aktif",
       assignment.isPrimary ? "Birincil şube" : "İkincil şube"

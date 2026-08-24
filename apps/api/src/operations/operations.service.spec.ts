@@ -265,6 +265,105 @@ describe("OperationsService branch classroom staff assignment", () => {
       }
     );
   });
+
+  it("lists a selected staff member's branch-scoped class/group assignments", async () => {
+    const { service, state } = createHarness();
+    state.classGroups.push({
+      ...classGroup("group_archived", "org_a", "branch_a", "Archived Group"),
+      status: "ARCHIVED"
+    });
+
+    const snapshot = await service.listBranchStaffClassGroupAssignments(
+      "branch_a",
+      "staff_already_assigned_instructor",
+      branchAdminAuth()
+    );
+
+    assert.deepEqual(snapshot.classGroups.map((group) => group.id), ["group_a"]);
+    assert.deepEqual(snapshot.availableInstructorClassGroups.map((group) => group.id), []);
+    assert.equal(snapshot.instructorAssignments[0]?.assignmentId, "instructor_assignment_existing");
+    assert.equal(snapshot.instructorAssignments[0]?.classGroupName, "Group A");
+    assert.deepEqual(snapshot.availableCoachClassGroups, []);
+  });
+
+  it("excludes another branch and organization from staff class/group assignment reads", async () => {
+    const { service } = createHarness();
+
+    const snapshot = await service.listBranchStaffClassGroupAssignments(
+      "branch_a",
+      "staff_instructor",
+      branchAdminAuth()
+    );
+
+    assert.deepEqual(snapshot.classGroups.map((group) => group.id), ["group_a"]);
+    assert.doesNotMatch(JSON.stringify(snapshot), /group_b/);
+    assert.doesNotMatch(JSON.stringify(snapshot), /group_other_org/);
+  });
+
+  it("displays existing coach assignments in the staff-centric read flow", async () => {
+    const { service, state } = createHarness();
+    state.coachAssignments.push({
+      id: "coach_assignment_existing",
+      organizationId: "org_a",
+      branchId: "branch_a",
+      classGroupId: "group_a",
+      staffUserId: "staff_coach",
+      startsAt: new Date("2026-08-23T09:30:00.000Z"),
+      isActive: true,
+      assignedByStaffUserId: "staff_branch_admin"
+    });
+
+    const snapshot = await service.listBranchStaffClassGroupAssignments(
+      "branch_a",
+      "staff_coach",
+      branchAdminAuth()
+    );
+
+    assert.equal(snapshot.roles.coach, true);
+    assert.equal(snapshot.coachAssignments[0]?.assignmentId, "coach_assignment_existing");
+    assert.equal(snapshot.coachAssignments[0]?.classGroupName, "Group A");
+    assert.deepEqual(snapshot.availableCoachClassGroups.map((group) => group.id), []);
+  });
+
+  it("rejects staff-centric reads for wrong branch role, revoked, suspended, and privileged staff", async () => {
+    const { service } = createHarness();
+    const auth = branchAdminAuth();
+
+    await assert.rejects(
+      () => service.listBranchStaffClassGroupAssignments("branch_a", "staff_other_branch_instructor", auth),
+      hasBadRequestMessage("Bu personel veya sınıf seçili şube kapsamında değildir.")
+    );
+    await assert.rejects(
+      () => service.listBranchStaffClassGroupAssignments("branch_a", "staff_revoked_instructor", auth),
+      hasBadRequestMessage("Bu personel veya sınıf seçili şube kapsamında değildir.")
+    );
+    await assert.rejects(
+      () => service.listBranchStaffClassGroupAssignments("branch_a", "staff_suspended_instructor", auth),
+      hasBadRequestMessage("Askıdaki personel sınıf veya gruba atanamaz.")
+    );
+    await assert.rejects(
+      () => service.listBranchStaffClassGroupAssignments("branch_a", "staff_privileged_instructor", superAdminAuth()),
+      hasBadRequestMessage("Bu personel veya sınıf seçili şube kapsamında değildir.")
+    );
+  });
+
+  it("prevents assigning to archived class/groups", async () => {
+    const { service, state } = createHarness();
+    state.classGroups.push({
+      ...classGroup("group_archived", "org_a", "branch_a", "Archived Group"),
+      status: "ARCHIVED"
+    });
+
+    await assert.rejects(
+      () =>
+        service.assignInstructorToClassGroup(
+          "group_archived",
+          { staffUserId: "staff_instructor" },
+          branchAdminAuth()
+        ),
+      hasBadRequestMessage("Seçili sınıf veya grup aktif değildir.")
+    );
+  });
 });
 
 function createHarness() {
@@ -479,10 +578,13 @@ function staffAssignmentDelegate(state: MockState, kind: "instructor" | "coach")
   const relationName = kind === "instructor" ? "instructor" : "coach";
 
   return {
-    findMany: async () => [],
+    findMany: async (args: PrismaArgs = {}) =>
+      list
+        .filter((entry) => matchesStaffClassGroupAssignmentWhere(state, entry, args.where))
+        .map((assignment) => staffClassGroupAssignmentWithRelation(state, assignment, relationName)),
     findFirst: async (args: PrismaArgs = {}) => {
       const assignment =
-        list.find((entry) => matchesStaffClassGroupAssignmentWhere(entry, args.where)) ?? null;
+        list.find((entry) => matchesStaffClassGroupAssignmentWhere(state, entry, args.where)) ?? null;
 
       return assignment ? staffClassGroupAssignmentWithRelation(state, assignment, relationName) : null;
     },
@@ -680,7 +782,11 @@ function staffClassGroupAssignmentWithRelation(
 ) {
   return {
     ...assignment,
-    [relationName]: staffSelect(findStaff(state, assignment.staffUserId))
+    [relationName]: staffSelect(findStaff(state, assignment.staffUserId)),
+    classGroup: state.classGroups
+      .filter((classGroup) => classGroup.id === assignment.classGroupId)
+      .map((classGroup) => ({ id: classGroup.id, name: classGroup.name }))
+      [0] ?? null
   };
 }
 
@@ -722,6 +828,10 @@ function matchesClassGroupWhere(group: MockClassGroup, where: any) {
   }
 
   if (where.organizationId && group.organizationId !== where.organizationId) {
+    return false;
+  }
+
+  if (where.status && group.status !== where.status) {
     return false;
   }
 
@@ -821,6 +931,7 @@ function matchesStaffUserWhere(state: MockState, staffUser: MockStaffUser, where
 }
 
 function matchesStaffClassGroupAssignmentWhere(
+  state: MockState,
   assignment: MockStaffClassGroupAssignment,
   where: any
 ) {
@@ -829,6 +940,18 @@ function matchesStaffClassGroupAssignmentWhere(
   }
 
   if (where.classGroupId !== undefined && assignment.classGroupId !== where.classGroupId) {
+    if (where.classGroupId?.not !== undefined && assignment.classGroupId !== where.classGroupId.not) {
+      return true;
+    }
+
+    return false;
+  }
+
+  if (where.organizationId !== undefined && assignment.organizationId !== where.organizationId) {
+    return false;
+  }
+
+  if (where.branchId !== undefined && assignment.branchId !== where.branchId) {
     return false;
   }
 
@@ -838,6 +961,13 @@ function matchesStaffClassGroupAssignmentWhere(
 
   if (where.isActive !== undefined && assignment.isActive !== where.isActive) {
     return false;
+  }
+
+  if (where.classGroup?.status !== undefined) {
+    const classGroup = state.classGroups.find((group) => group.id === assignment.classGroupId);
+    if (!classGroup || classGroup.status !== where.classGroup.status) {
+      return false;
+    }
   }
 
   return true;

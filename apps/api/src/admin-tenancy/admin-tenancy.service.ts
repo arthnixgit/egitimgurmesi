@@ -37,7 +37,18 @@ const branchStaffAssignmentInclude = {
       firstName: true,
       lastName: true,
       email: true,
-      status: true
+      status: true,
+      roles: {
+        include: {
+          role: {
+            select: {
+              id: true,
+              key: true,
+              name: true
+            }
+          }
+        }
+      }
     }
   }
 } satisfies Prisma.BranchStaffAssignmentInclude;
@@ -1743,7 +1754,12 @@ function formatBranchStaffAssignment(assignment: BranchStaffAssignmentWithRelati
       firstName: assignment.staffUser.firstName,
       lastName: assignment.staffUser.lastName,
       email: assignment.staffUser.email,
-      status: assignment.staffUser.status
+      status: assignment.staffUser.status,
+      roles: assignment.staffUser.roles.map((entry) => ({
+        id: entry.role.id,
+        key: entry.role.key,
+        name: entry.role.name
+      }))
     },
     roleKey: assignment.roleKey,
     status: assignment.revokedAt ? "REVOKED" : "ACTIVE",
