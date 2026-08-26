@@ -56,7 +56,11 @@ import {
   assignCoachToClassGroup,
   assignInstructorToClassGroup,
   getBranchStaffClassGroupAssignments,
+  getClassGroupAssignmentCandidates,
+  getClassGroupRoster,
   type BranchStaffClassGroupAssignments,
+  type ClassGroupAssignmentCandidates,
+  type ClassGroupRoster,
   type StaffClassGroupAssignmentRole
 } from "../../lib/operations-client";
 import {
@@ -71,23 +75,40 @@ import {
 } from "../../lib/saas-section-loading";
 import {
   alreadyAssignedMessage,
+  assignmentOptionsLoadingMessage,
   branchAssignmentButtonLabel,
   branchConnectionDescription,
   branchConnectionTitle,
   canShowClassGroupStaffingAction,
+  classGroupCandidateEmptyMessage,
+  classGroupCandidateSelectLabel,
   classGroupCreateLinkLabel,
+  classGroupCurrentAssignmentsTitle,
   classGroupStaffingActionLabel,
   classGroupStaffingDescription,
   classGroupStaffingEmptyMessage,
+  classGroupStaffingSuccessMessage,
   classGroupStaffingTitle,
   classGroupStaffingRoleLabel,
   classGroupStaffingRoleMissingMessage,
-  classGroupStaffingSuccessMessage,
+  coachAssignmentSuccessMessage,
+  crossBranchStaffingMessage,
+  currentPersonnelConnectionsTitle,
   getAvailableClassGroupsForStaffing,
+  getClassGroupAssignmentCandidatesForRole,
   getClassGroupStaffingRole,
+  getClassGroupStaffingCountSummary,
+  getCurrentClassGroupStaffForRole,
   getCurrentAssignmentsForStaffing,
+  groupStaffingEditButtonLabel,
+  groupStaffingManageButtonLabel,
+  instructorAssignmentSuccessMessage,
+  isClassGroupCandidateSubmitDisabled,
   isClassGroupStaffingSubmitDisabled,
-  noClassGroupForStaffingMessage
+  keepSelectedClassGroupStaffingCandidate,
+  keepSelectedClassGroupForStaffing,
+  noClassGroupForStaffingMessage,
+  personnelConnectionsPageTitle
 } from "../../lib/saas-staffing-ui";
 
 type SectionKey = SaasSectionKey;
@@ -285,6 +306,17 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
   const [selectedStaffingClassGroupId, setSelectedStaffingClassGroupId] = useState("");
   const [classGroupStaffingLoading, setClassGroupStaffingLoading] = useState(false);
   const [classGroupStaffingSaving, setClassGroupStaffingSaving] = useState(false);
+  const [selectedGroupStaffingClassGroup, setSelectedGroupStaffingClassGroup] =
+    useState<TenancyClassGroup | null>(null);
+  const [selectedGroupStaffingRoster, setSelectedGroupStaffingRoster] =
+    useState<ClassGroupRoster | null>(null);
+  const [selectedGroupStaffingCandidates, setSelectedGroupStaffingCandidates] =
+    useState<ClassGroupAssignmentCandidates | null>(null);
+  const [selectedGroupInstructorId, setSelectedGroupInstructorId] = useState("");
+  const [selectedGroupCoachId, setSelectedGroupCoachId] = useState("");
+  const [selectedGroupStaffingLoading, setSelectedGroupStaffingLoading] = useState(false);
+  const [selectedGroupStaffingSaving, setSelectedGroupStaffingSaving] =
+    useState<StaffClassGroupAssignmentRole | "">("");
   const [staffPrimary, setStaffPrimary] = useState(true);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [studentStatus, setStudentStatus] = useState<BranchMembershipStatus>("ACTIVE");
@@ -439,6 +471,11 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     setClassGroupStaffingAssignment(null);
     setClassGroupStaffingSnapshot(null);
     setSelectedStaffingClassGroupId("");
+    setSelectedGroupStaffingClassGroup(null);
+    setSelectedGroupStaffingRoster(null);
+    setSelectedGroupStaffingCandidates(null);
+    setSelectedGroupInstructorId("");
+    setSelectedGroupCoachId("");
   }, [selectedBranchId]);
 
   useEffect(() => {
@@ -652,6 +689,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     setStudentMemberships(memberships);
     setStaffDirectory(staffResponseList.items);
     setStudentDirectory(studentResponseList.items);
+    return { groups, assignments, memberships, staffDirectory: staffResponseList.items, studentDirectory: studentResponseList.items };
   }
 
   function buildStaffDirectoryParams(branchId: string, query = staffSearch) {
@@ -710,9 +748,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
       const availableGroups = getAvailableClassGroupsForStaffing(snapshot, role);
       setClassGroupStaffingSnapshot(snapshot);
       setSelectedStaffingClassGroupId((current) =>
-        current && availableGroups.some((group) => group.id === current)
-          ? current
-          : availableGroups[0]?.id ?? ""
+        keepSelectedClassGroupForStaffing(current, snapshot, role) || availableGroups[0]?.id || ""
       );
       return snapshot;
     } catch (requestError) {
@@ -736,7 +772,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     }
 
     if (selectedBranchId && assignment.branchId !== selectedBranchId) {
-      setError("Bu personel veya sınıf seçili şube kapsamında değildir.");
+      setError(crossBranchStaffingMessage);
       return;
     }
 
@@ -778,6 +814,117 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
       setError(toFriendlyError(requestError, "Sınıf/grup görevlendirmesi yapılamadı."));
     } finally {
       setClassGroupStaffingSaving(false);
+    }
+  }
+
+  async function loadSelectedGroupStaffingSnapshot(classGroupId: string) {
+    setSelectedGroupStaffingLoading(true);
+    setError("");
+
+    try {
+      const [rosterResponse, candidatesResponse] = await Promise.all([
+        getClassGroupRoster(classGroupId),
+        getClassGroupAssignmentCandidates(classGroupId)
+      ]);
+      setSelectedGroupStaffingRoster(rosterResponse);
+      setSelectedGroupStaffingCandidates(candidatesResponse);
+      setSelectedGroupInstructorId((current) =>
+        keepSelectedClassGroupStaffingCandidate(current, candidatesResponse, "instructor") ||
+        candidatesResponse.instructors[0]?.staffUserId ||
+        ""
+      );
+      setSelectedGroupCoachId((current) =>
+        keepSelectedClassGroupStaffingCandidate(current, candidatesResponse, "coach") ||
+        candidatesResponse.coaches[0]?.staffUserId ||
+        ""
+      );
+      return { roster: rosterResponse, candidates: candidatesResponse };
+    } catch (requestError) {
+      setSelectedGroupStaffingRoster(null);
+      setSelectedGroupStaffingCandidates(null);
+      setSelectedGroupInstructorId("");
+      setSelectedGroupCoachId("");
+      setError(toFriendlyError(requestError, "Sınıf/grup görevlendirme seçenekleri yüklenemedi."));
+      return null;
+    } finally {
+      setSelectedGroupStaffingLoading(false);
+    }
+  }
+
+  async function openSelectedGroupStaffing(classGroup: TenancyClassGroup) {
+    if (!canManageClasses && !canManageAssignments) {
+      setError("Bu işlem için yetkiniz bulunmuyor.");
+      return;
+    }
+
+    if (selectedBranchId && classGroup.branchId !== selectedBranchId) {
+      setError(crossBranchStaffingMessage);
+      return;
+    }
+
+    setSelectedGroupStaffingClassGroup(classGroup);
+    setSelectedGroupStaffingRoster(null);
+    setSelectedGroupStaffingCandidates(null);
+    setSelectedGroupInstructorId("");
+    setSelectedGroupCoachId("");
+    setSuccess("");
+    await loadSelectedGroupStaffingSnapshot(classGroup.id);
+  }
+
+  function closeSelectedGroupStaffing() {
+    setSelectedGroupStaffingClassGroup(null);
+    setSelectedGroupStaffingRoster(null);
+    setSelectedGroupStaffingCandidates(null);
+    setSelectedGroupInstructorId("");
+    setSelectedGroupCoachId("");
+  }
+
+  async function assignSelectedGroupStaffing(role: StaffClassGroupAssignmentRole) {
+    if (!selectedGroupStaffingClassGroup) return;
+
+    const selectedStaffUserId = role === "instructor" ? selectedGroupInstructorId : selectedGroupCoachId;
+
+    if (!selectedStaffUserId) {
+      setError(classGroupCandidateEmptyMessage(role));
+      return;
+    }
+
+    if (selectedBranchId && selectedGroupStaffingClassGroup.branchId !== selectedBranchId) {
+      setError(crossBranchStaffingMessage);
+      return;
+    }
+
+    const candidates = getClassGroupAssignmentCandidatesForRole(selectedGroupStaffingCandidates, role);
+    if (!candidates.some((candidate) => candidate.staffUserId === selectedStaffUserId)) {
+      setError(alreadyAssignedMessage);
+      return;
+    }
+
+    setSelectedGroupStaffingSaving(role);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (role === "instructor") {
+        await assignInstructorToClassGroup(selectedGroupStaffingClassGroup.id, selectedStaffUserId);
+      } else {
+        await assignCoachToClassGroup(selectedGroupStaffingClassGroup.id, selectedStaffUserId);
+      }
+
+      const refreshedConnections = await reloadBranchConnections();
+      await refreshScopeAndOverview();
+      const refreshedGroup = refreshedConnections?.groups.find(
+        (classGroup) => classGroup.id === selectedGroupStaffingClassGroup.id
+      );
+      if (refreshedGroup) {
+        setSelectedGroupStaffingClassGroup(refreshedGroup);
+      }
+      await loadSelectedGroupStaffingSnapshot(selectedGroupStaffingClassGroup.id);
+      setSuccess(role === "instructor" ? instructorAssignmentSuccessMessage : coachAssignmentSuccessMessage);
+    } catch (requestError) {
+      setError(toFriendlyError(requestError, "Sınıf/grup görevlendirmesi yapılamadı."));
+    } finally {
+      setSelectedGroupStaffingSaving("");
     }
   }
 
@@ -1458,12 +1605,12 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
     const canUseAssignmentForm = Boolean(selectedBranchId && !branchAccessMessage && canManageAssignments);
 
     return (
-      <section className="admin-saas-grid">
-        <article className="admin-card admin-saas-main-card">
-          <div className="admin-saas-section-head">
+      <section className="admin-saas-personnel-layout">
+        <article className="admin-card admin-saas-main-card admin-saas-personnel-form-card">
+          <div className="admin-saas-section-head admin-saas-section-head--personnel">
             <div>
-              <span className="admin-badge">{branchConnectionTitle}</span>
-              <h2>Personeli şubeye bağla</h2>
+              <span className="admin-badge">{personnelConnectionsPageTitle}</span>
+              <h2>{branchConnectionTitle}</h2>
               <p>{branchConnectionDescription}</p>
             </div>
             <BranchSelect />
@@ -1501,47 +1648,68 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
             </>
           ) : null}
         </article>
-        <article className="admin-card">
-          <div className="admin-saas-section-head">
+        <article className="admin-card admin-saas-personnel-records-card">
+          <div className="admin-saas-section-head admin-saas-section-head--personnel">
             <div>
               <span className="admin-badge">{classGroupStaffingTitle}</span>
-              <h2>Mevcut Atamalar</h2>
+              <h2>{currentPersonnelConnectionsTitle}</h2>
               <p>{classGroupStaffingDescription}</p>
             </div>
           </div>
           <p className="admin-saas-muted">Şube: {selectedBranch?.name ?? "Seçilmedi"}</p>
           {sectionLoading ? <p className="admin-empty-state">Şube bağlantıları yükleniyor...</p> : null}
           {!sectionLoading && staffAssignments.length ? (
-            <div className="admin-saas-record-list">
+            <div className="admin-saas-personnel-list">
               {staffAssignments.map((assignment) => {
                 const display = getBranchStaffAssignmentDisplay(assignment, roleLabel(assignment.roleKey));
                 const canShowClassGroupAction = canShowClassGroupStaffingAction(assignment);
                 const isPanelOpen = classGroupStaffingAssignment?.id === assignment.id;
 
                 return (
-                  <div className="admin-saas-assignment-card" key={assignment.id}>
-                    <div className="admin-saas-record-row">
-                      <span>
+                  <article
+                    className={`admin-saas-personnel-card ${isPanelOpen ? "admin-saas-personnel-card--open" : ""}`}
+                    key={assignment.id}
+                  >
+                    <div className="admin-saas-personnel-card__top">
+                      <div className="admin-saas-personnel-card__identity">
                         <strong>{display.title}</strong>
-                        <small>{display.meta}</small>
-                      </span>
-                      <div className="admin-actions">
-                        {canShowClassGroupAction ? (
-                          <button
-                            className="admin-button--ghost admin-button--compact"
-                            type="button"
-                            disabled={classGroupStaffingLoading || classGroupStaffingSaving}
-                            onClick={() => openClassGroupStaffing(assignment)}
-                          >
-                            Sınıf / Gruba Görevlendir
-                          </button>
-                        ) : null}
-                        <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
-                        <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
+                        <span>{assignment.staffUser?.email ?? "E-posta yok"}</span>
                       </div>
+                      <dl className="admin-saas-personnel-meta">
+                        <div>
+                          <dt>Şube</dt>
+                          <dd>{assignment.branch?.name ?? selectedBranch?.name ?? "Şube yok"}</dd>
+                        </div>
+                        <div>
+                          <dt>Şube rolü</dt>
+                          <dd>{roleLabel(assignment.roleKey)}</dd>
+                        </div>
+                        <div>
+                          <dt>Durum</dt>
+                          <dd>{statusLabel(assignment.status ?? "ACTIVE")}</dd>
+                        </div>
+                        <div>
+                          <dt>Bağlantı</dt>
+                          <dd>{assignment.isPrimary ? "Birincil şube" : "İkincil şube"}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <div className="admin-actions admin-saas-personnel-actions">
+                      {canShowClassGroupAction ? (
+                        <button
+                          className="admin-button--ghost admin-button--compact"
+                          type="button"
+                          disabled={classGroupStaffingLoading || classGroupStaffingSaving}
+                          onClick={() => openClassGroupStaffing(assignment)}
+                        >
+                          Sınıf / Gruba Görevlendir
+                        </button>
+                      ) : null}
+                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "ACTIVE")}>Aktifleştir</button>
+                      <button className="admin-button--ghost admin-button--compact" type="button" disabled={saving || !canManageAssignments} onClick={() => setAssignmentStatus(assignment.id, "REVOKED")}>Pasifleştir</button>
                     </div>
                     {isPanelOpen ? renderClassGroupStaffingPanel(assignment) : null}
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -1581,7 +1749,7 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           </button>
         </div>
         <p className="admin-saas-muted">{classGroupStaffingDescription}</p>
-        {classGroupStaffingLoading ? <p className="admin-empty-state">Sınıf/grup görevleri yükleniyor...</p> : null}
+        {classGroupStaffingLoading ? <p className="admin-empty-state">{assignmentOptionsLoadingMessage}</p> : null}
         {snapshot ? (
           <>
             <div className="admin-saas-staffing-columns">
@@ -1642,6 +1810,25 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           </>
         ) : null}
       </div>
+    );
+  }
+
+  function renderSelectedGroupStaffingPanel(classGroup: TenancyClassGroup) {
+    return (
+      <ClassGroupStaffingPanel
+        classGroup={classGroup}
+        branchName={selectedBranch?.name ?? "Şube yok"}
+        roster={selectedGroupStaffingRoster}
+        candidates={selectedGroupStaffingCandidates}
+        loading={selectedGroupStaffingLoading}
+        savingRole={selectedGroupStaffingSaving}
+        selectedInstructorId={selectedGroupInstructorId}
+        selectedCoachId={selectedGroupCoachId}
+        onSelectInstructor={setSelectedGroupInstructorId}
+        onSelectCoach={setSelectedGroupCoachId}
+        onAssign={(role) => void assignSelectedGroupStaffing(role)}
+        onClose={closeSelectedGroupStaffing}
+      />
     );
   }
 
@@ -1742,6 +1929,9 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
 
     const branchAccessMessage = getBranchAccessMessage(staffOverview, scope, branches);
     const canUseClassGroupForm = Boolean(selectedBranchId && !branchAccessMessage && canManageClasses);
+    const canManageClassGroupStaffing = Boolean(
+      selectedBranchId && !branchAccessMessage && (canManageClasses || canManageAssignments)
+    );
 
     return (
       <section className="admin-saas-grid">
@@ -1756,22 +1946,55 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
           {branchAccessMessage ? <EmptyState title="Şube erişimi yok" body={branchAccessMessage} /> : null}
           {sectionLoading ? <p className="admin-empty-state">Sınıf/grup kayıtları yükleniyor...</p> : null}
           {!sectionLoading && classGroups.length ? (
-            <div className="admin-saas-table">
-              {classGroups.map((classGroup) => (
-                <button key={classGroup.id} className="admin-saas-row" type="button" onClick={() => startEditClassGroup(classGroup)}>
-                  <span><strong>{classGroup.name}</strong><small>{classGroup.description || classGroup.slug}</small></span>
-                  <span>{gradeLabel(classGroup.gradeLevel)}</span>
-                  <span>{trackLabel(classGroup.studyTrack)}</span>
-                  <span>{statusLabel(classGroup.status)}</span>
-                  <span>{classGroup._count?.instructorAssignments ?? 0} öğretmen · {classGroup._count?.coachAssignments ?? 0} koç</span>
-                </button>
-              ))}
+            <div className="admin-saas-class-group-list">
+              {classGroups.map((classGroup) => {
+                const isStaffingOpen = selectedGroupStaffingClassGroup?.id === classGroup.id;
+
+                return (
+                  <article
+                    className={`admin-saas-class-group-card ${isStaffingOpen ? "admin-saas-class-group-card--open" : ""}`}
+                    key={classGroup.id}
+                  >
+                    <div className="admin-saas-class-group-card__row">
+                      <div className="admin-saas-class-group-card__identity">
+                        <strong>{classGroup.name}</strong>
+                        <small>{classGroup.description || classGroup.slug}</small>
+                      </div>
+                      <div className="admin-saas-class-group-card__meta">
+                        <span>{gradeLabel(classGroup.gradeLevel)}</span>
+                        <span>{trackLabel(classGroup.studyTrack)}</span>
+                        <span>{statusLabel(classGroup.status)}</span>
+                        <span>{getClassGroupStaffingCountSummary(classGroup)}</span>
+                      </div>
+                      <div className="admin-actions admin-saas-class-group-actions">
+                        <button
+                          className="admin-button--ghost admin-button--compact"
+                          type="button"
+                          disabled={!canManageClasses}
+                          onClick={() => startEditClassGroup(classGroup)}
+                        >
+                          {groupStaffingEditButtonLabel}
+                        </button>
+                        <button
+                          className="admin-button--ghost admin-button--compact"
+                          type="button"
+                          disabled={!canManageClassGroupStaffing}
+                          onClick={() => openSelectedGroupStaffing(classGroup)}
+                        >
+                          {groupStaffingManageButtonLabel}
+                        </button>
+                      </div>
+                    </div>
+                    {isStaffingOpen ? renderSelectedGroupStaffingPanel(classGroup) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : null}
           {!sectionLoading && !branchAccessMessage && selectedBranchId && !classGroups.length ? (
             <EmptyState
               title="Sınıf/grup yok"
-              body="Öğrencileri, eğitmenleri ve koçları ortak bir akışta toplamak için ilk sınıf veya çalışma grubunu oluşturun."
+              body={noClassGroupForStaffingMessage}
             />
           ) : null}
         </article>
@@ -1860,6 +2083,167 @@ export function SaasManagementPage({ initialSection }: { initialSection: Section
       </select>
     );
   }
+}
+
+function ClassGroupStaffingPanel({
+  classGroup,
+  branchName,
+  roster,
+  candidates,
+  loading,
+  savingRole,
+  selectedInstructorId,
+  selectedCoachId,
+  onSelectInstructor,
+  onSelectCoach,
+  onAssign,
+  onClose
+}: {
+  classGroup: TenancyClassGroup;
+  branchName: string;
+  roster: ClassGroupRoster | null;
+  candidates: ClassGroupAssignmentCandidates | null;
+  loading: boolean;
+  savingRole: StaffClassGroupAssignmentRole | "";
+  selectedInstructorId: string;
+  selectedCoachId: string;
+  onSelectInstructor: (staffUserId: string) => void;
+  onSelectCoach: (staffUserId: string) => void;
+  onAssign: (role: StaffClassGroupAssignmentRole) => void;
+  onClose: () => void;
+}) {
+  const currentInstructors = getCurrentClassGroupStaffForRole(roster, "instructor");
+  const currentCoaches = getCurrentClassGroupStaffForRole(roster, "coach");
+  const instructorCandidates = getClassGroupAssignmentCandidatesForRole(candidates, "instructor");
+  const coachCandidates = getClassGroupAssignmentCandidatesForRole(candidates, "coach");
+
+  return (
+    <div className="admin-saas-staffing-panel admin-saas-staffing-panel--wide">
+      <div className="admin-saas-section-head admin-saas-section-head--compact">
+        <div>
+          <span className="admin-badge">Seçili Sınıf / Grup</span>
+          <h3>{classGroup.name}</h3>
+          <p>{branchName} · {getClassGroupStaffingCountSummary(classGroup)}</p>
+        </div>
+        <button className="admin-button--ghost admin-button--compact" type="button" onClick={onClose}>
+          Kapat
+        </button>
+      </div>
+      <p className="admin-saas-muted">{classGroupStaffingDescription}</p>
+      {loading ? <p className="admin-empty-state">{assignmentOptionsLoadingMessage}</p> : null}
+      {roster ? (
+        <div className="admin-saas-staffing-columns">
+          <CurrentClassGroupStaffBlock role="instructor" assignments={currentInstructors} />
+          <CurrentClassGroupStaffBlock role="coach" assignments={currentCoaches} />
+        </div>
+      ) : null}
+      {candidates ? (
+        <div className="admin-saas-staffing-columns">
+          <ClassGroupCandidateControl
+            role="instructor"
+            candidates={instructorCandidates}
+            selectedStaffUserId={selectedInstructorId}
+            loading={loading}
+            savingRole={savingRole}
+            onSelect={onSelectInstructor}
+            onAssign={onAssign}
+          />
+          <ClassGroupCandidateControl
+            role="coach"
+            candidates={coachCandidates}
+            selectedStaffUserId={selectedCoachId}
+            loading={loading}
+            savingRole={savingRole}
+            onSelect={onSelectCoach}
+            onAssign={onAssign}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CurrentClassGroupStaffBlock({
+  role,
+  assignments
+}: {
+  role: StaffClassGroupAssignmentRole;
+  assignments: Array<{ id: string; staffUserId: string; name: string; email: string; startsAt: string }>;
+}) {
+  return (
+    <div className="admin-saas-staffing-role-card">
+      <strong>{classGroupCurrentAssignmentsTitle(role)}</strong>
+      {assignments.length ? (
+        <ul className="admin-saas-plain-list">
+          {assignments.map((assignment) => (
+            <li key={assignment.id}>
+              {assignment.name} · {assignment.email}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="admin-saas-muted">
+          {role === "instructor"
+            ? "Bu sınıf veya gruba atanmış eğitmen bulunmuyor."
+            : "Bu sınıf veya gruba atanmış koç bulunmuyor."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ClassGroupCandidateControl({
+  role,
+  candidates,
+  selectedStaffUserId,
+  loading,
+  savingRole,
+  onSelect,
+  onAssign
+}: {
+  role: StaffClassGroupAssignmentRole;
+  candidates: Array<{ staffUserId: string; name: string; email: string; branchAssignmentId: string }>;
+  selectedStaffUserId: string;
+  loading: boolean;
+  savingRole: StaffClassGroupAssignmentRole | "";
+  onSelect: (staffUserId: string) => void;
+  onAssign: (role: StaffClassGroupAssignmentRole) => void;
+}) {
+  const submitDisabled = isClassGroupCandidateSubmitDisabled({
+    selectedStaffUserId,
+    savingRole,
+    loading
+  });
+
+  return (
+    <div className="admin-saas-staffing-role-card">
+      <strong>{role === "instructor" ? "Eğitmen Ata" : "Koç Ata"}</strong>
+      <label className="admin-field">
+        <span>{classGroupCandidateSelectLabel(role)}</span>
+        <select
+          className="admin-input"
+          value={selectedStaffUserId}
+          onChange={(event) => onSelect(event.target.value)}
+          disabled={loading || candidates.length === 0}
+        >
+          <option value="">{role === "instructor" ? "Eğitmen seç" : "Koç seç"}</option>
+          {candidates.map((candidate) => (
+            <option key={candidate.staffUserId} value={candidate.staffUserId}>
+              {candidate.name} · {candidate.email}
+            </option>
+          ))}
+        </select>
+      </label>
+      {!loading && !candidates.length ? (
+        <p className="admin-empty-state">{classGroupCandidateEmptyMessage(role)}</p>
+      ) : null}
+      <div className="admin-actions">
+        <button className="admin-button" type="button" disabled={submitDisabled} onClick={() => onAssign(role)}>
+          {savingRole === role ? "Atanıyor..." : role === "instructor" ? "Eğitmen Ata" : "Koç Ata"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function StatCard({ label, value }: { label: string; value: number }) {

@@ -5,6 +5,10 @@ import {
   isAssignmentSubmitDisabled,
   keepSelectedAssignmentCandidate
 } from "./operations-assignment-ui";
+import {
+  noCoachCandidateMessage,
+  noInstructorCandidateMessage
+} from "./saas-staffing-ui";
 import type { AssignmentCandidate } from "./operations-client";
 
 describe("operations assignment UI state", () => {
@@ -66,9 +70,8 @@ describe("operations assignment UI state", () => {
   });
 
   it("returns Turkish empty-state guidance for missing instructors and coaches", () => {
-    assert.match(assignmentCandidateGuidance("instructor"), /aktif eğitmen bulunmuyor/);
-    assert.match(assignmentCandidateGuidance("coach"), /aktif koç bulunmuyor/);
-    assert.match(assignmentCandidateGuidance("instructor"), /Personel ve Roller/);
+    assert.equal(assignmentCandidateGuidance("instructor"), noInstructorCandidateMessage);
+    assert.equal(assignmentCandidateGuidance("coach"), noCoachCandidateMessage);
   });
 });
 

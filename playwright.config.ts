@@ -55,6 +55,14 @@ export default defineConfig({
         baseURL: ADMIN_BASE_URL,
         storageState: ADMIN_STORAGE_STATE
       }
+    },
+    {
+      name: "admin-responsive-mocked",
+      testMatch: /.*admin\.saas-staffing-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: ADMIN_BASE_URL
+      }
     }
   ]
 });

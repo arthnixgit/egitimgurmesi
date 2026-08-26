@@ -1,4 +1,8 @@
 import type { AssignmentCandidate } from "./operations-client";
+import {
+  noCoachCandidateMessage,
+  noInstructorCandidateMessage
+} from "./saas-staffing-ui";
 
 export type AssignmentCandidateKind = "instructor" | "coach";
 
@@ -21,8 +25,8 @@ export function isAssignmentSubmitDisabled(input: {
 
 export function assignmentCandidateGuidance(kind: AssignmentCandidateKind) {
   if (kind === "instructor") {
-    return "Bu şubede sınıfa atanabilecek aktif eğitmen bulunmuyor. Önce Personel ve Roller bölümünden Eğitmen rolüne sahip bir personel oluşturun veya mevcut personelin şube atamasını kontrol edin.";
+    return noInstructorCandidateMessage;
   }
 
-  return "Bu şubede sınıfa atanabilecek aktif koç bulunmuyor. Önce Personel ve Roller bölümünden Koç rolüne sahip bir personel oluşturun veya mevcut personelin şube atamasını kontrol edin.";
+  return noCoachCandidateMessage;
 }

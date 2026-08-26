@@ -1,22 +1,36 @@
-import type { BranchStaffAssignment } from "./admin-tenancy-client";
+import type { BranchStaffAssignment, TenancyClassGroup } from "./admin-tenancy-client";
 import type {
+  AssignmentCandidate,
   BranchStaffClassGroupAssignments,
+  ClassGroupAssignmentCandidates,
+  ClassGroupRoster,
   StaffClassGroupAssignmentRole,
   StaffClassGroupAssignmentSummary,
   StaffClassGroupOption
 } from "./operations-client";
 
+export const personnelConnectionsPageTitle = "Personel Bağlantıları";
 export const branchConnectionTitle = "Şube Bağlantısı";
 export const branchConnectionDescription =
-  "Bu işlem personeli seçili şubeye bağlar ve şube içindeki operasyon rolünü belirler.";
+  "Personeli seçili şubeye bağlayın ve şube içindeki operasyon rolünü belirleyin.";
 export const branchAssignmentButtonLabel = "Şubeye Ata";
 export const classGroupStaffingTitle = "Sınıf / Grup Görevlendirmesi";
 export const classGroupStaffingDescription =
-  "Şubeye bağlı eğitmen ve koçları, görev yapacakları sınıf veya gruplara atayın.";
+  "Şubeye bağlı eğitmen ve koçları görev yapacakları sınıf veya gruplara atayın.";
+export const currentPersonnelConnectionsTitle = "Mevcut Personel Bağlantıları";
 export const classGroupCreateLinkLabel = "Sınıf / Grup Oluştur";
-export const noClassGroupForStaffingMessage =
-  "Bu şubede henüz sınıf veya grup bulunmuyor. Personel görevlendirmeden önce bir sınıf veya grup oluşturun.";
+export const groupStaffingEditButtonLabel = "Düzenle";
+export const groupStaffingManageButtonLabel = "Görevlendirmeleri Yönet";
+export const noClassGroupForStaffingMessage = "Bu şubede henüz sınıf veya grup bulunmuyor.";
+export const noInstructorCandidateMessage =
+  "Bu sınıf veya gruba atanabilecek aktif eğitmen bulunmuyor. Personelin Eğitmen rolünü ve şube bağlantısını kontrol edin.";
+export const noCoachCandidateMessage =
+  "Bu sınıf veya gruba atanabilecek aktif koç bulunmuyor. Personelin Koç rolünü ve şube bağlantısını kontrol edin.";
 export const alreadyAssignedMessage = "Personel bu sınıf veya gruba zaten atanmış.";
+export const crossBranchStaffingMessage = "Bu personel veya sınıf seçili şube kapsamında değildir.";
+export const assignmentOptionsLoadingMessage = "Görevlendirme seçenekleri yükleniyor...";
+export const instructorAssignmentSuccessMessage = "Eğitmen sınıf veya gruba atandı.";
+export const coachAssignmentSuccessMessage = "Koç sınıf veya gruba atandı.";
 
 const privilegedGlobalRoleKeys = new Set(["super-admin", "admin", "technician", "accounting"]);
 
@@ -66,6 +80,16 @@ export function getAvailableClassGroupsForStaffing(
     : snapshot.availableCoachClassGroups;
 }
 
+export function keepSelectedClassGroupForStaffing(
+  selectedClassGroupId: string,
+  snapshot: BranchStaffClassGroupAssignments | null,
+  role: StaffClassGroupAssignmentRole
+) {
+  return getAvailableClassGroupsForStaffing(snapshot, role).some((group) => group.id === selectedClassGroupId)
+    ? selectedClassGroupId
+    : "";
+}
+
 export function isClassGroupStaffingSubmitDisabled(input: {
   selectedClassGroupId: string;
   saving: boolean;
@@ -83,9 +107,7 @@ export function classGroupStaffingActionLabel(role: StaffClassGroupAssignmentRol
 }
 
 export function classGroupStaffingSuccessMessage(role: StaffClassGroupAssignmentRole) {
-  return role === "instructor"
-    ? "Eğitmen seçilen sınıf veya gruba atandı."
-    : "Koç seçilen sınıf veya gruba atandı.";
+  return role === "instructor" ? instructorAssignmentSuccessMessage : coachAssignmentSuccessMessage;
 }
 
 export function classGroupStaffingRoleMissingMessage(role: StaffClassGroupAssignmentRole) {
@@ -116,4 +138,58 @@ export function classGroupStaffingEmptyMessage(
   }
 
   return "";
+}
+
+export function getClassGroupAssignmentCandidatesForRole(
+  candidates: ClassGroupAssignmentCandidates | null,
+  role: StaffClassGroupAssignmentRole
+): AssignmentCandidate[] {
+  if (!candidates) return [];
+  return role === "instructor" ? candidates.instructors : candidates.coaches;
+}
+
+export function getCurrentClassGroupStaffForRole(
+  roster: ClassGroupRoster | null,
+  role: StaffClassGroupAssignmentRole
+) {
+  if (!roster) return [];
+  return role === "instructor" ? roster.instructors : roster.coaches;
+}
+
+export function keepSelectedClassGroupStaffingCandidate(
+  selectedStaffUserId: string,
+  candidates: ClassGroupAssignmentCandidates | null,
+  role: StaffClassGroupAssignmentRole
+) {
+  return getClassGroupAssignmentCandidatesForRole(candidates, role).some(
+    (candidate) => candidate.staffUserId === selectedStaffUserId
+  )
+    ? selectedStaffUserId
+    : "";
+}
+
+export function classGroupCandidateEmptyMessage(role: StaffClassGroupAssignmentRole) {
+  return role === "instructor" ? noInstructorCandidateMessage : noCoachCandidateMessage;
+}
+
+export function classGroupCandidateSelectLabel(role: StaffClassGroupAssignmentRole) {
+  return role === "instructor" ? "Eğitmen adayı" : "Koç adayı";
+}
+
+export function classGroupCurrentAssignmentsTitle(role: StaffClassGroupAssignmentRole) {
+  return role === "instructor" ? "Mevcut Eğitmenler" : "Mevcut Koçlar";
+}
+
+export function isClassGroupCandidateSubmitDisabled(input: {
+  selectedStaffUserId: string;
+  savingRole: StaffClassGroupAssignmentRole | "";
+  loading: boolean;
+}) {
+  return !input.selectedStaffUserId || Boolean(input.savingRole) || input.loading;
+}
+
+export function getClassGroupStaffingCountSummary(classGroup: Pick<TenancyClassGroup, "_count">) {
+  const instructorCount = classGroup._count?.instructorAssignments ?? 0;
+  const coachCount = classGroup._count?.coachAssignments ?? 0;
+  return `${instructorCount} eğitmen · ${coachCount} koç`;
 }

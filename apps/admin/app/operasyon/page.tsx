@@ -30,6 +30,12 @@ import {
   type ClassGroupRoster,
   type OperationalDashboard
 } from "../../lib/operations-client";
+import {
+  assignmentOptionsLoadingMessage,
+  coachAssignmentSuccessMessage,
+  instructorAssignmentSuccessMessage,
+  noClassGroupForStaffingMessage
+} from "../../lib/saas-staffing-ui";
 
 type SessionForm = {
   title: string;
@@ -339,7 +345,7 @@ export default function OperationsPage() {
                     ))}
                   </select>
                   {candidatesLoading ? (
-                    <div className="admin-empty-state">Adaylar yükleniyor...</div>
+                    <div className="admin-empty-state">{assignmentOptionsLoadingMessage}</div>
                   ) : instructors.length === 0 ? (
                     <AssignmentCandidateGuidance kind="instructor" />
                   ) : null}
@@ -360,7 +366,7 @@ export default function OperationsPage() {
                     ))}
                   </select>
                   {candidatesLoading ? (
-                    <div className="admin-empty-state">Adaylar yükleniyor...</div>
+                    <div className="admin-empty-state">{assignmentOptionsLoadingMessage}</div>
                   ) : coaches.length === 0 ? (
                     <AssignmentCandidateGuidance kind="coach" />
                   ) : null}
@@ -394,7 +400,7 @@ export default function OperationsPage() {
                     void runAction(
                       "instructor",
                       () => assignInstructorToClassGroup(selectedClassGroupId, selectedInstructorId),
-                      "Eğitmen sınıf/gruba atandı."
+                      instructorAssignmentSuccessMessage
                     )
                   }
                 >
@@ -412,7 +418,7 @@ export default function OperationsPage() {
                     void runAction(
                       "coach",
                       () => assignCoachToClassGroup(selectedClassGroupId, selectedCoachId),
-                      "Koç sınıf/gruba atandı."
+                      coachAssignmentSuccessMessage
                     )
                   }
                 >
@@ -479,7 +485,7 @@ export default function OperationsPage() {
             </div>
           ) : dashboard?.classGroups.length === 0 ? (
             <div className="admin-empty-state">
-              <p>Personel atamadan önce bu şubede bir sınıf veya grup oluşturun.</p>
+              <p>{noClassGroupForStaffingMessage}</p>
               <Link className="admin-button admin-button--compact" href="/saas/sinif-gruplar">
                 Sınıf / Grup Yönetimi
               </Link>
