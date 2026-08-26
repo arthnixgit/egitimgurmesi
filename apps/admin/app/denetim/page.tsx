@@ -228,7 +228,7 @@ export default function AdminAuditPage() {
               <strong>Audit Yetkisi</strong>
               <div>
                 {overview?.permissionKeys.includes("audit.read")
-                  ? "audit.read aktif"
+                  ? "Denetim okuma aktif"
                   : "Yetki bulunamadı"}
               </div>
             </div>
@@ -244,12 +244,12 @@ export default function AdminAuditPage() {
               <span>Yüklenen kayıt</span>
             </div>
             <div className="admin-kpi">
-              <strong>{selectedLog ? selectedLog.entityType : "-"}</strong>
+              <strong>{selectedLog ? formatEntityType(selectedLog.entityType) : "-"}</strong>
               <span>Seçili kayıt</span>
             </div>
             <div className="admin-kpi">
-              <strong>{selectedLog ? selectedLog.actorType : "-"}</strong>
-              <span>Seçili actor</span>
+              <strong>{selectedLog ? formatActorType(selectedLog.actorType) : "-"}</strong>
+              <span>Seçili kaynak</span>
             </div>
           </div>
 
@@ -271,11 +271,11 @@ export default function AdminAuditPage() {
                   className="admin-input"
                   value={entityTypeFilter}
                   onChange={(event) => setEntityTypeFilter(event.target.value)}
-                  placeholder="Order, Product, MarketingPage"
+                  placeholder="Sipariş, ürün veya personel"
                 />
               </div>
               <div className="admin-field">
-                <label>Actor Type</label>
+                <label>İşlem Kaynağı</label>
                 <select
                   className="admin-input admin-select"
                   value={actorTypeFilter}
@@ -285,7 +285,7 @@ export default function AdminAuditPage() {
                 >
                   {actorTypeOptions.map((option) => (
                     <option key={option} value={option}>
-                      {option}
+                      {formatActorType(option)}
                     </option>
                   ))}
                 </select>
@@ -298,7 +298,7 @@ export default function AdminAuditPage() {
                 className="admin-input"
                 value={actionFilter}
                 onChange={(event) => setActionFilter(event.target.value)}
-                placeholder="orders.status.update"
+                placeholder="İşlem kodu veya açıklama"
               />
             </div>
 
@@ -343,18 +343,16 @@ export default function AdminAuditPage() {
                       onClick={() => handleSelectLog(log.id)}
                     >
                       <div className="admin-record-item__top">
-                        <strong>{log.action}</strong>
-                        <span className="admin-order-pill">{log.actorType}</span>
+                        <strong>{formatAuditAction(log.action)}</strong>
+                        <span className="admin-order-pill">{formatActorType(log.actorType)}</span>
                       </div>
                       <div className="admin-record-item__meta">
-                        <span>
-                          {log.entityType} / {log.entityId}
-                        </span>
+                        <span>{formatEntityRecord(log.entityType)}</span>
                         <span>{formatDateTime(log.createdAt)}</span>
                       </div>
                       <div className="admin-record-item__meta">
                         <span>{log.actor.name}</span>
-                        <span>{log.summary || "Summary yok"}</span>
+                        <span>{log.summary || "Özet yok"}</span>
                       </div>
                     </button>
                   ))
@@ -375,24 +373,22 @@ export default function AdminAuditPage() {
                   <div className="admin-toolbar admin-toolbar--split">
                     <div className="admin-editor-meta">
                       <span className="admin-badge">Detay</span>
-                      <span className="admin-editor-meta__text">{selectedLog.id}</span>
+                      <span className="admin-editor-meta__text">Seçili denetim kaydı</span>
                     </div>
-                    <span className="admin-order-pill">{selectedLog.actorType}</span>
+                    <span className="admin-order-pill">{formatActorType(selectedLog.actorType)}</span>
                   </div>
 
                   <div className="admin-detail-grid">
                     <div className="admin-list__item">
                       <strong>İşlem</strong>
-                      <div>{selectedLog.action}</div>
+                      <div>{formatAuditAction(selectedLog.action)}</div>
                     </div>
                     <div className="admin-list__item">
                       <strong>Kayıt</strong>
-                      <div>
-                        {selectedLog.entityType} / {selectedLog.entityId}
-                      </div>
+                      <div>{formatEntityRecord(selectedLog.entityType)}</div>
                     </div>
                     <div className="admin-list__item">
-                      <strong>Actor</strong>
+                      <strong>İşlem Yapan</strong>
                       <div>{selectedLog.actor.name}</div>
                     </div>
                     <div className="admin-list__item">
@@ -410,43 +406,49 @@ export default function AdminAuditPage() {
                   </div>
 
                   <div className="admin-list__item">
-                    <strong>Summary</strong>
-                    <div>{selectedLog.summary || "Summary bulunmuyor."}</div>
+                    <strong>Özet</strong>
+                    <div>{selectedLog.summary || "Özet bulunmuyor."}</div>
                   </div>
 
                   <div className="admin-record-grid admin-record-grid--stackable">
                     <div className="admin-subpanel">
-                      <div className="admin-editor-meta">
-                        <span className="admin-badge">Önce</span>
-                      </div>
-                      <pre className="admin-code-block">
-                        {formatJsonBlock(selectedLog.beforeData)}
-                      </pre>
+                      <details className="admin-advanced-details">
+                        <summary>
+                          <span className="admin-badge">Önce</span>
+                          <span>Teknik veriyi göster</span>
+                        </summary>
+                        <pre className="admin-code-block">
+                          {formatJsonBlock(selectedLog.beforeData)}
+                        </pre>
+                      </details>
                     </div>
 
                     <div className="admin-subpanel">
-                      <div className="admin-editor-meta">
-                        <span className="admin-badge">Sonra</span>
-                      </div>
-                      <pre className="admin-code-block">
-                        {formatJsonBlock(selectedLog.afterData)}
-                      </pre>
+                      <details className="admin-advanced-details">
+                        <summary>
+                          <span className="admin-badge">Sonra</span>
+                          <span>Teknik veriyi göster</span>
+                        </summary>
+                        <pre className="admin-code-block">
+                          {formatJsonBlock(selectedLog.afterData)}
+                        </pre>
+                      </details>
                     </div>
                   </div>
 
                   <div className="admin-subpanel">
-                    <div className="admin-editor-meta">
-                      <span className="admin-badge">Ek Bilgi</span>
-                      <span className="admin-editor-meta__text">
-                        User-agent ve ek bağlam bilgileri
-                      </span>
-                    </div>
-                    <pre className="admin-code-block">
-                      {formatJsonBlock({
-                        metadata: selectedLog.metadata,
-                        userAgent: selectedLog.userAgent
-                      })}
-                    </pre>
+                    <details className="admin-advanced-details">
+                      <summary>
+                        <span className="admin-badge">Ek Bilgi</span>
+                        <span>User-agent ve ek bağlam bilgileri</span>
+                      </summary>
+                      <pre className="admin-code-block">
+                        {formatJsonBlock({
+                          metadata: selectedLog.metadata,
+                          userAgent: selectedLog.userAgent
+                        })}
+                      </pre>
+                    </details>
                   </div>
                 </div>
               ) : (
@@ -471,6 +473,88 @@ function formatDateTime(value?: string | null) {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function formatActorType(value: AdminAuditActorType | "ALL") {
+  const labels: Record<AdminAuditActorType | "ALL", string> = {
+    ALL: "Tümü",
+    STAFF_USER: "Personel",
+    USER: "Kullanıcı",
+    SYSTEM: "Sistem"
+  };
+
+  return labels[value] ?? "Kaynak";
+}
+
+function formatEntityType(value?: string | null) {
+  if (!value) {
+    return "Kayıt";
+  }
+
+  const labels: Record<string, string> = {
+    AuditLog: "Denetim kaydı",
+    Branch: "Şube",
+    ClassGroup: "Sınıf / grup",
+    Course: "Ders",
+    MarketingPage: "İçerik sayfası",
+    Order: "Sipariş",
+    Product: "Ürün",
+    ProductCategory: "Kategori",
+    ProductVariant: "Paket seçeneği",
+    StaffRole: "Personel rolü",
+    StaffUser: "Personel",
+    StudentMembership: "Öğrenci üyeliği",
+    User: "Kullanıcı"
+  };
+
+  return labels[value] ?? "Kayıt";
+}
+
+function formatEntityRecord(value?: string | null) {
+  return `${formatEntityType(value)} kaydı`;
+}
+
+function formatAuditAction(value?: string | null) {
+  if (!value) {
+    return "İşlem kaydı";
+  }
+
+  const normalizedKey = value.replace(/[.-]/g, "_").toUpperCase();
+  const labels: Record<string, string> = {
+    BRANCH_CREATED: "Şube oluşturuldu",
+    BRANCH_UPDATED: "Şube güncellendi",
+    CLASS_GROUP_CREATED: "Sınıf veya grup oluşturuldu",
+    CLASS_GROUP_UPDATED: "Sınıf veya grup güncellendi",
+    CONTENT_PUBLISHED: "İçerik yayınlandı",
+    CONTENT_UPDATED: "İçerik güncellendi",
+    ORDER_STATUS_UPDATE: "Sipariş durumu güncellendi",
+    ORDER_STATUS_UPDATED: "Sipariş durumu güncellendi",
+    PRODUCT_CREATED: "Ürün oluşturuldu",
+    PRODUCT_UPDATED: "Ürün güncellendi",
+    STAFF_CREATED: "Personel oluşturuldu",
+    STAFF_ROLE_ASSIGNED: "Personel rolü atandı",
+    STAFF_UPDATED: "Personel güncellendi",
+    STUDENT_MEMBERSHIP_CREATED: "Öğrenci üyeliği oluşturuldu",
+    STUDENT_MEMBERSHIP_UPDATED: "Öğrenci üyeliği güncellendi"
+  };
+
+  if (labels[normalizedKey]) {
+    return labels[normalizedKey];
+  }
+
+  if (normalizedKey.includes("CREATE")) {
+    return "Kayıt oluşturuldu";
+  }
+
+  if (normalizedKey.includes("UPDATE")) {
+    return "Kayıt güncellendi";
+  }
+
+  if (normalizedKey.includes("DELETE") || normalizedKey.includes("REMOVE")) {
+    return "Kayıt kaldırıldı";
+  }
+
+  return "İşlem kaydı";
 }
 
 function formatJsonBlock(value: unknown) {

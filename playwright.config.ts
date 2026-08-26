@@ -63,6 +63,14 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         baseURL: ADMIN_BASE_URL
       }
+    },
+    {
+      name: "admin-visual-system-mocked",
+      testMatch: /.*admin\.visual-system-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: ADMIN_BASE_URL
+      }
     }
   ]
 });

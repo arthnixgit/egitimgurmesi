@@ -206,9 +206,14 @@ export function RoleDashboardPage({ kind }: { kind: RoleDashboardKind }) {
       <section className="admin-dashboard-kpi-grid" aria-label="Panel özeti">
         {statCards.map((card) => (
           <Link key={card.label} className="admin-dashboard-kpi" data-tone={card.tone} href={card.href}>
-            <span>{card.label}</span>
-            <strong>{loading ? "..." : formatCount(card.value)}</strong>
-            <small>{card.detail}</small>
+            <span className="admin-dashboard-kpi__icon" aria-hidden="true">
+              {getDashboardMonogram(card.label)}
+            </span>
+            <span className="admin-dashboard-kpi__content">
+              <span className="admin-dashboard-kpi__label">{card.label}</span>
+              <strong>{loading ? "..." : formatCount(card.value)}</strong>
+              <small>{card.detail}</small>
+            </span>
           </Link>
         ))}
       </section>
@@ -224,8 +229,14 @@ export function RoleDashboardPage({ kind }: { kind: RoleDashboardKind }) {
         <div className="admin-dashboard-action-grid">
           {quickActions[kind].map((action) => (
             <Link key={action.label} className="admin-dashboard-action-card" data-tone={action.tone} href={action.href}>
-              <span>{action.label}</span>
-              <strong>{action.body}</strong>
+              <div className="admin-dashboard-action-card__top">
+                <span className="admin-dashboard-action-card__icon" aria-hidden="true">
+                  {getDashboardMonogram(action.label)}
+                </span>
+                <small>Hızlı işlem</small>
+              </div>
+              <strong>{action.label}</strong>
+              <p>{action.body}</p>
             </Link>
           ))}
         </div>
@@ -294,45 +305,45 @@ function buildStats(
 
   if (kind === "platform") {
     return [
-      { label: "Şube", value: tenancy?.branchCount ?? totals?.branches ?? null, detail: "Aktif operasyon alanı", href: "/saas/subeler", tone: "neutral" },
-      { label: "Öğrenci", value: totals?.students ?? tenancy?.studentMembershipCount ?? null, detail: "Kayıtlı öğrenci kapsamı", href: "/saas/ogrenci-uyelikleri", tone: "neutral" },
-      { label: "Sipariş", value: totals?.recentOrders ?? null, detail: "Son ticaret hareketleri", href: "/ticaret", tone: "neutral" },
+      { label: "Şube", value: tenancy?.branchCount ?? totals?.branches ?? null, detail: "Aktif operasyon alanı", href: "/saas/subeler", tone: "teal" },
+      { label: "Öğrenci", value: totals?.students ?? tenancy?.studentMembershipCount ?? null, detail: "Kayıtlı öğrenci kapsamı", href: "/saas/ogrenci-uyelikleri", tone: "green" },
+      { label: "Sipariş", value: totals?.recentOrders ?? null, detail: "Son ticaret hareketleri", href: "/ticaret", tone: "amber" },
       { label: "Kurulum", value: readiness?.readinessPercentage ?? null, detail: "Hazırlık yüzdesi", href: "/beta-readiness", tone: "good" }
     ];
   }
 
   if (kind === "finance") {
     return [
-      { label: "Ödeme", value: totals?.recentPayments ?? null, detail: "Son ödeme kayıtları", href: "/ticaret", tone: "neutral" },
-      { label: "Sipariş", value: totals?.recentOrders ?? null, detail: "Son siparişler", href: "/ticaret", tone: "neutral" },
-      { label: "Şube", value: totals?.branches ?? null, detail: "Gelir kapsamı", href: "/saas/subeler", tone: "neutral" },
-      { label: "Duyuru", value: totals?.announcements ?? null, detail: "Operasyon bildirimleri", href: "/operasyon", tone: "neutral" }
+      { label: "Ödeme", value: totals?.recentPayments ?? null, detail: "Son ödeme kayıtları", href: "/ticaret", tone: "green" },
+      { label: "Sipariş", value: totals?.recentOrders ?? null, detail: "Son siparişler", href: "/ticaret", tone: "amber" },
+      { label: "Şube", value: totals?.branches ?? null, detail: "Gelir kapsamı", href: "/saas/subeler", tone: "teal" },
+      { label: "Duyuru", value: totals?.announcements ?? null, detail: "Operasyon bildirimleri", href: "/operasyon", tone: "blue" }
     ];
   }
 
   if (kind === "instructor") {
     return [
-      { label: "Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan canlı ders", href: "/operasyon", tone: "neutral" },
-      { label: "Sınıf", value: totals?.classGroups ?? null, detail: "Atanmış grup", href: "/operasyon", tone: "neutral" },
-      { label: "Öğrenci", value: totals?.students ?? null, detail: "Ders kapsamı", href: "/operasyon", tone: "neutral" },
-      { label: "Duyuru", value: totals?.announcements ?? null, detail: "Yayınlanan bildirim", href: "/operasyon", tone: "neutral" }
+      { label: "Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan canlı ders", href: "/operasyon", tone: "blue" },
+      { label: "Sınıf", value: totals?.classGroups ?? null, detail: "Atanmış grup", href: "/operasyon", tone: "teal" },
+      { label: "Öğrenci", value: totals?.students ?? null, detail: "Ders kapsamı", href: "/operasyon", tone: "green" },
+      { label: "Duyuru", value: totals?.announcements ?? null, detail: "Yayınlanan bildirim", href: "/operasyon", tone: "amber" }
     ];
   }
 
   if (kind === "coach") {
     return [
-      { label: "Öğrenci", value: totals?.students ?? null, detail: "Takip kapsamı", href: "/operasyon", tone: "neutral" },
-      { label: "Plan", value: operations?.coach.plans.length ?? null, detail: "Haftalık plan", href: "/operasyon", tone: "neutral" },
-      { label: "Not", value: operations?.coach.notes.length ?? null, detail: "Görüşme notu", href: "/operasyon", tone: "neutral" },
-      { label: "Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan oturum", href: "/operasyon", tone: "neutral" }
+      { label: "Öğrenci", value: totals?.students ?? null, detail: "Takip kapsamı", href: "/operasyon", tone: "green" },
+      { label: "Plan", value: operations?.coach.plans.length ?? null, detail: "Haftalık plan", href: "/operasyon", tone: "teal" },
+      { label: "Not", value: operations?.coach.notes.length ?? null, detail: "Görüşme notu", href: "/operasyon", tone: "navy" },
+      { label: "Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan oturum", href: "/operasyon", tone: "blue" }
     ];
   }
 
   return [
-    { label: "Öğrenci", value: totals?.students ?? null, detail: "Şube öğrenci kapsamı", href: "/saas/ogrenci-uyelikleri", tone: "neutral" },
-    { label: "Grup", value: totals?.classGroups ?? null, detail: "Aktif sınıf / grup", href: "/saas/sinif-gruplar", tone: "neutral" },
-    { label: "Eğitmen", value: totals?.instructors ?? null, detail: "Ders ekibi", href: "/saas/personel-atamalari", tone: "neutral" },
-    { label: "Canlı Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan oturum", href: "/operasyon", tone: "neutral" }
+    { label: "Öğrenci", value: totals?.students ?? null, detail: "Şube öğrenci kapsamı", href: "/saas/ogrenci-uyelikleri", tone: "green" },
+    { label: "Grup", value: totals?.classGroups ?? null, detail: "Aktif sınıf / grup", href: "/saas/sinif-gruplar", tone: "teal" },
+    { label: "Eğitmen", value: totals?.instructors ?? null, detail: "Ders ekibi", href: "/saas/personel-atamalari", tone: "navy" },
+    { label: "Canlı Ders", value: totals?.upcomingSessions ?? null, detail: "Yaklaşan oturum", href: "/operasyon", tone: "blue" }
   ];
 }
 
@@ -371,6 +382,23 @@ function DashboardList<T>({
 
 function formatCount(value?: number | null) {
   return value === null || value === undefined ? "-" : new Intl.NumberFormat("tr-TR").format(value);
+}
+
+function getDashboardMonogram(label: string) {
+  const words = label.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length > 1) {
+    return words
+      .slice(0, 2)
+      .map((word) => Array.from(word)[0])
+      .join("")
+      .toLocaleUpperCase("tr-TR");
+  }
+
+  return Array.from(words[0] ?? "")
+    .slice(0, 2)
+    .join("")
+    .toLocaleUpperCase("tr-TR");
 }
 
 function formatDate(value?: string | null) {
