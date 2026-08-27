@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { PackageCard, type PackageCardProduct } from "@ega/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -35,6 +36,27 @@ import {
   updateAdminProduct
 } from "../../lib/commerce-client";
 import {
+  buildCategoryTree,
+  buildPackageCardPreviewProduct,
+  canManageGlobalCatalog,
+  canReadCommerceOrders,
+  getAvailableCommerceTabs,
+  getCanonicalCategoryHref,
+  getCardContentWarnings,
+  getDefaultCommerceTab,
+  getProductCategoryPath,
+  getPublishReadiness,
+  getPublicSubcategoryFilterId,
+  getRootCategories,
+  getRootForCategory,
+  getSubcategoriesForRoot,
+  normalizeCategoryForSave,
+  normalizeProductForSave,
+  type CategoryTreeNode,
+  type ReadinessItem,
+  type CommerceTabKey
+} from "../../lib/commerce-catalog-ui";
+import {
   createExternalMedia,
   fetchAdminMedia,
   uploadAdminMedia,
@@ -42,7 +64,6 @@ import {
   type AdminMediaKind
 } from "../../lib/media-client";
 
-type CommerceTabKey = "categories" | "products" | "orders";
 type StaffMeResponse = Awaited<ReturnType<typeof fetchCurrentStaffUser>>;
 type StaffOverviewResponse = Awaited<ReturnType<typeof fetchStaffOverview>>;
 type MediaPickerRequest = {
@@ -64,8 +85,8 @@ const tabMeta: Record<
     description: "Ana kategori ve alt kategori yapısı"
   },
   products: {
-    label: "Ürün Yönetimi",
-    description: "Ürün, seçenek, fiyat ve sağlayıcı eşleşmeleri"
+    label: "Paket Yönetimi",
+    description: "Konum, kart içeriği, fiyat ve yayın akışı"
   },
   orders: {
     label: "Sipariş Yönetimi",
@@ -211,6 +232,12 @@ export default function AdminCommercePage() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderDetail | null>(null);
   const [categoryDraft, setCategoryDraft] = useState<AdminCatalogCategory>(createEmptyCategory());
   const [productDraft, setProductDraft] = useState<AdminCatalogProduct>(createEmptyProduct());
+  const [categorySnapshot, setCategorySnapshot] = useState(() => snapshotCategory(createEmptyCategory()));
+  const [productSnapshot, setProductSnapshot] = useState(() => snapshotProduct(createEmptyProduct()));
+  const [expandedRootSlug, setExpandedRootSlug] = useState("");
+  const [productRootFilter, setProductRootFilter] = useState("");
+  const [productSubcategoryFilter, setProductSubcategoryFilter] = useState("");
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [orderSearch, setOrderSearch] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("ALL");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
@@ -243,14 +270,23 @@ export default function AdminCommercePage() {
           return;
         }
 
-        const [staffResponse, overviewResponse, categoriesResponse, productsResponse, ordersResponse] =
-          await Promise.all([
-            fetchCurrentStaffUser(),
-            fetchStaffOverview(),
-            fetchAdminCategories(),
-            fetchAdminProducts(),
-            fetchAdminOrders()
-          ]);
+        const [staffResponse, overviewResponse] = await Promise.all([
+          fetchCurrentStaffUser(),
+          fetchStaffOverview()
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        const canManageCatalog = canManageGlobalCatalog(overviewResponse);
+        const canReadOrders = canReadCommerceOrders(overviewResponse);
+        const [categoriesResponse, productsResponse, ordersResponse] = await Promise.all([
+          canManageCatalog ? fetchAdminCategories() : Promise.resolve([]),
+          canManageCatalog ? fetchAdminProducts() : Promise.resolve([]),
+          canReadOrders ? fetchAdminOrders() : Promise.resolve([])
+        ]);
+        const defaultTab = getDefaultCommerceTab(overviewResponse);
 
         if (!active) {
           return;
@@ -261,18 +297,34 @@ export default function AdminCommercePage() {
         setCategories(categoriesResponse);
         setProducts(productsResponse);
         setOrders(ordersResponse);
+        setActiveTab((current) =>
+          getAvailableCommerceTabs(overviewResponse).includes(current)
+            ? current
+            : defaultTab ?? "orders"
+        );
 
-        if (categoriesResponse[0]) {
-          setSelectedCategoryId(categoriesResponse[0].id ?? "new");
-          setCategoryDraft(cloneCategory(categoriesResponse[0]));
+        const categoryTree = buildCategoryTree(categoriesResponse, productsResponse);
+        const firstRoot = categoryTree[0]?.category ?? categoriesResponse[0] ?? null;
+
+        if (firstRoot) {
+          const nextCategory = cloneCategory(firstRoot);
+          setSelectedCategoryId(firstRoot.id ?? "new");
+          setExpandedRootSlug(firstRoot.slug);
+          setCategoryDraft(nextCategory);
+          setCategorySnapshot(snapshotCategory(nextCategory));
         }
 
         if (productsResponse[0]) {
+          const nextProduct = cloneProduct(productsResponse[0]);
+          const root = getRootForCategory(categoriesResponse, nextProduct.categorySlug);
           setSelectedProductId(productsResponse[0].id ?? "new");
-          setProductDraft(cloneProduct(productsResponse[0]));
+          setProductDraft(nextProduct);
+          setProductSnapshot(snapshotProduct(nextProduct));
+          setProductRootFilter(root?.slug ?? "");
+          setProductSubcategoryFilter(nextProduct.categorySlug ?? "");
         }
 
-        if (ordersResponse[0]) {
+        if (canReadOrders && ordersResponse[0]) {
           const detail = await fetchAdminOrder(ordersResponse[0].orderNumber);
           setSelectedOrderNumber(detail.orderNumber);
           setSelectedOrder(detail);
@@ -322,10 +374,76 @@ export default function AdminCommercePage() {
     [categories, products, orders]
   );
 
-  const rootCategoryOptions = useMemo(
-    () => categories.filter((entry) => !entry.parentSlug || entry.id === categoryDraft.id),
-    [categories, categoryDraft.id]
+  const accessSource = overview ?? staff?.staffUser ?? null;
+  const canManageCatalog = canManageGlobalCatalog(accessSource);
+  const canReadOrders = canReadCommerceOrders(accessSource);
+  const availableTabs = useMemo(() => getAvailableCommerceTabs(accessSource), [accessSource]);
+  const categoryTree = useMemo(() => buildCategoryTree(categories, products), [categories, products]);
+  const rootCategoryOptions = useMemo(() => getRootCategories(categories), [categories]);
+  const selectedRootNode = useMemo(
+    () => categoryTree.find((node) => node.category.slug === expandedRootSlug) ?? categoryTree[0] ?? null,
+    [categoryTree, expandedRootSlug]
   );
+  const isCategoryDirty = useMemo(
+    () => snapshotCategory(categoryDraft) !== categorySnapshot,
+    [categoryDraft, categorySnapshot]
+  );
+  const isProductDirty = useMemo(
+    () => snapshotProduct(productDraft) !== productSnapshot,
+    [productDraft, productSnapshot]
+  );
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((product) => {
+        const path = getProductCategoryPath(product, categories);
+
+        if (productRootFilter && path.root?.slug !== productRootFilter) {
+          return false;
+        }
+
+        if (productSubcategoryFilter && path.subcategory?.slug !== productSubcategoryFilter) {
+          return false;
+        }
+
+        return true;
+      }),
+    [categories, productRootFilter, productSubcategoryFilter, products]
+  );
+  const productReadiness = useMemo(
+    () => getPublishReadiness(productDraft, categories),
+    [categories, productDraft]
+  );
+  const productContentWarnings = useMemo(
+    () => getCardContentWarnings(productDraft),
+    [productDraft]
+  );
+  const previewProduct = useMemo(
+    () => buildPackageCardPreviewProduct(productDraft),
+    [productDraft]
+  );
+
+  useEffect(() => {
+    if (!availableTabs.length || availableTabs.includes(activeTab)) {
+      return;
+    }
+
+    setActiveTab(availableTabs[0]);
+  }, [activeTab, availableTabs]);
+
+  useEffect(() => {
+    if (!isCategoryDirty && !isProductDirty) {
+      return;
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isCategoryDirty, isProductDirty]);
 
   const filteredOrders = useMemo(() => {
     const search = orderSearch.trim().toLowerCase();
@@ -401,6 +519,19 @@ export default function AdminCommercePage() {
     setManualReviewDraft("");
   }
 
+  function confirmDiscardCatalogChanges(target: "category" | "product" | "tab") {
+    const hasDirtyCategory = target !== "category" && isCategoryDirty;
+    const hasDirtyProduct = target !== "product" && isProductDirty;
+    const hasCurrentDirtyForm =
+      target === "category" ? isCategoryDirty : target === "product" ? isProductDirty : hasDirtyCategory || hasDirtyProduct;
+
+    if (!hasCurrentDirtyForm && !hasDirtyCategory && !hasDirtyProduct) {
+      return true;
+    }
+
+    return window.confirm("Kaydedilmemiş değişiklikler var. Değişiklikleri atmadan devam etmek istiyor musunuz?");
+  }
+
   async function refreshOrders(nextOrderNumber = selectedOrderNumber) {
     const ordersResponse = await fetchAdminOrders();
     setOrders(ordersResponse);
@@ -418,25 +549,93 @@ export default function AdminCommercePage() {
   }
 
   function openNewCategoryForm() {
+    if (!confirmDiscardCatalogChanges("category")) {
+      return;
+    }
+
+    const nextCategory = createEmptyCategory();
     setSelectedCategoryId("new");
-    setCategoryDraft(createEmptyCategory());
+    setCategoryDraft(nextCategory);
+    setCategorySnapshot(snapshotCategory(nextCategory));
     setError("");
     setSuccess("");
   }
 
-  function openNewProductForm() {
-    setSelectedProductId("new");
-    setProductDraft(createEmptyProduct());
+  function handleSelectCategory(category: AdminCatalogCategory) {
+    if (!confirmDiscardCatalogChanges("category")) {
+      return;
+    }
+
+    const nextCategory = cloneCategory(category);
+    setSelectedCategoryId(category.id ?? "new");
+    setExpandedRootSlug(category.parentSlug ?? category.slug);
+    setCategoryDraft(nextCategory);
+    setCategorySnapshot(snapshotCategory(nextCategory));
     setError("");
     setSuccess("");
+  }
+
+  function handleSelectRootCategory(category: AdminCatalogCategory) {
+    if (!confirmDiscardCatalogChanges("category")) {
+      return;
+    }
+
+    const nextCategory = cloneCategory(category);
+    setSelectedCategoryId(category.id ?? "new");
+    setExpandedRootSlug((current) => (current === category.slug ? current : category.slug));
+    setCategoryDraft(nextCategory);
+    setCategorySnapshot(snapshotCategory(nextCategory));
+    setError("");
+    setSuccess("");
+  }
+
+  function handleSelectTab(tabKey: CommerceTabKey) {
+    if (!confirmDiscardCatalogChanges("tab")) {
+      return;
+    }
+
+    setActiveTab(tabKey);
+    setError("");
+    setSuccess("");
+  }
+
+  function openNewProductForm(categorySlug: string | null = null) {
+    if (!confirmDiscardCatalogChanges("product")) {
+      return false;
+    }
+
+    const nextProduct = { ...createEmptyProduct(), categorySlug };
+    const root = getRootForCategory(categories, categorySlug);
+    setSelectedProductId("new");
+    setProductDraft(nextProduct);
+    setProductSnapshot(snapshotProduct(nextProduct));
+    setProductRootFilter(root?.slug ?? "");
+    setProductSubcategoryFilter(categorySlug ?? "");
+    setError("");
+    setSuccess("");
+    return true;
+  }
+
+  function handleProductRootFilterChange(rootSlug: string) {
+    setProductRootFilter(rootSlug);
+    setProductSubcategoryFilter("");
   }
 
   async function handleSelectProduct(productId: string) {
+    if (!confirmDiscardCatalogChanges("product")) {
+      return;
+    }
+
     setSelectedProductId(productId);
     setError("");
     setSuccess("");
     const full = await fetchAdminProduct(productId);
-    setProductDraft(cloneProduct(full));
+    const nextProduct = cloneProduct(full);
+    const root = getRootForCategory(categories, nextProduct.categorySlug);
+    setProductDraft(nextProduct);
+    setProductSnapshot(snapshotProduct(nextProduct));
+    setProductRootFilter(root?.slug ?? "");
+    setProductSubcategoryFilter(nextProduct.categorySlug ?? "");
   }
 
   async function handleSaveCategory() {
@@ -453,6 +652,8 @@ export default function AdminCommercePage() {
       setCategories(categoriesResponse);
       setSelectedCategoryId(saved.id ?? "new");
       setCategoryDraft(cloneCategory(saved));
+      setCategorySnapshot(snapshotCategory(saved));
+      setExpandedRootSlug(saved.parentSlug ?? saved.slug);
       setSuccess("Kategori kaydedildi.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Kategori kaydedilemedi.");
@@ -485,8 +686,13 @@ export default function AdminCommercePage() {
       if (nextCategory) {
         setSelectedCategoryId(nextCategory.id ?? "new");
         setCategoryDraft(cloneCategory(nextCategory));
+        setCategorySnapshot(snapshotCategory(nextCategory));
+        setExpandedRootSlug(nextCategory.parentSlug ?? nextCategory.slug);
       } else {
-        openNewCategoryForm();
+        const emptyCategory = createEmptyCategory();
+        setSelectedCategoryId("new");
+        setCategoryDraft(emptyCategory);
+        setCategorySnapshot(snapshotCategory(emptyCategory));
       }
 
       setSuccess("Kategori silindi.");
@@ -497,13 +703,16 @@ export default function AdminCommercePage() {
     }
   }
 
-  async function handleSaveProduct() {
+  async function handleSaveProduct(nextPublishStatus: "DRAFT" | "PUBLISHED" | "ARCHIVED" = "DRAFT") {
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
-      const payload = normalizeProductDraft(productDraft);
+      const payload = normalizeProductDraft({
+        ...productDraft,
+        publishStatus: nextPublishStatus
+      });
       const saved = payload.id
         ? await updateAdminProduct(payload.id, payload)
         : await createAdminProduct(payload);
@@ -511,7 +720,14 @@ export default function AdminCommercePage() {
       setProducts(productsResponse);
       setSelectedProductId(saved.id ?? "new");
       setProductDraft(cloneProduct(saved));
-      setSuccess("Ürün kaydedildi.");
+      setProductSnapshot(snapshotProduct(saved));
+      setSuccess(
+        nextPublishStatus === "PUBLISHED"
+          ? "Paket yayına alındı."
+          : nextPublishStatus === "ARCHIVED"
+            ? "Paket arşivlendi."
+            : "Taslak kaydedildi."
+      );
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Ürün kaydedilemedi.");
     } finally {
@@ -525,7 +741,11 @@ export default function AdminCommercePage() {
       return;
     }
 
-    if (!window.confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
+    const confirmation = window.prompt(
+      `Bu paketi kalıcı olarak silmek için paket slug değerini yazın: ${productDraft.slug}`
+    );
+
+    if (confirmation !== productDraft.slug) {
       return;
     }
 
@@ -543,8 +763,12 @@ export default function AdminCommercePage() {
       if (nextProduct) {
         setSelectedProductId(nextProduct.id ?? "new");
         setProductDraft(cloneProduct(nextProduct));
+        setProductSnapshot(snapshotProduct(nextProduct));
       } else {
-        openNewProductForm();
+        const emptyProduct = createEmptyProduct();
+        setSelectedProductId("new");
+        setProductDraft(emptyProduct);
+        setProductSnapshot(snapshotProduct(emptyProduct));
       }
 
       setSuccess("Ürün silindi.");
@@ -694,7 +918,9 @@ export default function AdminCommercePage() {
           <span className="admin-badge">Yetki</span>
           <h2 style={{ marginTop: 18 }}>Ticaret Yönetimi</h2>
           <p style={{ color: "var(--admin-muted)", lineHeight: 1.7 }}>
-            Paketleri, kategorileri, fiyatları ve sipariş operasyonunu yönetin.
+            {canManageCatalog
+              ? "Paket kataloğu Super Admin tarafından, sipariş operasyonu yetkili ekipler tarafından yönetilir."
+              : "Yetkinize uygun sipariş operasyonu görünümü yüklenir."}
           </p>
 
           <div className="admin-summary">
@@ -742,16 +968,12 @@ export default function AdminCommercePage() {
           </div>
 
           <div className="admin-tab-list">
-            {(Object.keys(tabMeta) as CommerceTabKey[]).map((tabKey) => (
+            {availableTabs.map((tabKey) => (
               <button
                 key={tabKey}
                 className={`admin-tab ${activeTab === tabKey ? "admin-tab--active" : ""}`}
                 type="button"
-                onClick={() => {
-                  setActiveTab(tabKey);
-                  setError("");
-                  setSuccess("");
-                }}
+                onClick={() => handleSelectTab(tabKey)}
               >
                 <strong>{tabMeta[tabKey].label}</strong>
                 <span>{tabMeta[tabKey].description}</span>
@@ -761,6 +983,14 @@ export default function AdminCommercePage() {
         </aside>
 
         <section className="admin-card admin-editor-panel">
+          {!availableTabs.length ? (
+            <div className="admin-message admin-message--error">
+              Ticaret yönetimi için yetkiniz bulunmuyor.
+            </div>
+          ) : null}
+
+          {availableTabs.length ? (
+            <>
           <div className="admin-editor-header">
             <div>
               <span className="admin-badge">{tabMeta[activeTab].label}</span>
@@ -773,54 +1003,54 @@ export default function AdminCommercePage() {
 
           {error ? <div className="admin-message admin-message--error">{error}</div> : null}
           {success ? <div className="admin-message admin-message--success">{success}</div> : null}
+            </>
+          ) : null}
 
-          {activeTab === "categories" ? (
-            <div className="admin-record-grid">
-              <div className="admin-record-list">
-                <div className="admin-toolbar admin-toolbar--split">
-                  <div className="admin-editor-meta">
-                    <span className="admin-badge">Kategori Listesi</span>
-                    <span className="admin-editor-meta__text">Kategori yapısı</span>
-                  </div>
-                  <button className="admin-button" type="button" onClick={openNewCategoryForm}>
-                    Yeni Kategori
-                  </button>
-                </div>
+          {canManageCatalog && activeTab === "categories" ? (
+            <div className="admin-category-layout">
+              <CategoryHierarchyPanel
+                tree={categoryTree}
+                products={products}
+                selectedRootSlug={selectedRootNode?.category.slug ?? ""}
+                selectedCategoryId={selectedCategoryId}
+                onNewRoot={openNewCategoryForm}
+                onSelectRoot={handleSelectRootCategory}
+                onSelectCategory={handleSelectCategory}
+                onViewPackages={(subcategory) => {
+                  if (!confirmDiscardCatalogChanges("tab")) {
+                    return;
+                  }
 
-                <div className="admin-record-list__items">
-                  {categories.map((category) => (
-                    <button
-                      key={category.id ?? category.slug}
-                      className={`admin-record-item ${
-                        selectedCategoryId === (category.id ?? "new")
-                          ? "admin-record-item--active"
-                          : ""
-                      }`}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCategoryId(category.id ?? "new");
-                        setCategoryDraft(cloneCategory(category));
-                      }}
-                    >
-                      <div className="admin-record-item__top">
-                        <strong>{category.name}</strong>
-                        <span className="admin-order-pill">
-                          {category.parentSlug ? "Alt" : "Ana"}
-                        </span>
-                      </div>
-                      <div className="admin-record-item__meta">
-                        <span>{category.slug}</span>
-                        <span>{category.isActive ? "Aktif" : "Pasif"}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  setProductRootFilter(subcategory.parentSlug ?? "");
+                  setProductSubcategoryFilter(subcategory.slug);
+                  setActiveTab("products");
+                  setError("");
+                  setSuccess("");
+                }}
+                onCreateProduct={(subcategory) => {
+                  if (openNewProductForm(subcategory.slug)) {
+                    setActiveTab("products");
+                  }
+                }}
+                onCreateChild={(parentSlug) => {
+                  if (!confirmDiscardCatalogChanges("category")) {
+                    return;
+                  }
+
+                  const child = createEmptyCategory(parentSlug);
+                  setSelectedCategoryId("new");
+                  setExpandedRootSlug(parentSlug);
+                  setCategoryDraft(child);
+                  setCategorySnapshot(snapshotCategory(child));
+                }}
+              />
 
               <div className="admin-record-editor">
                 <CategoryForm
                   draft={categoryDraft}
+                  categories={categories}
                   rootCategoryOptions={rootCategoryOptions}
+                  dirty={isCategoryDirty}
                   saving={saving}
                   onChange={setCategoryDraft}
                   onSave={handleSaveCategory}
@@ -830,41 +1060,84 @@ export default function AdminCommercePage() {
             </div>
           ) : null}
 
-          {activeTab === "products" ? (
+          {canManageCatalog && activeTab === "products" ? (
             <div className="admin-record-grid">
               <div className="admin-record-list">
                 <div className="admin-toolbar admin-toolbar--split">
                   <div className="admin-editor-meta">
-                    <span className="admin-badge">Ürün Listesi</span>
+                    <span className="admin-badge">Paket Listesi</span>
                     <span className="admin-editor-meta__text">Paket kataloğu</span>
                   </div>
-                  <button className="admin-button" type="button" onClick={openNewProductForm}>
-                    Yeni Ürün
+                  <button className="admin-button" type="button" onClick={() => openNewProductForm()}>
+                    Yeni Paket
                   </button>
                 </div>
 
-                <div className="admin-record-list__items">
-                  {products.map((product) => (
-                    <button
-                      key={product.id ?? product.slug}
-                      className={`admin-record-item ${
-                        selectedProductId === (product.id ?? "new")
-                          ? "admin-record-item--active"
-                          : ""
-                      }`}
-                      type="button"
-                      onClick={() => void handleSelectProduct(product.id ?? "")}
+                <div className="admin-filter-grid">
+                  <div className="admin-field">
+                    <label htmlFor="productRootFilter">Ana Kategori</label>
+                    <select
+                      id="productRootFilter"
+                      className="admin-input admin-select"
+                      value={productRootFilter}
+                      onChange={(event) => handleProductRootFilterChange(event.target.value)}
                     >
-                      <div className="admin-record-item__top">
-                        <strong>{product.name}</strong>
-                        <span className="admin-order-pill">{labelFrom(providerLabels, product.provider)}</span>
-                      </div>
-                      <div className="admin-record-item__meta">
-                        <span>{product.slug}</span>
-                        <span>{labelFrom(publishStatusLabels, product.publishStatus)}</span>
-                      </div>
-                    </button>
-                  ))}
+                      <option value="">Tüm ana kategoriler</option>
+                      {rootCategoryOptions.map((category) => (
+                        <option key={category.id ?? category.slug} value={category.slug}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="admin-field">
+                    <label htmlFor="productSubcategoryFilter">Alt Kategori</label>
+                    <select
+                      id="productSubcategoryFilter"
+                      className="admin-input admin-select"
+                      value={productSubcategoryFilter}
+                      onChange={(event) => setProductSubcategoryFilter(event.target.value)}
+                      disabled={!productRootFilter}
+                    >
+                      <option value="">Tüm alt kategoriler</option>
+                      {getSubcategoriesForRoot(categories, productRootFilter, true).map((category) => (
+                        <option key={category.id ?? category.slug} value={category.slug}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="admin-record-list__items">
+                  {filteredProducts.map((product) => {
+                    const path = getProductCategoryPath(product, categories);
+
+                    return (
+                      <button
+                        key={product.id ?? product.slug}
+                        className={`admin-record-item ${
+                          selectedProductId === (product.id ?? "new")
+                            ? "admin-record-item--active"
+                            : ""
+                        }`}
+                        type="button"
+                        onClick={() => void handleSelectProduct(product.id ?? "")}
+                      >
+                        <div className="admin-record-item__top">
+                          <strong>{product.name}</strong>
+                          <span className="admin-order-pill">{labelFrom(providerLabels, product.provider)}</span>
+                        </div>
+                        <div className="admin-record-item__meta">
+                          <span>{path.label}</span>
+                          <span>{labelFrom(publishStatusLabels, product.publishStatus)}</span>
+                        </div>
+                        {path.hasMissingSubcategory ? (
+                          <div className="admin-warning-line">Alt kategori ataması eksik</div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -872,7 +1145,13 @@ export default function AdminCommercePage() {
                 <ProductForm
                   draft={productDraft}
                   categories={categories}
+                  dirty={isProductDirty}
+                  readiness={productReadiness}
+                  contentWarnings={productContentWarnings}
+                  previewProduct={previewProduct}
+                  previewMode={previewMode}
                   saving={saving}
+                  onPreviewModeChange={setPreviewMode}
                   onChange={setProductDraft}
                   onSave={handleSaveProduct}
                   onDelete={handleDeleteProduct}
@@ -882,7 +1161,7 @@ export default function AdminCommercePage() {
             </div>
           ) : null}
 
-          {activeTab === "orders" ? (
+          {canReadOrders && activeTab === "orders" ? (
             <div className="admin-orders-grid">
               <div className="admin-orders-list">
                 <div className="admin-editor-meta">
@@ -1183,6 +1462,7 @@ function MediaPickerModal({
           ))}
         </div>
       </section>
+
     </div>
   );
 }
@@ -1191,28 +1471,208 @@ function getMediaAssetUsableUrl(asset: AdminMediaAsset) {
   return asset.url ?? asset.embedUrl ?? asset.publicUrl ?? asset.externalUrl ?? asset.thumbnailUrl ?? "";
 }
 
+function CategoryHierarchyPanel({
+  tree,
+  products,
+  selectedRootSlug,
+  selectedCategoryId,
+  onNewRoot,
+  onSelectRoot,
+  onSelectCategory,
+  onViewPackages,
+  onCreateProduct,
+  onCreateChild
+}: {
+  tree: CategoryTreeNode[];
+  products: AdminCatalogProduct[];
+  selectedRootSlug: string;
+  selectedCategoryId: string;
+  onNewRoot: () => void;
+  onSelectRoot: (category: AdminCatalogCategory) => void;
+  onSelectCategory: (category: AdminCatalogCategory) => void;
+  onViewPackages: (category: AdminCatalogCategory) => void;
+  onCreateProduct: (category: AdminCatalogCategory) => void;
+  onCreateChild: (parentSlug: string) => void;
+}) {
+  const selectedNode = tree.find((node) => node.category.slug === selectedRootSlug) ?? tree[0] ?? null;
+
+  return (
+    <div className="admin-category-tree">
+      <div className="admin-toolbar admin-toolbar--split">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Ana Kategoriler</span>
+          <span className="admin-editor-meta__text">Public katalog sırasıyla iki seviyeli yapı</span>
+        </div>
+        <button className="admin-button" type="button" onClick={onNewRoot}>
+          Yeni Ana Kategori
+        </button>
+      </div>
+
+      <div className="admin-category-root-grid" role="list" aria-label="Ana kategori listesi">
+        {tree.map((node) => {
+          const category = node.category;
+          const isExpanded = selectedNode?.category.slug === category.slug;
+
+          return (
+            <article
+              key={category.id ?? category.slug}
+              className="admin-category-root-card"
+              data-active={isExpanded}
+              role="listitem"
+            >
+              <button
+                type="button"
+                className="admin-category-root-card__button"
+                aria-expanded={isExpanded}
+                aria-controls={`subcategories-${category.slug}`}
+                onClick={() => onSelectRoot(category)}
+              >
+                <span className="admin-category-root-card__head">
+                  <strong>{category.name}</strong>
+                  <span
+                    className={`admin-status-pill ${
+                      category.isActive ? "admin-status-pill--active" : "admin-status-pill--suspended"
+                    }`}
+                  >
+                    {category.isActive ? "Aktif" : "Pasif"}
+                  </span>
+                </span>
+                <span className="admin-category-root-card__description">
+                  {category.description || "Açıklama girilmedi."}
+                </span>
+                <span className="admin-category-root-card__meta">
+                  <span>Sıra {category.sortOrder ?? 0}</span>
+                  <span>{node.subcategories.length} alt kategori</span>
+                  <span>{node.totalProductCount} paket</span>
+                </span>
+              </button>
+              <div className="admin-category-root-card__actions">
+                <button className="admin-button--compact" type="button" onClick={() => onSelectCategory(category)}>
+                  Düzenle
+                </button>
+                <button className="admin-button--compact" type="button" onClick={() => onCreateChild(category.slug)}>
+                  Alt Kategori Ekle
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {selectedNode ? (
+        <section
+          id={`subcategories-${selectedNode.category.slug}`}
+          className="admin-subpanel admin-category-children"
+        >
+          <div className="admin-toolbar admin-toolbar--split">
+            <div className="admin-editor-meta">
+              <span className="admin-badge">{selectedNode.category.name}</span>
+              <span className="admin-editor-meta__text">Alt kategoriler ve bağlı paketler</span>
+            </div>
+            <button
+              className="admin-button--ghost"
+              type="button"
+              onClick={() => onCreateChild(selectedNode.category.slug)}
+            >
+              Alt Kategori Ekle
+            </button>
+          </div>
+
+          <div className="admin-category-child-list" role="list" aria-label="Alt kategori listesi">
+            {selectedNode.subcategories.length ? (
+              selectedNode.subcategories.map((subcategory) => {
+                const packageCount = products.filter((product) => product.categorySlug === subcategory.slug).length;
+
+                return (
+                  <article
+                    key={subcategory.id ?? subcategory.slug}
+                    className="admin-category-child-item"
+                    data-active={selectedCategoryId === (subcategory.id ?? "new")}
+                    role="listitem"
+                  >
+                    <button
+                      className="admin-category-child-item__button"
+                      type="button"
+                      aria-current={selectedCategoryId === (subcategory.id ?? "new") ? "true" : undefined}
+                      onClick={() => onSelectCategory(subcategory)}
+                    >
+                      <span className="admin-category-child-item__head">
+                        <strong>{subcategory.name}</strong>
+                        <span
+                          className={`admin-status-pill ${
+                            subcategory.isActive ? "admin-status-pill--active" : "admin-status-pill--suspended"
+                          }`}
+                        >
+                          {subcategory.isActive ? "Aktif" : "Pasif"}
+                        </span>
+                      </span>
+                      <span className="admin-category-child-item__description">
+                        {subcategory.description || "Açıklama girilmedi."}
+                      </span>
+                      <span className="admin-category-child-item__meta">
+                        <span>Sıra {subcategory.sortOrder ?? 0}</span>
+                        <span>{packageCount} paket</span>
+                      </span>
+                    </button>
+                    <div className="admin-category-child-item__actions">
+                      <button className="admin-button--compact" type="button" onClick={() => onSelectCategory(subcategory)}>
+                        Düzenle
+                      </button>
+                      <button className="admin-button--compact" type="button" onClick={() => onViewPackages(subcategory)}>
+                        Paketleri Gör
+                      </button>
+                      <button className="admin-button--compact" type="button" onClick={() => onCreateProduct(subcategory)}>
+                        Yeni Paket Ekle
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="admin-message admin-message--success">
+                Bu ana kategori altında henüz alt kategori bulunmuyor.
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function CategoryForm({
   draft,
+  categories,
   rootCategoryOptions,
+  dirty,
   saving,
   onChange,
   onSave,
   onDelete
 }: {
   draft: AdminCatalogCategory;
+  categories: AdminCatalogCategory[];
   rootCategoryOptions: AdminCatalogCategory[];
+  dirty: boolean;
   saving: boolean;
   onChange: (nextValue: AdminCatalogCategory) => void;
   onSave: () => void;
   onDelete: () => void;
 }) {
+  const isChild = Boolean(draft.parentSlug);
+  const selectedParent = rootCategoryOptions.find((category) => category.slug === draft.parentSlug) ?? null;
+  const canonicalHref = getCanonicalCategoryHref(draft);
+
   return (
     <div className="admin-form-stack">
       <div className="admin-toolbar admin-toolbar--split">
         <div className="admin-editor-meta">
           <span className="admin-badge">{draft.id ? "Kategori Düzenle" : "Yeni Kategori"}</span>
           <span className="admin-editor-meta__text">
-            Menü ve katalog filtrelerinde kullanılan kategori yapısı
+            {isChild ? `${selectedParent?.name ?? "Ana kategori"} altında alt kategori` : "Ana kategori"}
+          </span>
+          <span className={`admin-save-state ${dirty ? "admin-save-state--dirty" : "admin-save-state--clean"}`}>
+            {dirty ? "Kaydedilmemiş" : "Kaydedildi"}
           </span>
         </div>
         <div className="admin-actions">
@@ -1227,48 +1687,91 @@ function CategoryForm({
         </div>
       </div>
 
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Kategori Türü</span>
+          <span className="admin-editor-meta__text">
+            Public katalog iki seviye kullanır: ana kategori ve alt kategori.
+          </span>
+        </div>
+
+        <div className="admin-segmented-control" role="group" aria-label="Kategori türü">
+          <button
+            type="button"
+            aria-pressed={!isChild}
+            className={!isChild ? "admin-segmented-control__item admin-segmented-control__item--active" : "admin-segmented-control__item"}
+            onClick={() => onChange({ ...draft, parentSlug: null })}
+          >
+            Ana Kategori
+          </button>
+          <button
+            type="button"
+            aria-pressed={isChild}
+            className={isChild ? "admin-segmented-control__item admin-segmented-control__item--active" : "admin-segmented-control__item"}
+            onClick={() =>
+              onChange({
+                ...draft,
+                parentSlug: draft.parentSlug ?? rootCategoryOptions.find((entry) => entry.id !== draft.id)?.slug ?? null
+              })
+            }
+          >
+            Alt Kategori
+          </button>
+        </div>
+
+        {isChild ? (
+          <div className="admin-field">
+            <label htmlFor="categoryParentSlug">Ana Kategori</label>
+            <select
+              id="categoryParentSlug"
+              className="admin-input admin-select"
+              value={draft.parentSlug ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  parentSlug: event.target.value || null
+                })
+              }
+            >
+              <option value="">Ana kategori seç</option>
+              {rootCategoryOptions
+                .filter((entry) => entry.id !== draft.id)
+                .map((entry) => (
+                  <option key={entry.id ?? entry.slug} value={entry.slug}>
+                    {entry.name}
+                  </option>
+                ))}
+            </select>
+            {selectedParent ? (
+              <small className="admin-field-help">Seçili ana kategori: {selectedParent.name}</small>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
       <div className="admin-form-grid">
         <div className="admin-field">
-          <label>Ad</label>
+          <label htmlFor="categoryName">Ad</label>
           <input
+            id="categoryName"
             className="admin-input"
             value={draft.name}
             onChange={(event) => onChange({ ...draft, name: event.target.value })}
           />
         </div>
         <div className="admin-field">
-          <label>URL Kısa Adı</label>
+          <label htmlFor="categorySlug">Slug</label>
           <input
+            id="categorySlug"
             className="admin-input"
             value={draft.slug}
             onChange={(event) => onChange({ ...draft, slug: event.target.value })}
           />
         </div>
         <div className="admin-field">
-          <label>Üst Kategori</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.parentSlug ?? ""}
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                parentSlug: event.target.value || null
-              })
-            }
-          >
-            <option value="">Ana kategori</option>
-            {rootCategoryOptions
-              .filter((entry) => entry.id !== draft.id)
-              .map((entry) => (
-                <option key={entry.id ?? entry.slug} value={entry.slug}>
-                  {entry.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Sıra</label>
+          <label htmlFor="categorySortOrder">Sıra</label>
           <input
+            id="categorySortOrder"
             className="admin-input"
             type="number"
             value={draft.sortOrder ?? 0}
@@ -1283,39 +1786,12 @@ function CategoryForm({
       </div>
 
       <div className="admin-field">
-        <label>Açıklama</label>
+        <label htmlFor="categoryDescription">Açıklama</label>
         <textarea
+          id="categoryDescription"
           className="admin-input admin-textarea"
           value={draft.description ?? ""}
           onChange={(event) => onChange({ ...draft, description: event.target.value })}
-        />
-      </div>
-
-      <div className="admin-form-grid">
-        <div className="admin-field">
-          <label>SEO Başlık</label>
-          <input
-            className="admin-input"
-            value={draft.seoTitle ?? ""}
-            onChange={(event) => onChange({ ...draft, seoTitle: event.target.value })}
-          />
-        </div>
-        <div className="admin-field">
-          <label>CTA Bağlantısı</label>
-          <input
-            className="admin-input"
-            value={draft.ctaHref ?? ""}
-            onChange={(event) => onChange({ ...draft, ctaHref: event.target.value })}
-          />
-        </div>
-      </div>
-
-      <div className="admin-field">
-        <label>SEO Açıklama</label>
-        <textarea
-          className="admin-input admin-textarea admin-textarea--compact"
-          value={draft.seoDescription ?? ""}
-          onChange={(event) => onChange({ ...draft, seoDescription: event.target.value })}
         />
       </div>
 
@@ -1327,6 +1803,62 @@ function CategoryForm({
         />
         <span>Aktif kategori olarak yayınla</span>
       </label>
+
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Public Bağlantı Önizlemesi</span>
+          <span className="admin-editor-meta__text">
+            {isChild
+              ? `Alt filtre: ${getPublicSubcategoryFilterId(draft) || "-"}`
+              : "Ana kategori filtresi"}
+          </span>
+        </div>
+        <code className="admin-code-preview">{canonicalHref || "Slug girildiğinde otomatik oluşur."}</code>
+      </section>
+
+      <details className="admin-subpanel">
+        <summary>Gelişmiş Ayarlar</summary>
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <label htmlFor="categorySeoTitle">SEO Başlık</label>
+            <input
+              id="categorySeoTitle"
+              className="admin-input"
+              value={draft.seoTitle ?? ""}
+              onChange={(event) => onChange({ ...draft, seoTitle: event.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="categorySeoDescription">SEO Açıklama</label>
+            <textarea
+              id="categorySeoDescription"
+              className="admin-input admin-textarea admin-textarea--compact"
+              value={draft.seoDescription ?? ""}
+              onChange={(event) => onChange({ ...draft, seoDescription: event.target.value })}
+            />
+          </div>
+        </div>
+      </details>
+
+      <details className="admin-subpanel">
+        <summary>Gelişmiş Teknik Ayarlar</summary>
+        <div className="admin-field">
+          <label htmlFor="categoryCtaHref">Raw CTA / Filtre URL</label>
+          <input
+            id="categoryCtaHref"
+            className="admin-input"
+            value={draft.ctaHref ?? ""}
+            placeholder={canonicalHref}
+            onChange={(event) => onChange({ ...draft, ctaHref: event.target.value })}
+          />
+          <small className="admin-field-help">
+            Boş bırakılırsa canonical public filtre bağlantısı otomatik kaydedilir.
+          </small>
+        </div>
+        <div className="admin-field-help">
+          Kayıtlı kategori sayısı: {categories.length}
+        </div>
+      </details>
     </div>
   );
 }
@@ -1334,7 +1866,13 @@ function CategoryForm({
 function ProductForm({
   draft,
   categories,
+  dirty,
+  readiness,
+  contentWarnings,
+  previewProduct,
+  previewMode,
   saving,
+  onPreviewModeChange,
   onChange,
   onSave,
   onDelete,
@@ -1342,14 +1880,33 @@ function ProductForm({
 }: {
   draft: AdminCatalogProduct;
   categories: AdminCatalogCategory[];
+  dirty: boolean;
+  readiness: ReadinessItem[];
+  contentWarnings: string[];
+  previewProduct: PackageCardProduct;
+  previewMode: "desktop" | "mobile";
   saving: boolean;
+  onPreviewModeChange: (mode: "desktop" | "mobile") => void;
   onChange: (nextValue: AdminCatalogProduct) => void;
-  onSave: () => void;
+  onSave: (nextPublishStatus?: "DRAFT" | "PUBLISHED" | "ARCHIVED") => void;
   onDelete: () => void;
   onOpenMediaPicker: (request: MediaPickerRequest) => void;
 }) {
   const canShowExternalMapping = draft.provider === "UNIKAZAN";
   const [mediaBusy, setMediaBusy] = useState(false);
+  const rootCategories = getRootCategories(categories);
+  const selectedRoot = getRootForCategory(categories, draft.categorySlug);
+  const selectedCategory = categories.find((category) => category.slug === draft.categorySlug) ?? null;
+  const selectedSubcategorySlug = selectedCategory?.parentSlug ? selectedCategory.slug : "";
+  const selectedRootSlug = selectedRoot?.slug ?? "";
+  const activeSubcategoryOptions = getSubcategoriesForRoot(categories, selectedRootSlug);
+  const subcategoryOptions =
+    selectedCategory?.parentSlug === selectedRootSlug &&
+    selectedCategory.isActive === false &&
+    !activeSubcategoryOptions.some((category) => category.slug === selectedCategory.slug)
+      ? [...activeSubcategoryOptions, selectedCategory]
+      : activeSubcategoryOptions;
+  const categoryPath = getProductCategoryPath(draft, categories);
 
   function updateVariant(index: number, nextValue: AdminCatalogVariant) {
     onChange({
@@ -1431,155 +1988,222 @@ function ProductForm({
     <div className="admin-form-stack">
       <div className="admin-toolbar admin-toolbar--split">
         <div className="admin-editor-meta">
-          <span className="admin-badge">{draft.id ? "Ürün Düzenle" : "Yeni Ürün"}</span>
+          <span className="admin-badge">{draft.id ? "Paket Düzenle" : "Yeni Paket"}</span>
           <span className="admin-editor-meta__text">
-            Paket seçenekleri, fiyat ve sağlayıcı eşleşmeleriyle birlikte
+            {categoryPath.label}
+          </span>
+          <span className={`admin-save-state ${dirty ? "admin-save-state--dirty" : "admin-save-state--clean"}`}>
+            {dirty ? "Kaydedilmemiş" : "Kaydedildi"}
           </span>
         </div>
         <div className="admin-actions">
+          <button className="admin-button--ghost" type="button" disabled={saving} onClick={() => onSave("DRAFT")}>
+            {saving ? "Kaydediliyor..." : "Taslağı Kaydet"}
+          </button>
+          <a className="admin-button--ghost" href="#admin-card-preview">
+            Önizle
+          </a>
+          <button className="admin-button" type="button" disabled={saving} onClick={() => onSave("PUBLISHED")}>
+            {saving ? "Yayınlanıyor..." : "Yayınla"}
+          </button>
           {draft.id ? (
-            <button className="admin-button--ghost" type="button" onClick={onDelete}>
+            <button className="admin-button--ghost" type="button" disabled={saving} onClick={() => onSave("ARCHIVED")}>
+              Arşivle
+            </button>
+          ) : null}
+          {draft.id ? (
+            <button className="admin-button--ghost" type="button" disabled={saving} onClick={onDelete}>
               Sil
             </button>
           ) : null}
-          <button className="admin-button" type="button" disabled={saving} onClick={onSave}>
-            {saving ? "Kaydediliyor..." : "Kaydet"}
-          </button>
         </div>
       </div>
 
-      <div className="admin-form-grid">
-        <div className="admin-field">
-          <label>Ürün Adı</label>
-          <input
-            className="admin-input"
-            value={draft.name}
-            onChange={(event) => onChange({ ...draft, name: event.target.value })}
-          />
-        </div>
-        <div className="admin-field">
-          <label>URL Kısa Adı</label>
-          <input
-            className="admin-input"
-            value={draft.slug}
-            onChange={(event) => onChange({ ...draft, slug: event.target.value })}
-          />
-        </div>
-        <div className="admin-field">
-          <label>Kategori</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.categorySlug ?? ""}
-            onChange={(event) => onChange({ ...draft, categorySlug: event.target.value || null })}
-          >
-            <option value="">Kategori seç</option>
-            {categories.map((category) => (
-              <option key={category.id ?? category.slug} value={category.slug}>
-                {category.parentSlug ? `${category.parentSlug} / ${category.name}` : category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Ürün Tipi</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.type}
-            onChange={(event) => onChange({ ...draft, type: event.target.value })}
-          >
-            {productTypeOptions.map((option) => (
-              <option key={option} value={option}>
-                {labelFrom(productTypeLabels, option)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Sağlayıcı</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.provider}
-            onChange={(event) => onChange({ ...draft, provider: event.target.value })}
-          >
-            {providerOptions.map((option) => (
-              <option key={option} value={option}>
-                {labelFrom(providerLabels, option)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Yayın Durumu</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.publishStatus ?? "DRAFT"}
-            onChange={(event) => onChange({ ...draft, publishStatus: event.target.value })}
-          >
-            {publishStatusOptions.map((option) => (
-              <option key={option} value={option}>
-                {labelFrom(publishStatusLabels, option)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Renk Tonu</label>
-          <select
-            className="admin-input admin-select"
-            value={draft.accentColor ?? "blue"}
-            onChange={(event) => onChange({ ...draft, accentColor: event.target.value })}
-          >
-            {accentOptions.map((option) => (
-              <option key={option} value={option}>
-                {labelFrom(accentLabels, option)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-field">
-          <label>Sıra</label>
-          <input
-            className="admin-input"
-            type="number"
-            value={draft.sortOrder ?? 0}
-            onChange={(event) => onChange({ ...draft, sortOrder: Number(event.target.value) })}
-          />
-        </div>
-      </div>
+      {categoryPath.hasMissingSubcategory ? (
+        <div className="admin-message admin-message--error">Alt kategori ataması eksik</div>
+      ) : null}
 
-      <div className="admin-form-grid">
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Step 1 — Konum ve Temel Bilgiler</span>
+          <span className="admin-editor-meta__text">Paket public katalogda seçilen alt kategoriye kaydedilir.</span>
+        </div>
+
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <label htmlFor="productRootCategory">Ana Kategori</label>
+            <select
+              id="productRootCategory"
+              className="admin-input admin-select"
+              value={selectedRootSlug}
+              onChange={(event) => {
+                const nextRootSlug = event.target.value;
+                const currentChildStillValid = selectedCategory?.parentSlug === nextRootSlug;
+                onChange({
+                  ...draft,
+                  categorySlug: currentChildStillValid ? selectedCategory?.slug ?? null : null
+                });
+              }}
+            >
+              <option value="">Ana kategori seç</option>
+              {rootCategories.map((category) => (
+                <option key={category.id ?? category.slug} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productSubcategory">Alt Kategori</label>
+            <select
+              id="productSubcategory"
+              className="admin-input admin-select"
+              value={selectedSubcategorySlug}
+              onChange={(event) => onChange({ ...draft, categorySlug: event.target.value || null })}
+              disabled={!selectedRootSlug}
+            >
+              <option value="">Alt kategori seç</option>
+              {subcategoryOptions.map((category) => (
+                <option key={category.id ?? category.slug} value={category.slug}>
+                  {category.name}
+                  {category.isActive === false ? " (pasif)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productName">Paket Adı</label>
+            <input
+              id="productName"
+              className="admin-input"
+              value={draft.name}
+              onChange={(event) => onChange({ ...draft, name: event.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productSlug">Slug</label>
+            <input
+              id="productSlug"
+              className="admin-input"
+              value={draft.slug}
+              onChange={(event) => onChange({ ...draft, slug: event.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productType">Paket Türü</label>
+            <select
+              id="productType"
+              className="admin-input admin-select"
+              value={draft.type}
+              onChange={(event) => onChange({ ...draft, type: event.target.value })}
+            >
+              {productTypeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {labelFrom(productTypeLabels, option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productProvider">Sağlayıcı</label>
+            <select
+              id="productProvider"
+              className="admin-input admin-select"
+              value={draft.provider}
+              onChange={(event) => onChange({ ...draft, provider: event.target.value })}
+            >
+              {providerOptions.map((option) => (
+                <option key={option} value={option}>
+                  {labelFrom(providerLabels, option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productStatus">Durum</label>
+            <select
+              id="productStatus"
+              className="admin-input admin-select"
+              value={draft.publishStatus ?? "DRAFT"}
+              onChange={(event) => onChange({ ...draft, publishStatus: event.target.value })}
+            >
+              {publishStatusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {labelFrom(publishStatusLabels, option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <label htmlFor="productSortOrder">Sıra</label>
+            <input
+              id="productSortOrder"
+              className="admin-input"
+              type="number"
+              value={draft.sortOrder ?? 0}
+              onChange={(event) => onChange({ ...draft, sortOrder: Number(event.target.value) })}
+            />
+          </div>
+        </div>
+
         <div className="admin-field">
-          <label>Kısa Açıklama</label>
+          <label htmlFor="productShortDescription">Kısa Açıklama</label>
           <textarea
+            id="productShortDescription"
             className="admin-input admin-textarea admin-textarea--compact"
             value={draft.shortDescription ?? ""}
             onChange={(event) => onChange({ ...draft, shortDescription: event.target.value })}
           />
         </div>
-        <div className="admin-field">
-          <MediaUrlField
-            label="Kapak Görsel URL"
-            value={draft.coverImageUrl ?? ""}
-            kinds={["IMAGE", "BRANDING"]}
-            pickerTitle={`${draft.name || "Ürün"} kapak görseli seç`}
-            onChange={(value) => onChange({ ...draft, coverImageUrl: value })}
-            onOpenMediaPicker={onOpenMediaPicker}
-          />
-          <input
-            className="admin-input admin-file-input"
-            type="file"
-            accept="image/*"
-            disabled={mediaBusy}
-            onChange={(event) =>
-              void handleUploadProductMedia(event.target.files?.[0] ?? null, "coverImageUrl")
-            }
-          />
-        </div>
-      </div>
+      </section>
 
       <section className="admin-subpanel">
         <div className="admin-editor-meta">
-          <span className="admin-badge">Video</span>
+          <span className="admin-badge">Step 3 — Kart İçeriği</span>
+          <span className="admin-editor-meta__text">Mevcut public kart tasarımını besleyen kontrollü alanlar</span>
+        </div>
+
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <label htmlFor="productAccentColor">Kart Tonu</label>
+            <select
+              id="productAccentColor"
+              className="admin-input admin-select"
+              value={draft.accentColor ?? "blue"}
+              onChange={(event) => onChange({ ...draft, accentColor: event.target.value })}
+            >
+              {accentOptions.map((option) => (
+                <option key={option} value={option}>
+                  {labelFrom(accentLabels, option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="admin-field">
+            <MediaUrlField
+              label="Kapak Görsel URL"
+              value={draft.coverImageUrl ?? ""}
+              kinds={["IMAGE", "BRANDING"]}
+              pickerTitle={`${draft.name || "Paket"} kapak görseli seç`}
+              onChange={(value) => onChange({ ...draft, coverImageUrl: value })}
+              onOpenMediaPicker={onOpenMediaPicker}
+            />
+            <input
+              className="admin-input admin-file-input"
+              type="file"
+              accept="image/*"
+              disabled={mediaBusy}
+              onChange={(event) =>
+                void handleUploadProductMedia(event.target.files?.[0] ?? null, "coverImageUrl")
+              }
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Kart Medyası</span>
           <span className="admin-editor-meta__text">Paket tanıtım medyasını yönetin.</span>
         </div>
 
@@ -1674,24 +2298,27 @@ function ProductForm({
         />
       </div>
 
-      <div className="admin-form-grid">
-        <div className="admin-field">
-          <label>SEO Başlık</label>
-          <input
-            className="admin-input"
-            value={draft.seoTitle ?? ""}
-            onChange={(event) => onChange({ ...draft, seoTitle: event.target.value })}
-          />
+      <details className="admin-subpanel">
+        <summary>SEO</summary>
+        <div className="admin-form-grid">
+          <div className="admin-field">
+            <label>SEO Başlık</label>
+            <input
+              className="admin-input"
+              value={draft.seoTitle ?? ""}
+              onChange={(event) => onChange({ ...draft, seoTitle: event.target.value })}
+            />
+          </div>
+          <div className="admin-field">
+            <label>SEO Açıklama</label>
+            <textarea
+              className="admin-input admin-textarea admin-textarea--compact"
+              value={draft.seoDescription ?? ""}
+              onChange={(event) => onChange({ ...draft, seoDescription: event.target.value })}
+            />
+          </div>
         </div>
-        <div className="admin-field">
-          <label>SEO Açıklama</label>
-          <textarea
-            className="admin-input admin-textarea admin-textarea--compact"
-            value={draft.seoDescription ?? ""}
-            onChange={(event) => onChange({ ...draft, seoDescription: event.target.value })}
-          />
-        </div>
-      </div>
+      </details>
 
       <label className="admin-check admin-check--inline">
         <input
@@ -1705,9 +2332,9 @@ function ProductForm({
       <section className="admin-subpanel">
         <div className="admin-toolbar admin-toolbar--split">
           <div className="admin-editor-meta">
-            <span className="admin-badge">Varyantlar</span>
+            <span className="admin-badge">Step 2 — Fiyat ve Paket Seçenekleri</span>
             <span className="admin-editor-meta__text">
-              Her ürün en az bir varyanta sahip olmalıdır
+              Her paket en az bir seçeneğe sahip olmalıdır
             </span>
           </div>
           <button
@@ -1903,7 +2530,7 @@ function ProductForm({
       <section className="admin-subpanel">
         <div className="admin-toolbar admin-toolbar--split">
           <div className="admin-editor-meta">
-            <span className="admin-badge">Özellikler</span>
+            <span className="admin-badge">Kart Özellikleri</span>
             <span className="admin-editor-meta__text">
               Kartlarda ve detay sayfalarında gösterilen madde başlıkları
             </span>
@@ -1980,6 +2607,65 @@ function ProductForm({
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="admin-subpanel" id="admin-card-preview">
+        <div className="admin-toolbar admin-toolbar--split">
+          <div className="admin-editor-meta">
+            <span className="admin-badge">Step 4 — Önizleme ve Yayın</span>
+            <span className="admin-editor-meta__text">Public kart bileşeniyle gerçek önizleme</span>
+          </div>
+          <div className="admin-segmented-control" role="group" aria-label="Önizleme modu">
+            <button
+              type="button"
+              aria-pressed={previewMode === "desktop"}
+              className={
+                previewMode === "desktop"
+                  ? "admin-segmented-control__item admin-segmented-control__item--active"
+                  : "admin-segmented-control__item"
+              }
+              onClick={() => onPreviewModeChange("desktop")}
+            >
+              Desktop Card
+            </button>
+            <button
+              type="button"
+              aria-pressed={previewMode === "mobile"}
+              className={
+                previewMode === "mobile"
+                  ? "admin-segmented-control__item admin-segmented-control__item--active"
+                  : "admin-segmented-control__item"
+              }
+              onClick={() => onPreviewModeChange("mobile")}
+            >
+              Mobile Card
+            </button>
+          </div>
+        </div>
+
+        {contentWarnings.length ? (
+          <ul className="admin-warning-list" role="status">
+            {contentWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="admin-preview-and-checklist">
+          <div className="admin-package-preview" data-preview-mode={previewMode}>
+            <PackageCard product={previewProduct} previewMode />
+          </div>
+
+          <div className="admin-readiness-list" aria-label="Yayın hazırlık listesi">
+            {readiness.map((item) => (
+              <div key={item.key} className="admin-readiness-item" data-ready={item.ready}>
+                <strong className="admin-readiness-item__status">{item.ready ? "Hazır" : "Eksik"}</strong>
+                <span>{item.label}</span>
+                <p>{item.message}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </div>
@@ -2288,12 +2974,12 @@ function OrderManagementPanel({
   );
 }
 
-function createEmptyCategory(): AdminCatalogCategory {
+function createEmptyCategory(parentSlug: string | null = null): AdminCatalogCategory {
   return {
     id: undefined,
     slug: "",
     name: "",
-    parentSlug: null,
+    parentSlug,
     description: "",
     seoTitle: "",
     seoDescription: "",
@@ -2371,52 +3057,19 @@ function cloneProduct(product: AdminCatalogProduct): AdminCatalogProduct {
 }
 
 function normalizeCategoryDraft(draft: AdminCatalogCategory): AdminCatalogCategory {
-  return {
-    ...draft,
-    slug: draft.slug.trim(),
-    name: draft.name.trim(),
-    parentSlug: draft.parentSlug || null,
-    description: draft.description?.trim() || null,
-    seoTitle: draft.seoTitle?.trim() || null,
-    seoDescription: draft.seoDescription?.trim() || null,
-    ctaHref: draft.ctaHref?.trim() || null
-  };
+  return normalizeCategoryForSave(draft);
 }
 
 function normalizeProductDraft(draft: AdminCatalogProduct): AdminCatalogProduct {
-  return {
-    ...draft,
-    slug: draft.slug.trim(),
-    name: draft.name.trim(),
-    categorySlug: draft.categorySlug || null,
-    shortDescription: draft.shortDescription?.trim() || null,
-    description: draft.description?.trim() || null,
-    seoTitle: draft.seoTitle?.trim() || null,
-    seoDescription: draft.seoDescription?.trim() || null,
-    coverImageUrl: draft.coverImageUrl?.trim() || null,
-    introVideoSourceType: draft.introVideoUrl?.trim()
-      ? (draft.introVideoSourceType ?? "EMBED")
-      : null,
-    introVideoUrl: draft.introVideoUrl?.trim() || null,
-    introVideoPosterUrl: draft.introVideoPosterUrl?.trim() || null,
-    introVideoTitle: draft.introVideoTitle?.trim() || null,
-    variants: draft.variants.map((variant, index) => ({
-      ...variant,
-      title: variant.title.trim(),
-      sku: variant.sku.trim(),
-      billingLabel: variant.billingLabel?.trim() || null,
-      compareAtPrice: variant.compareAtPrice?.trim() || null,
-      externalProductId: variant.externalProductId?.trim() || null,
-      externalVariantId: variant.externalVariantId?.trim() || null,
-      isDefault: variant.isDefault ?? index === 0
-    })),
-    features: draft.features.map((feature) => ({
-      ...feature,
-      title: feature.title.trim(),
-      description: feature.description?.trim() || null,
-      iconKey: feature.iconKey?.trim() || null
-    }))
-  };
+  return normalizeProductForSave(draft);
+}
+
+function snapshotCategory(draft: AdminCatalogCategory) {
+  return JSON.stringify(normalizeCategoryDraft(draft));
+}
+
+function snapshotProduct(draft: AdminCatalogProduct) {
+  return JSON.stringify(normalizeProductDraft(draft));
 }
 
 function formatDateTime(value?: string | null) {

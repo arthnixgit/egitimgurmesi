@@ -71,6 +71,22 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         baseURL: ADMIN_BASE_URL
       }
+    },
+    {
+      name: "admin-commerce-catalog-mocked",
+      testMatch: /.*admin\.commerce-catalog-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: ADMIN_BASE_URL
+      }
+    },
+    {
+      name: "public-catalog-responsive",
+      testMatch: /.*public\.catalog-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: WEB_BASE_URL
+      }
     }
   ]
 });

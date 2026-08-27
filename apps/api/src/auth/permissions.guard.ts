@@ -8,7 +8,11 @@ import {
 import { Reflector } from "@nestjs/core";
 import { AuthActorType } from "@ega/db";
 import type { Request } from "express";
-import { REQUIRED_PERMISSIONS_KEY, STAFF_ONLY_KEY } from "./permissions.decorator";
+import {
+  REQUIRED_PERMISSIONS_KEY,
+  STAFF_ONLY_KEY,
+  SUPER_ADMIN_ONLY_KEY
+} from "./permissions.decorator";
 import type { AuthenticatedRequestContext } from "./auth.types";
 
 @Injectable()
@@ -32,6 +36,15 @@ export class PermissionsGuard implements CanActivate {
 
     if (staffOnly && auth.actorType !== AuthActorType.STAFF) {
       throw new ForbiddenException("Bu alan yalnızca personel erişimine açıktır.");
+    }
+
+    const superAdminOnly = this.reflector.getAllAndOverride<boolean>(SUPER_ADMIN_ONLY_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+
+    if (superAdminOnly && !auth.isSuperAdmin) {
+      throw new ForbiddenException("Paket kataloğunu yalnızca Super Admin yönetebilir.");
     }
 
     const requiredPermissions =

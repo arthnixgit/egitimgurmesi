@@ -164,7 +164,7 @@ test("media picker dialog fits the viewport", async ({ page }) => {
   activeRoute = "/ticaret";
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto("/ticaret", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: /Ürün Yönetimi/ }).click();
+  await page.getByRole("button", { name: /Paket Yönetimi/ }).click();
   await page.getByRole("button", { name: /Medyadan Seç/ }).first().click();
   await expect(page.locator(".admin-media-picker__panel")).toBeVisible();
   await assertPanelsFitViewport(page);
@@ -854,11 +854,14 @@ function marketingPages() {
 }
 
 function categories() {
-  return [{ id: "cat_1", slug: "lgs", name: "LGS Paketleri", description: "LGS hazırlık", sortOrder: 1, isActive: true }];
+  return [
+    { id: "cat_online", slug: "online-kocluk", name: "Online Koçluk", parentSlug: null, description: "Online koçluk", sortOrder: 1, isActive: true },
+    { id: "cat_yks", slug: "online-kocluk--yks", name: "YKS", parentSlug: "online-kocluk", parentName: "Online Koçluk", description: "YKS hazırlık", sortOrder: 1, isActive: true }
+  ];
 }
 
 function products() {
-  return [{ id: "product_1", slug: "lgs-hazirlik", name: "LGS Hazırlık Paketi", categorySlug: "lgs", shortDescription: "Video ve koçluk", description: "LGS hazırlık içeriği", type: "HYBRID_PACKAGE", provider: "LOCAL", publishStatus: "PUBLISHED", isFeatured: true, sortOrder: 1, accentColor: "teal", coverImageUrl: "", variants: [{ id: "variant_1", title: "Aylık", sku: "LGS-AYLIK", price: "1200", currency: "TRY", isDefault: true, isActive: true, sortOrder: 1 }], features: [{ id: "feature_1", title: "Canlı ders", description: "Haftalık ders", sortOrder: 1 }] }];
+  return [{ id: "product_1", slug: "yks-hazirlik", name: "YKS Hazırlık Paketi", categorySlug: "online-kocluk--yks", categoryName: "YKS", rootCategorySlug: "online-kocluk", rootCategoryName: "Online Koçluk", shortDescription: "Video ve koçluk", description: "YKS hazırlık içeriği", type: "HYBRID_PACKAGE", provider: "LOCAL", publishStatus: "PUBLISHED", isFeatured: true, sortOrder: 1, accentColor: "teal", coverImageUrl: "", variants: [{ id: "variant_1", title: "Aylık", sku: "YKS-AYLIK", price: "1200", currency: "TRY", isDefault: true, isActive: true, sortOrder: 1 }], features: [{ id: "feature_1", title: "Canlı ders", description: "Haftalık ders", sortOrder: 1 }] }];
 }
 
 function orderSummary() {

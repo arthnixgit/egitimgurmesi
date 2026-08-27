@@ -5,12 +5,15 @@ export type AdminCatalogCategory = {
   slug: string;
   name: string;
   parentSlug?: string | null;
+  parentName?: string | null;
   description?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   ctaHref?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  childCategoryCount?: number;
+  productCount?: number;
 };
 
 export type AdminCatalogFeature = {
@@ -43,6 +46,12 @@ export type AdminCatalogProduct = {
   slug: string;
   name: string;
   categorySlug?: string | null;
+  categoryName?: string | null;
+  rootCategorySlug?: string | null;
+  rootCategoryName?: string | null;
+  categoryIsRoot?: boolean;
+  categoryIsActive?: boolean | null;
+  rootCategoryIsActive?: boolean | null;
   shortDescription?: string | null;
   description?: string | null;
   type: string;

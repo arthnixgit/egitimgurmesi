@@ -12,7 +12,7 @@ import {
 import { PERMISSION_KEYS } from "@ega/db";
 import { AccessTokenGuard } from "../auth/access-token.guard";
 import { CurrentAuth } from "../auth/current-auth.decorator";
-import { StaffOnly, RequirePermissions } from "../auth/permissions.decorator";
+import { StaffOnly, RequirePermissions, RequireSuperAdmin } from "../auth/permissions.decorator";
 import { PermissionsGuard } from "../auth/permissions.guard";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { AdminCommerceService } from "./admin-commerce.service";
@@ -32,19 +32,19 @@ export class AdminCommerceController {
   constructor(private readonly adminCommerceService: AdminCommerceService) {}
 
   @Get("catalog")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
-  getCatalogDocument() {
-    return this.adminCommerceService.getCatalogDocument();
+  @RequireSuperAdmin()
+  getCatalogDocument(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminCommerceService.getCatalogDocument(auth);
   }
 
   @Get("categories")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
-  listCategories() {
-    return this.adminCommerceService.listCategories();
+  @RequireSuperAdmin()
+  listCategories(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminCommerceService.listCategories(auth);
   }
 
   @Post("categories")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   createCategory(
     @Body() payload: SaveProductCategoryDto,
     @CurrentAuth() auth: AuthenticatedRequestContext
@@ -53,7 +53,7 @@ export class AdminCommerceController {
   }
 
   @Patch("categories/:categoryId")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   updateCategory(
     @Param("categoryId") categoryId: string,
     @Body() payload: SaveProductCategoryDto,
@@ -63,7 +63,7 @@ export class AdminCommerceController {
   }
 
   @Delete("categories/:categoryId")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   deleteCategory(
     @Param("categoryId") categoryId: string,
     @CurrentAuth() auth: AuthenticatedRequestContext
@@ -72,19 +72,22 @@ export class AdminCommerceController {
   }
 
   @Get("products")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
-  listProducts() {
-    return this.adminCommerceService.listProducts();
+  @RequireSuperAdmin()
+  listProducts(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminCommerceService.listProducts(auth);
   }
 
   @Get("products/:productId")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
-  getProduct(@Param("productId") productId: string) {
-    return this.adminCommerceService.getProduct(productId);
+  @RequireSuperAdmin()
+  getProduct(
+    @Param("productId") productId: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminCommerceService.getProduct(productId, auth);
   }
 
   @Post("products")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   createProduct(
     @Body() payload: SaveProductDto,
     @CurrentAuth() auth: AuthenticatedRequestContext
@@ -93,7 +96,7 @@ export class AdminCommerceController {
   }
 
   @Patch("products/:productId")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   updateProduct(
     @Param("productId") productId: string,
     @Body() payload: SaveProductDto,
@@ -103,7 +106,7 @@ export class AdminCommerceController {
   }
 
   @Delete("products/:productId")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   deleteProduct(
     @Param("productId") productId: string,
     @CurrentAuth() auth: AuthenticatedRequestContext
@@ -112,7 +115,7 @@ export class AdminCommerceController {
   }
 
   @Put("catalog")
-  @RequirePermissions(PERMISSION_KEYS.productsManage)
+  @RequireSuperAdmin()
   saveCatalogDocument(
     @Body() payload: SaveCatalogDocumentDto,
     @CurrentAuth() auth: AuthenticatedRequestContext

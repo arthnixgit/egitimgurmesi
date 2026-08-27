@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { type MouseEvent, type ReactNode } from "react";
 
 type SectionHeadingProps = {
   eyebrow?: string;
@@ -13,6 +13,8 @@ type ButtonLinkProps = {
   target?: "_blank" | "_self";
   rel?: string;
   className?: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  ariaDisabled?: boolean;
 };
 
 type MetricCardProps = {
@@ -64,9 +66,25 @@ function buttonClassName(
   return className ? `${base} ${className}` : base;
 }
 
-export function ButtonLink({ href, label, variant = "primary", target, rel, className }: ButtonLinkProps) {
+export function ButtonLink({
+  href,
+  label,
+  variant = "primary",
+  target,
+  rel,
+  className,
+  onClick,
+  ariaDisabled
+}: ButtonLinkProps) {
   return (
-    <a className={buttonClassName(variant, className)} href={href} target={target} rel={rel}>
+    <a
+      className={buttonClassName(variant, className)}
+      href={href}
+      target={target}
+      rel={rel}
+      onClick={onClick}
+      aria-disabled={ariaDisabled}
+    >
       {label}
     </a>
   );

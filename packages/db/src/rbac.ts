@@ -149,14 +149,11 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
   {
     key: ROLE_KEYS.admin,
     name: "Admin",
-    description: "Gunluk operasyon, katalog, siparis ve icerik sureclerini yonetir.",
+    description: "Gunluk operasyon, siparis ve icerik sureclerini yonetir.",
     permissions: [
       dashboardRead,
       settingsRead,
       cmsManage,
-      productsManage,
-      pricingManage,
-      couponsManage,
       ordersRead,
       ordersManage,
       paymentsRead,
@@ -191,7 +188,6 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       usersRead,
       usersManage,
       staffManage,
-      productsManage,
       ordersRead,
       paymentsRead,
       reportsFinancialExport,

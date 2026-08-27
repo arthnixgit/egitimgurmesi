@@ -18,15 +18,22 @@ import { PrismaService } from "../database/prisma.service";
 import {
   RecordManualReviewDto,
   SaveCatalogDocumentDto,
+  SaveProductFeatureDto,
   SaveProductCategoryDto,
   SaveProductDto,
   UpdateOrderNoteDto,
   UpdateOrderStatusDto
 } from "./dto/admin-commerce.dto";
 
+const CATALOG_SUPER_ADMIN_MESSAGE = "Paket kataloğunu yalnızca Super Admin yönetebilir.";
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)?$/;
+const VALID_ACCENT_COLORS = new Set(["blue", "teal", "amber"]);
+
 const catalogCategoryInclude = {
   parentCategory: {
     select: {
+      id: true,
+      name: true,
       slug: true,
       parentCategoryId: true
     }
@@ -45,8 +52,15 @@ const catalogCategoryInclude = {
 
 const catalogProductInclude = {
   category: {
-    select: {
-      slug: true
+    include: {
+      parentCategory: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          isActive: true
+        }
+      }
     }
   },
   variants: {
@@ -143,7 +157,9 @@ type TransactionClient = Prisma.TransactionClient;
 export class AdminCommerceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCatalogDocument() {
+  async getCatalogDocument(auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const [categories, products] = await Promise.all([
       this.prisma.productCategory.findMany({
         include: catalogCategoryInclude,
@@ -161,7 +177,9 @@ export class AdminCommerceService {
     };
   }
 
-  async listCategories() {
+  async listCategories(auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const categories = await this.prisma.productCategory.findMany({
       include: catalogCategoryInclude,
       orderBy: [{ parentCategoryId: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }]
@@ -171,17 +189,20 @@ export class AdminCommerceService {
   }
 
   async createCategory(payload: SaveProductCategoryDto, auth: AuthenticatedRequestContext) {
-    const parentId = await this.resolveParentCategoryId(payload.parentSlug ?? null);
+    requireSuperAdmin(auth);
+
+    const parentId = await this.resolveParentCategoryId(payload.parentSlug ?? null, null);
+    validateCategoryPayload(payload);
 
     const created = await this.prisma.productCategory.create({
       data: {
-        name: payload.name,
-        slug: payload.slug,
+        name: payload.name.trim(),
+        slug: payload.slug.trim(),
         parentCategoryId: parentId,
-        description: payload.description,
-        seoTitle: payload.seoTitle,
-        seoDescription: payload.seoDescription,
-        ctaHref: payload.ctaHref,
+        description: normalizeNullableText(payload.description),
+        seoTitle: normalizeNullableText(payload.seoTitle),
+        seoDescription: normalizeNullableText(payload.seoDescription),
+        ctaHref: normalizeNullableText(payload.ctaHref),
         sortOrder: payload.sortOrder ?? 0,
         isActive: payload.isActive ?? true
       },
@@ -203,6 +224,8 @@ export class AdminCommerceService {
     payload: SaveProductCategoryDto,
     auth: AuthenticatedRequestContext
   ) {
+    requireSuperAdmin(auth);
+
     const existing = await this.prisma.productCategory.findUnique({
       where: { id: categoryId },
       include: catalogCategoryInclude
@@ -212,22 +235,19 @@ export class AdminCommerceService {
       throw new NotFoundException("Category not found.");
     }
 
-    const parentId = await this.resolveParentCategoryId(payload.parentSlug ?? null);
-
-    if (parentId === existing.id) {
-      throw new BadRequestException("A category cannot be parent of itself.");
-    }
+    validateCategoryPayload(payload);
+    const parentId = await this.resolveParentCategoryId(payload.parentSlug ?? null, existing);
 
     const updated = await this.prisma.productCategory.update({
       where: { id: categoryId },
       data: {
-        name: payload.name,
-        slug: payload.slug,
+        name: payload.name.trim(),
+        slug: payload.slug.trim(),
         parentCategoryId: parentId,
-        description: payload.description,
-        seoTitle: payload.seoTitle,
-        seoDescription: payload.seoDescription,
-        ctaHref: payload.ctaHref,
+        description: normalizeNullableText(payload.description),
+        seoTitle: normalizeNullableText(payload.seoTitle),
+        seoDescription: normalizeNullableText(payload.seoDescription),
+        ctaHref: normalizeNullableText(payload.ctaHref),
         sortOrder: payload.sortOrder ?? existing.sortOrder,
         isActive: payload.isActive ?? existing.isActive
       },
@@ -245,6 +265,8 @@ export class AdminCommerceService {
   }
 
   async deleteCategory(categoryId: string, auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const existing = await this.prisma.productCategory.findUnique({
       where: { id: categoryId },
       include: catalogCategoryInclude
@@ -255,14 +277,14 @@ export class AdminCommerceService {
     }
 
     if (existing.childCategories.length > 0) {
-      throw new BadRequestException(
-        "This category still has subcategories. Remove or reassign them first."
-      );
+      throw new BadRequestException("Bu kategoriye bağlı alt kategoriler bulunuyor.");
     }
 
     if (existing.products.length > 0) {
       throw new BadRequestException(
-        "This category still has products. Remove or reassign them first."
+        existing.parentCategoryId
+          ? "Bu alt kategoriye bağlı paketler bulunuyor."
+          : "Bu kategoriye bağlı paketler bulunuyor."
       );
     }
 
@@ -283,7 +305,9 @@ export class AdminCommerceService {
     };
   }
 
-  async listProducts() {
+  async listProducts(auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const products = await this.prisma.product.findMany({
       include: catalogProductInclude,
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
@@ -292,7 +316,9 @@ export class AdminCommerceService {
     return products.map(normalizeProduct);
   }
 
-  async getProduct(productId: string) {
+  async getProduct(productId: string, auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
       include: catalogProductInclude
@@ -306,28 +332,35 @@ export class AdminCommerceService {
   }
 
   async createProduct(payload: SaveProductDto, auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+    await this.validateProductPayload(payload, null);
+
     const createdId = await this.prisma.$transaction(async (tx) => {
-      const categoryId = await this.resolveCategoryIdInTransaction(tx, payload.categorySlug ?? null);
+      const categoryId = await this.resolveCategoryIdInTransaction(
+        tx,
+        payload.categorySlug ?? null,
+        payload.publishStatus ?? ContentStatus.DRAFT
+      );
       const product = await tx.product.create({
         data: {
           categoryId,
-          name: payload.name,
-          slug: payload.slug,
-          shortDescription: payload.shortDescription,
-          description: payload.description,
+          name: payload.name.trim(),
+          slug: payload.slug.trim(),
+          shortDescription: normalizeNullableText(payload.shortDescription),
+          description: normalizeNullableText(payload.description),
           type: payload.type,
           provider: payload.provider,
           publishStatus: payload.publishStatus ?? ContentStatus.DRAFT,
           isFeatured: payload.isFeatured ?? false,
           sortOrder: payload.sortOrder ?? 0,
-          accentColor: payload.accentColor,
-          seoTitle: payload.seoTitle,
-          seoDescription: payload.seoDescription,
-          coverImageUrl: payload.coverImageUrl,
+          accentColor: normalizeNullableText(payload.accentColor),
+          seoTitle: normalizeNullableText(payload.seoTitle),
+          seoDescription: normalizeNullableText(payload.seoDescription),
+          coverImageUrl: normalizeNullableText(payload.coverImageUrl),
           introVideoSourceType: payload.introVideoSourceType ?? null,
-          introVideoUrl: payload.introVideoUrl ?? null,
-          introVideoPosterUrl: payload.introVideoPosterUrl ?? null,
-          introVideoTitle: payload.introVideoTitle ?? null
+          introVideoUrl: normalizeNullableText(payload.introVideoUrl),
+          introVideoPosterUrl: normalizeNullableText(payload.introVideoPosterUrl),
+          introVideoTitle: normalizeNullableText(payload.introVideoTitle)
         }
       });
 
@@ -335,7 +368,7 @@ export class AdminCommerceService {
       return product.id;
     });
 
-    const created = await this.getProduct(createdId);
+    const created = await this.getProduct(createdId, auth);
 
     await recordAuditLog(this.prisma, auth, {
       action: "commerce.product.create",
@@ -352,6 +385,8 @@ export class AdminCommerceService {
     payload: SaveProductDto,
     auth: AuthenticatedRequestContext
   ) {
+    requireSuperAdmin(auth);
+
     const existing = await this.prisma.product.findUnique({
       where: { id: productId },
       include: catalogProductInclude
@@ -361,37 +396,43 @@ export class AdminCommerceService {
       throw new NotFoundException("Product not found.");
     }
 
+    await this.validateProductPayload(payload, productId);
+
     await this.prisma.$transaction(async (tx) => {
-      const categoryId = await this.resolveCategoryIdInTransaction(tx, payload.categorySlug ?? null);
+      const categoryId = await this.resolveCategoryIdInTransaction(
+        tx,
+        payload.categorySlug ?? null,
+        payload.publishStatus ?? existing.publishStatus
+      );
 
       await tx.product.update({
         where: { id: productId },
         data: {
           categoryId,
-          name: payload.name,
-          slug: payload.slug,
-          shortDescription: payload.shortDescription,
-          description: payload.description,
+          name: payload.name.trim(),
+          slug: payload.slug.trim(),
+          shortDescription: normalizeNullableText(payload.shortDescription),
+          description: normalizeNullableText(payload.description),
           type: payload.type,
           provider: payload.provider,
           publishStatus: payload.publishStatus ?? existing.publishStatus,
           isFeatured: payload.isFeatured ?? existing.isFeatured,
           sortOrder: payload.sortOrder ?? existing.sortOrder,
-          accentColor: payload.accentColor,
-          seoTitle: payload.seoTitle,
-          seoDescription: payload.seoDescription,
-          coverImageUrl: payload.coverImageUrl,
+          accentColor: normalizeNullableText(payload.accentColor),
+          seoTitle: normalizeNullableText(payload.seoTitle),
+          seoDescription: normalizeNullableText(payload.seoDescription),
+          coverImageUrl: normalizeNullableText(payload.coverImageUrl),
           introVideoSourceType: payload.introVideoSourceType ?? null,
-          introVideoUrl: payload.introVideoUrl ?? null,
-          introVideoPosterUrl: payload.introVideoPosterUrl ?? null,
-          introVideoTitle: payload.introVideoTitle ?? null
+          introVideoUrl: normalizeNullableText(payload.introVideoUrl),
+          introVideoPosterUrl: normalizeNullableText(payload.introVideoPosterUrl),
+          introVideoTitle: normalizeNullableText(payload.introVideoTitle)
         }
       });
 
       await this.syncProductChildren(tx, productId, payload, existing);
     });
 
-    const updated = await this.getProduct(productId);
+    const updated = await this.getProduct(productId, auth);
 
     await recordAuditLog(this.prisma, auth, {
       action: "commerce.product.update",
@@ -404,6 +445,8 @@ export class AdminCommerceService {
   }
 
   async deleteProduct(productId: string, auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const existing = await this.prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -422,7 +465,7 @@ export class AdminCommerceService {
 
     if (existing._count.orderItems > 0 || existing._count.enrollments > 0) {
       throw new BadRequestException(
-        "This product already has order or enrollment history and cannot be deleted."
+        "Bu paketin sipariş veya kayıt geçmişi bulunduğu için silinemez. Arşivlemeyi kullanın."
       );
     }
 
@@ -455,11 +498,13 @@ export class AdminCommerceService {
   }
 
   async saveCatalogDocument(payload: SaveCatalogDocumentDto, auth: AuthenticatedRequestContext) {
+    requireSuperAdmin(auth);
+
     const orderCount = await this.prisma.order.count();
 
     if (orderCount > 0) {
       throw new BadRequestException(
-        "This first catalog editor cannot replace the product tree after orders exist. Use a non-destructive editor next."
+        "Sipariş geçmişi bulunduğu için katalog toplu olarak değiştirilemez. Tekil kategori ve paket düzenleyiciyi kullanın."
       );
     }
 
@@ -568,7 +613,7 @@ export class AdminCommerceService {
       });
     });
 
-    return this.getCatalogDocument();
+    return this.getCatalogDocument(auth);
   }
 
   async listOrders() {
@@ -794,8 +839,15 @@ export class AdminCommerceService {
     return this.getOrder(orderNumber);
   }
 
-  private async resolveParentCategoryId(parentSlug: string | null) {
+  private async resolveParentCategoryId(
+    parentSlug: string | null,
+    existing: Prisma.ProductCategoryGetPayload<{ include: typeof catalogCategoryInclude }> | null
+  ) {
     if (!parentSlug) {
+      if (existing?.parentCategoryId && existing.products.length > 0) {
+        throw new BadRequestException("Bu alt kategoriye bağlı paketler bulunuyor.");
+      }
+
       return null;
     }
 
@@ -804,11 +856,21 @@ export class AdminCommerceService {
     });
 
     if (!parent) {
-      throw new BadRequestException(`Parent category "${parentSlug}" was not found.`);
+      throw new BadRequestException("Alt kategori yalnızca bir ana kategoriye bağlanabilir.");
     }
 
     if (parent.parentCategoryId) {
-      throw new BadRequestException("Only one category nesting level is supported.");
+      throw new BadRequestException("Bir alt kategori başka bir alt kategorinin altında oluşturulamaz.");
+    }
+
+    if (existing) {
+      if (parent.id === existing.id) {
+        throw new BadRequestException("Kategori kendi altına bağlanamaz.");
+      }
+
+      if (existing.childCategories.length > 0) {
+        throw new BadRequestException("Alt kategorisi olan bir kategori başka bir kategoriye bağlanamaz.");
+      }
     }
 
     return parent.id;
@@ -816,21 +878,188 @@ export class AdminCommerceService {
 
   private async resolveCategoryIdInTransaction(
     tx: TransactionClient,
-    categorySlug: string | null
+    categorySlug: string | null,
+    publishStatus: ContentStatus
   ) {
     if (!categorySlug) {
+      if (publishStatus === ContentStatus.PUBLISHED) {
+        throw new BadRequestException("Yayına almak için ana kategori ve alt kategori seçmelisiniz.");
+      }
+
       return undefined;
     }
 
     const category = await tx.productCategory.findUnique({
-      where: { slug: categorySlug }
+      where: { slug: categorySlug },
+      include: {
+        parentCategory: true
+      }
     });
 
     if (!category) {
-      throw new BadRequestException(`Category "${categorySlug}" was not found.`);
+      throw new BadRequestException("Yayına almak için geçerli bir alt kategori seçmelisiniz.");
+    }
+
+    if (publishStatus !== ContentStatus.PUBLISHED) {
+      return category.id;
+    }
+
+    if (!category.parentCategoryId || !category.parentCategory) {
+      throw new BadRequestException("Yayına almak için ana kategori ve alt kategori seçmelisiniz.");
+    }
+
+    if (!category.isActive || !category.parentCategory.isActive) {
+      throw new BadRequestException("Yayına almak için aktif ana kategori ve aktif alt kategori seçmelisiniz.");
     }
 
     return category.id;
+  }
+
+  private async validateProductPayload(product: SaveProductDto, productId: string | null) {
+    validateProductBasics(product);
+
+    const duplicateSlug = await this.prisma.product.findFirst({
+      where: {
+        slug: product.slug.trim(),
+        ...(productId ? { id: { not: productId } } : {})
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (duplicateSlug) {
+      throw new BadRequestException("Bu paket slug değeri başka bir pakette kullanılıyor.");
+    }
+
+    const seenSkus = new Set<string>();
+    const incomingVariantIds = product.variants
+      .map((variant) => variant.id)
+      .filter((variantId): variantId is string => Boolean(variantId));
+
+    for (const variant of product.variants) {
+      const sku = variant.sku.trim();
+
+      if (!sku) {
+        continue;
+      }
+
+      if (seenSkus.has(sku)) {
+        throw new BadRequestException("Aynı SKU bir pakette birden fazla kez kullanılamaz.");
+      }
+
+      seenSkus.add(sku);
+
+      const duplicateSku = await this.prisma.productVariant.findFirst({
+        where: {
+          sku,
+          id: incomingVariantIds.length
+            ? {
+                notIn: incomingVariantIds
+              }
+            : undefined
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (duplicateSku) {
+        throw new BadRequestException("Bu SKU başka bir paket seçeneğinde kullanılıyor.");
+      }
+    }
+
+    if (product.publishStatus === ContentStatus.PUBLISHED) {
+      await this.validatePublishReadiness(product);
+    }
+  }
+
+  private async validatePublishReadiness(product: SaveProductDto) {
+    const category = product.categorySlug
+      ? await this.prisma.productCategory.findUnique({
+          where: { slug: product.categorySlug },
+          include: {
+            parentCategory: true
+          }
+        })
+      : null;
+
+    if (!category?.parentCategory) {
+      throw new BadRequestException("Yayına almak için ana kategori ve alt kategori seçmelisiniz.");
+    }
+
+    if (!category.isActive || !category.parentCategory.isActive) {
+      throw new BadRequestException("Yayına almak için aktif ana kategori ve aktif alt kategori seçmelisiniz.");
+    }
+
+    const activeVariants = product.variants.filter((variant) => variant.isActive !== false);
+    const defaultVariants = activeVariants.filter((variant) => variant.isDefault === true);
+
+    if (activeVariants.length === 0) {
+      throw new BadRequestException("Yayına almak için en az bir aktif paket seçeneği gerekir.");
+    }
+
+    if (defaultVariants.length !== 1) {
+      throw new BadRequestException("Yayına almak için tek bir aktif varsayılan seçenek seçmelisiniz.");
+    }
+
+    const defaultVariant = defaultVariants[0];
+    const price = parseDecimalInput(defaultVariant.price);
+    const compareAtPrice = defaultVariant.compareAtPrice
+      ? parseDecimalInput(defaultVariant.compareAtPrice)
+      : null;
+
+    if (!price || price <= 0) {
+      throw new BadRequestException("Varsayılan seçeneğin fiyatı geçerli olmalıdır.");
+    }
+
+    if (compareAtPrice !== null && compareAtPrice <= price) {
+      throw new BadRequestException("Eski fiyat, güncel fiyattan büyük olmalıdır.");
+    }
+
+    if (defaultVariant.hasInstallments && (!defaultVariant.installmentCount || defaultVariant.installmentCount < 1)) {
+      throw new BadRequestException("Taksitli satışta taksit sayısı zorunludur.");
+    }
+
+    if (!VALID_ACCENT_COLORS.has(product.accentColor ?? "")) {
+      throw new BadRequestException("Kart tonu blue, teal veya amber olmalıdır.");
+    }
+
+    if (!product.shortDescription?.trim()) {
+      throw new BadRequestException("Yayına almak için kısa açıklama girilmelidir.");
+    }
+
+    const normalizedFeatures = normalizeFeaturePayloads(product.features);
+    if (normalizedFeatures.length === 0) {
+      throw new BadRequestException("Yayına almak için en az bir kart özelliği gerekir.");
+    }
+
+    if (product.provider === ExternalProvider.UNIKAZAN) {
+      const hasMissingMapping = activeVariants.some((variant) => !variant.externalProductId?.trim());
+
+      if (hasMissingMapping) {
+        throw new BadRequestException("Unikazan paketlerinde dış paket eşleşmesi zorunludur.");
+      }
+    }
+
+    if (product.provider === ExternalProvider.LOCAL && !defaultVariant.sku.trim()) {
+      throw new BadRequestException("Yerel paketlerde varsayılan seçenek SKU değeri zorunludur.");
+    }
+
+    validateMediaUrl(product.coverImageUrl, "Kapak görsel URL geçerli olmalıdır.");
+    validateMediaUrl(product.introVideoPosterUrl, "Video poster URL geçerli olmalıdır.");
+
+    if (product.introVideoUrl?.trim()) {
+      validateMediaUrl(product.introVideoUrl, "Video URL geçerli olmalıdır.");
+
+      if (!product.introVideoSourceType) {
+        throw new BadRequestException("Video URL girildiğinde kaynak tipi seçilmelidir.");
+      }
+    }
+
+    if (product.introVideoSourceType && !product.introVideoUrl?.trim()) {
+      throw new BadRequestException("Video kaynak tipi seçildiğinde video URL girilmelidir.");
+    }
   }
 
   private async syncProductChildren(
@@ -845,11 +1074,12 @@ export class AdminCommerceService {
 
     const existingVariants = existing?.variants ?? [];
     const existingFeatures = existing?.features ?? [];
+    const incomingFeatures = normalizeFeaturePayloads(payload.features);
     const existingVariantIdSet = new Set(existingVariants.map((variant) => variant.id));
     const existingFeatureIdSet = new Set(existingFeatures.map((feature) => feature.id));
 
     const incomingVariantIds = new Set(payload.variants.map((variant) => variant.id).filter(Boolean));
-    const incomingFeatureIds = new Set(payload.features.map((feature) => feature.id).filter(Boolean));
+    const incomingFeatureIds = new Set(incomingFeatures.map((feature) => feature.id).filter(Boolean));
 
     for (const variant of payload.variants) {
       if (variant.id && !existingVariantIdSet.has(variant.id)) {
@@ -857,7 +1087,7 @@ export class AdminCommerceService {
       }
     }
 
-    for (const feature of payload.features) {
+    for (const feature of incomingFeatures) {
       if (feature.id && !existingFeatureIdSet.has(feature.id)) {
         throw new BadRequestException("A feature update referenced a record outside this product.");
       }
@@ -904,18 +1134,18 @@ export class AdminCommerceService {
     for (let index = 0; index < payload.variants.length; index += 1) {
       const variant = payload.variants[index];
       const variantData = {
-        title: variant.title,
-        sku: variant.sku,
-        billingLabel: variant.billingLabel,
+        title: variant.title.trim(),
+        sku: variant.sku.trim(),
+        billingLabel: normalizeNullableText(variant.billingLabel),
         price: normalizeDecimalInput(variant.price),
         compareAtPrice: variant.compareAtPrice
           ? normalizeDecimalInput(variant.compareAtPrice)
-          : undefined,
+          : null,
         currency: variant.currency ?? Currency.TRY,
         isDefault: variant.isDefault ?? index === 0,
         isActive: variant.isActive ?? true,
         hasInstallments: variant.hasInstallments ?? false,
-        installmentCount: variant.installmentCount,
+        installmentCount: variant.hasInstallments ? variant.installmentCount : null,
         sortOrder: variant.sortOrder ?? (index + 1) * 10
       };
 
@@ -940,14 +1170,14 @@ export class AdminCommerceService {
         }
       });
 
-      if (payload.provider === ExternalProvider.UNIKAZAN && variant.externalProductId) {
+      if (payload.provider === ExternalProvider.UNIKAZAN && variant.externalProductId?.trim()) {
         await tx.externalProviderProduct.create({
           data: {
             productId,
             variantId: variantRecord.id,
             provider: ExternalProvider.UNIKAZAN,
-            externalProductId: variant.externalProductId,
-            externalVariantId: variant.externalVariantId,
+            externalProductId: variant.externalProductId.trim(),
+            externalVariantId: normalizeNullableText(variant.externalVariantId),
             isActive: true
           }
         });
@@ -960,12 +1190,12 @@ export class AdminCommerceService {
       });
     }
 
-    for (let index = 0; index < payload.features.length; index += 1) {
-      const feature = payload.features[index];
+    for (let index = 0; index < incomingFeatures.length; index += 1) {
+      const feature = incomingFeatures[index];
       const featureData = {
-        title: feature.title,
-        description: feature.description,
-        iconKey: feature.iconKey,
+        title: feature.title.trim(),
+        description: normalizeNullableText(feature.description),
+        iconKey: normalizeNullableText(feature.iconKey),
         sortOrder: feature.sortOrder ?? (index + 1) * 10
       };
 
@@ -1088,6 +1318,107 @@ export class AdminCommerceService {
   }
 }
 
+function requireSuperAdmin(auth: AuthenticatedRequestContext) {
+  if (!auth.isSuperAdmin) {
+    throw new ForbiddenException(CATALOG_SUPER_ADMIN_MESSAGE);
+  }
+}
+
+function validateCategoryPayload(category: SaveProductCategoryDto) {
+  if (!category.name?.trim()) {
+    throw new BadRequestException("Kategori adı zorunludur.");
+  }
+
+  if (!SLUG_PATTERN.test(category.slug?.trim() ?? "")) {
+    throw new BadRequestException("Kategori slug değeri geçerli olmalıdır.");
+  }
+}
+
+function validateProductBasics(product: SaveProductDto) {
+  if (!product.name?.trim()) {
+    throw new BadRequestException("Paket adı zorunludur.");
+  }
+
+  if (!SLUG_PATTERN.test(product.slug?.trim() ?? "")) {
+    throw new BadRequestException("Paket slug değeri geçerli olmalıdır.");
+  }
+
+  if (!product.variants.length) {
+    throw new BadRequestException("Her paket en az bir seçenek içermelidir.");
+  }
+
+  for (const variant of product.variants) {
+    if (!variant.title?.trim()) {
+      throw new BadRequestException("Paket seçeneği başlığı zorunludur.");
+    }
+
+    if (!variant.sku?.trim()) {
+      throw new BadRequestException("Paket seçeneği SKU değeri zorunludur.");
+    }
+
+    if (parseDecimalInput(variant.price) === null) {
+      throw new BadRequestException("Paket seçeneği fiyatı geçerli olmalıdır.");
+    }
+
+    if (variant.compareAtPrice && parseDecimalInput(variant.compareAtPrice) === null) {
+      throw new BadRequestException("Eski fiyat geçerli olmalıdır.");
+    }
+  }
+
+  const featureTitles = new Set<string>();
+
+  for (const feature of normalizeFeaturePayloads(product.features)) {
+    const key = feature.title.trim().toLocaleLowerCase("tr-TR");
+
+    if (featureTitles.has(key)) {
+      throw new BadRequestException("Aynı kart özelliği birden fazla kez eklenemez.");
+    }
+
+    featureTitles.add(key);
+  }
+}
+
+function normalizeNullableText(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeFeaturePayloads(features: SaveProductFeatureDto[]) {
+  return features
+    .map((feature) => ({
+      ...feature,
+      title: feature.title?.trim() ?? "",
+      description: normalizeNullableText(feature.description) ?? undefined,
+      iconKey: normalizeNullableText(feature.iconKey) ?? undefined
+    }))
+    .filter((feature) => feature.title.length > 0);
+}
+
+function parseDecimalInput(value: string) {
+  const normalized = normalizeDecimalInput(value);
+  const parsed = Number.parseFloat(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function validateMediaUrl(value: string | null | undefined, message: string) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("invalid protocol");
+    }
+  } catch {
+    throw new BadRequestException(message);
+  }
+}
+
 function normalizeCategory(
   category: Prisma.ProductCategoryGetPayload<{ include: typeof catalogCategoryInclude }>
 ) {
@@ -1096,12 +1427,15 @@ function normalizeCategory(
     slug: category.slug,
     name: category.name,
     parentSlug: category.parentCategory?.slug ?? null,
+    parentName: category.parentCategory?.name ?? null,
     description: category.description,
     seoTitle: category.seoTitle,
     seoDescription: category.seoDescription,
     ctaHref: category.ctaHref,
     sortOrder: category.sortOrder,
-    isActive: category.isActive
+    isActive: category.isActive,
+    childCategoryCount: category.childCategories.length,
+    productCount: category.products.length
   };
 }
 
@@ -1113,6 +1447,12 @@ function normalizeProduct(
     slug: product.slug,
     name: product.name,
     categorySlug: product.category?.slug ?? null,
+    categoryName: product.category?.name ?? null,
+    rootCategorySlug: product.category?.parentCategory?.slug ?? product.category?.slug ?? null,
+    rootCategoryName: product.category?.parentCategory?.name ?? product.category?.name ?? null,
+    categoryIsRoot: product.category ? !product.category.parentCategory : false,
+    categoryIsActive: product.category?.isActive ?? null,
+    rootCategoryIsActive: product.category?.parentCategory?.isActive ?? product.category?.isActive ?? null,
     shortDescription: product.shortDescription,
     description: product.description,
     type: product.type,

@@ -57,7 +57,17 @@ export class PublicCommerceService {
         where: {
           publishStatus: ContentStatus.PUBLISHED,
           organizationId: null,
-          branchId: null
+          branchId: null,
+          category: {
+            is: {
+              isActive: true,
+              parentCategory: {
+                is: {
+                  isActive: true
+                }
+              }
+            }
+          }
         },
         include: publicProductInclude,
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
@@ -91,7 +101,9 @@ export class PublicCommerceService {
       !product ||
       product.publishStatus !== ContentStatus.PUBLISHED ||
       product.organizationId ||
-      product.branchId
+      product.branchId ||
+      !product.category?.isActive ||
+      !product.category.parentCategory?.isActive
     ) {
       throw new NotFoundException("Product not found.");
     }

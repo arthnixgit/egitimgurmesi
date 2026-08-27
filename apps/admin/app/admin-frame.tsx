@@ -238,6 +238,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
         className="admin-app-sidebar"
         aria-label="Yönetim alanları"
         aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen ? true : undefined}
       >
         <Link className="admin-app-sidebar__brand" href={activeModule?.href ?? "/platform"}>
           <Image
