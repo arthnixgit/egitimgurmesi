@@ -72,6 +72,7 @@ export type AdminNavigationMenu = {
   location: string;
   description?: string | null;
   isActive: boolean;
+  version?: number;
   items: AdminNavigationItem[];
 };
 
@@ -101,6 +102,7 @@ export type AdminMarketingPage = {
   seoDescription?: string | null;
   heroImageUrl?: string | null;
   metadata?: Record<string, unknown> | null;
+  version?: number;
   sections: AdminMarketingPageSection[];
 };
 
@@ -132,6 +134,7 @@ export type AdminStaffProfileGroup = {
 };
 
 export type AdminStaffProfilesDocument = {
+  version?: number;
   groups: AdminStaffProfileGroup[];
 };
 
@@ -151,6 +154,7 @@ export type AdminSuccessStory = {
 };
 
 export type AdminSuccessStoriesDocument = {
+  version?: number;
   stories: AdminSuccessStory[];
 };
 
@@ -163,10 +167,20 @@ export type AdminFreeMaterialItem = {
   summary?: string | null;
   href?: string | null;
   buttonLabel?: string | null;
+  iconKey?: string | null;
+  tone?: string | null;
+  coverImageUrl?: string | null;
+  downloadUrl?: string | null;
+  mediaAssetId?: string | null;
+  displayFilename?: string | null;
+  mimeType?: string | null;
+  fileSizeBytes?: number | null;
+  accessibilityLabel?: string | null;
   opensInNewTab?: boolean;
   sortOrder?: number;
   isFeatured?: boolean;
   publishStatus?: string;
+  version?: number;
   countdownPageSlug?: string | null;
 };
 
@@ -222,8 +236,64 @@ export type AdminCountdownPage = {
 };
 
 export type AdminFreeMaterialsDocument = {
+  version?: number;
   categories: AdminFreeMaterialCategory[];
   countdownPages: AdminCountdownPage[];
+};
+
+export type AdminSiteSettings = {
+  id: string;
+  key: string;
+  siteName: string;
+  siteTitle: string;
+  tagline?: string | null;
+  supportEmail?: string | null;
+  supportPhone?: string | null;
+  supportWhatsappNumber: string;
+  logoPrimaryUrl?: string | null;
+  logoMarkUrl?: string | null;
+  logoFooterUrl?: string | null;
+  logoCompactUrl?: string | null;
+  logoDarkUrl?: string | null;
+  logoLightUrl?: string | null;
+  faviconUrl?: string | null;
+  defaultSocialImageUrl?: string | null;
+  logoAltText?: string | null;
+  displayPhone: string;
+  canonicalPhone: string;
+  telHref: string;
+  whatsappMessage: string;
+  whatsappHref: string;
+  address: string;
+  publicContactEmail?: string | null;
+  footerBrandDescription: string;
+  footerQuickLinks: Array<{ label: string; href: string }>;
+  footerContactTitle: string;
+  socialLinks: Array<{ label: string; href: string }>;
+  copyrightText: string;
+  footerNotice?: string | null;
+  defaultSeoTitle?: string | null;
+  defaultSeoDescription?: string | null;
+  version: number;
+  publishedAt?: string | null;
+  updatedAt?: string | null;
+  draftStatus?: "DRAFT";
+  revalidateRoutes?: string[];
+  revalidateTags?: string[];
+};
+
+export type AdminWebsiteRevision = {
+  id: string;
+  scope: string;
+  entityType: string;
+  entityKey: string;
+  version: number;
+  action: string;
+  summary?: string | null;
+  beforeData?: unknown;
+  afterData: unknown;
+  createdByStaffUserId?: string | null;
+  createdAt: string;
 };
 
 const API_BASE_URL = resolveApiBaseUrl();
@@ -461,6 +531,56 @@ export function fetchCurrentStaffUser() {
   return requestWithStaffToken<StaffMeResponse>("/auth/me");
 }
 
+export function fetchAdminSiteSettings() {
+  return requestWithStaffToken<AdminSiteSettings>("/admin-content/site-settings");
+}
+
+export function saveAdminSiteSettings(payload: AdminSiteSettings) {
+  return requestWithStaffToken<AdminSiteSettings>("/admin-content/site-settings", {
+    method: "PUT",
+    body: serializeSiteSettingsPayload(payload)
+  });
+}
+
+export function publishAdminSiteSettings(payload: AdminSiteSettings) {
+  return requestWithStaffToken<AdminSiteSettings>("/admin-content/site-settings/publish", {
+    method: "POST",
+    body: serializeSiteSettingsPayload(payload)
+  });
+}
+
+export function fetchAdminWebsiteRevisions(filters: { entityType?: string; entityKey?: string } = {}) {
+  const params = new URLSearchParams();
+
+  if (filters.entityType) {
+    params.set("entityType", filters.entityType);
+  }
+
+  if (filters.entityKey) {
+    params.set("entityKey", filters.entityKey);
+  }
+
+  const query = params.toString();
+  return requestWithStaffToken<AdminWebsiteRevision[]>(
+    `/admin-content/revisions${query ? `?${query}` : ""}`
+  );
+}
+
+export function restoreAdminWebsiteRevision(revisionId: string) {
+  return requestWithStaffToken<unknown>(
+    `/admin-content/revisions/${encodeURIComponent(revisionId)}/restore`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function fetchAdminPreviewToken() {
+  return requestWithStaffToken<{ token: string; expiresAt: number }>("/admin-content/preview-token", {
+    method: "POST"
+  });
+}
+
 export function fetchAdminNavigationMenu(key = "primary") {
   return requestWithStaffToken<AdminNavigationMenu>(
     `/admin-content/navigation/${encodeURIComponent(key)}`
@@ -469,10 +589,11 @@ export function fetchAdminNavigationMenu(key = "primary") {
 
 export function saveAdminNavigationMenu(
   key: string,
-  payload: Omit<AdminNavigationMenu, "id" | "key">
+  payload: Omit<AdminNavigationMenu, "id" | "key">,
+  action: "draft" | "publish" = "draft"
 ) {
   return requestWithStaffToken<AdminNavigationMenu>(
-    `/admin-content/navigation/${encodeURIComponent(key)}`,
+    `/admin-content/navigation/${encodeURIComponent(key)}?action=${action}`,
     {
       method: "PUT",
       body: payload
@@ -486,10 +607,11 @@ export function fetchAdminMarketingPages() {
 
 export function saveAdminMarketingPage(
   key: string,
-  payload: Omit<AdminMarketingPage, "id" | "key">
+  payload: Omit<AdminMarketingPage, "id" | "key">,
+  action: "draft" | "publish" = "draft"
 ) {
   return requestWithStaffToken<AdminMarketingPage>(
-    `/admin-content/marketing-pages/${encodeURIComponent(key)}`,
+    `/admin-content/marketing-pages/${encodeURIComponent(key)}?action=${action}`,
     {
       method: "PUT",
       body: payload
@@ -501,10 +623,13 @@ export function fetchAdminStaffProfilesDocument() {
   return requestWithStaffToken<AdminStaffProfilesDocument>("/admin-content/staff-profiles");
 }
 
-export function saveAdminStaffProfilesDocument(payload: AdminStaffProfilesDocument) {
-  return requestWithStaffToken<AdminStaffProfilesDocument>("/admin-content/staff-profiles", {
+export function saveAdminStaffProfilesDocument(
+  payload: AdminStaffProfilesDocument,
+  action: "draft" | "publish" = "draft"
+) {
+  return requestWithStaffToken<AdminStaffProfilesDocument>(`/admin-content/staff-profiles?action=${action}`, {
     method: "PUT",
-    body: payload
+    body: serializeStaffProfilesPayload(payload)
   });
 }
 
@@ -512,10 +637,13 @@ export function fetchAdminSuccessStoriesDocument() {
   return requestWithStaffToken<AdminSuccessStoriesDocument>("/admin-content/success-stories");
 }
 
-export function saveAdminSuccessStoriesDocument(payload: AdminSuccessStoriesDocument) {
-  return requestWithStaffToken<AdminSuccessStoriesDocument>("/admin-content/success-stories", {
+export function saveAdminSuccessStoriesDocument(
+  payload: AdminSuccessStoriesDocument,
+  action: "draft" | "publish" = "draft"
+) {
+  return requestWithStaffToken<AdminSuccessStoriesDocument>(`/admin-content/success-stories?action=${action}`, {
     method: "PUT",
-    body: payload
+    body: serializeSuccessStoriesPayload(payload)
   });
 }
 
@@ -523,11 +651,167 @@ export function fetchAdminFreeMaterialsDocument() {
   return requestWithStaffToken<AdminFreeMaterialsDocument>("/admin-content/free-materials");
 }
 
-export function saveAdminFreeMaterialsDocument(payload: AdminFreeMaterialsDocument) {
-  return requestWithStaffToken<AdminFreeMaterialsDocument>("/admin-content/free-materials", {
+export function saveAdminFreeMaterialsDocument(
+  payload: AdminFreeMaterialsDocument,
+  action: "draft" | "publish" = "draft"
+) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(`/admin-content/free-materials?action=${action}`, {
     method: "PUT",
-    body: payload
+    body: serializeFreeMaterialsPayload(payload)
   });
+}
+
+export function serializeSiteSettingsPayload(settings: AdminSiteSettings) {
+  return {
+    version: settings.version,
+    siteName: settings.siteName,
+    siteTitle: settings.siteTitle,
+    tagline: settings.tagline ?? null,
+    supportEmail: settings.supportEmail ?? null,
+    supportPhone: settings.displayPhone,
+    supportWhatsappNumber: settings.supportWhatsappNumber,
+    logoPrimaryUrl: settings.logoPrimaryUrl ?? null,
+    logoMarkUrl: settings.logoMarkUrl ?? null,
+    logoFooterUrl: settings.logoFooterUrl ?? null,
+    logoCompactUrl: settings.logoCompactUrl ?? null,
+    logoDarkUrl: settings.logoDarkUrl ?? null,
+    logoLightUrl: settings.logoLightUrl ?? null,
+    faviconUrl: settings.faviconUrl ?? null,
+    defaultSocialImageUrl: settings.defaultSocialImageUrl ?? null,
+    logoAltText: settings.logoAltText ?? null,
+    displayPhone: settings.displayPhone,
+    canonicalPhone: settings.canonicalPhone,
+    whatsappMessage: settings.whatsappMessage,
+    address: settings.address,
+    publicContactEmail: settings.publicContactEmail ?? null,
+    footerBrandDescription: settings.footerBrandDescription,
+    footerQuickLinks: settings.footerQuickLinks.map((link) => ({
+      label: link.label,
+      href: link.href
+    })),
+    footerContactTitle: settings.footerContactTitle,
+    socialLinks: settings.socialLinks.map((link) => ({
+      label: link.label,
+      href: link.href
+    })),
+    copyrightText: settings.copyrightText,
+    footerNotice: settings.footerNotice ?? null,
+    defaultSeoTitle: settings.defaultSeoTitle ?? null,
+    defaultSeoDescription: settings.defaultSeoDescription ?? null
+  };
+}
+
+export function serializeStaffProfilesPayload(document: AdminStaffProfilesDocument) {
+  return {
+    version: document.version,
+    groups: document.groups.map((group) => ({
+      key: group.key,
+      label: group.label,
+      eyebrow: group.eyebrow ?? null,
+      description: group.description ?? null,
+      introVideoSourceType: group.introVideoSourceType ?? null,
+      introVideoUrl: group.introVideoUrl ?? null,
+      introVideoPosterUrl: group.introVideoPosterUrl ?? null,
+      introVideoTitle: group.introVideoTitle ?? null,
+      sortOrder: group.sortOrder,
+      publishStatus: group.publishStatus,
+      profiles: group.profiles.map((profile) => ({
+        slug: profile.slug,
+        fullName: profile.fullName,
+        title: profile.title,
+        city: profile.city ?? null,
+        biography: profile.biography ?? null,
+        photoUrl: profile.photoUrl ?? null,
+        sortOrder: profile.sortOrder,
+        publishStatus: profile.publishStatus
+      }))
+    }))
+  };
+}
+
+export function serializeSuccessStoriesPayload(document: AdminSuccessStoriesDocument) {
+  return {
+    version: document.version,
+    stories: document.stories.map((story) => ({
+      slug: story.slug,
+      studentName: story.studentName,
+      city: story.city ?? null,
+      examLabel: story.examLabel ?? null,
+      resultTitle: story.resultTitle,
+      highlight: story.highlight,
+      story: story.story ?? null,
+      avatarUrl: story.avatarUrl ?? null,
+      isFeatured: story.isFeatured,
+      sortOrder: story.sortOrder,
+      publishStatus: story.publishStatus
+    }))
+  };
+}
+
+export function serializeFreeMaterialsPayload(document: AdminFreeMaterialsDocument) {
+  return {
+    version: document.version,
+    categories: document.categories.map((category) => ({
+      key: category.key,
+      label: category.label,
+      description: category.description ?? null,
+      sortOrder: category.sortOrder,
+      publishStatus: category.publishStatus,
+      items: category.items.map((item) => ({
+        slug: item.slug ?? undefined,
+        title: item.title,
+        itemType: item.itemType,
+        badgeLabel: item.badgeLabel ?? null,
+        summary: item.summary ?? null,
+        href: item.href ?? null,
+        buttonLabel: item.buttonLabel ?? null,
+        iconKey: item.iconKey ?? null,
+        tone: item.tone ?? null,
+        coverImageUrl: item.coverImageUrl ?? null,
+        downloadUrl: item.downloadUrl ?? null,
+        mediaAssetId: item.mediaAssetId ?? null,
+        displayFilename: item.displayFilename ?? null,
+        mimeType: item.mimeType ?? null,
+        fileSizeBytes: item.fileSizeBytes ?? null,
+        accessibilityLabel: item.accessibilityLabel ?? null,
+        opensInNewTab: item.opensInNewTab,
+        sortOrder: item.sortOrder,
+        isFeatured: item.isFeatured,
+        publishStatus: item.publishStatus,
+        countdownPageSlug: item.countdownPageSlug ?? null
+      }))
+    })),
+    countdownPages: document.countdownPages.map((page) => ({
+      slug: page.slug,
+      eyebrow: page.eyebrow,
+      title: page.title,
+      description: page.description,
+      updatedLabel: page.updatedLabel ?? null,
+      videoTitle: page.videoTitle,
+      videoNote: page.videoNote,
+      publishStatus: page.publishStatus,
+      targets: page.targets.map((target) => ({
+        label: target.label,
+        targetAt: target.targetAt ?? null,
+        dateLabel: target.dateLabel,
+        note: target.note,
+        sortOrder: target.sortOrder
+      })),
+      officialLinks: page.officialLinks.map((link) => ({
+        title: link.title,
+        linkType: link.linkType,
+        summary: link.summary,
+        href: link.href,
+        buttonLabel: link.buttonLabel ?? null,
+        sortOrder: link.sortOrder
+      })),
+      articleSections: page.articleSections.map((section) => ({
+        title: section.title,
+        body: section.body,
+        sortOrder: section.sortOrder
+      }))
+    }))
+  };
 }
 
 export async function logoutStaff() {

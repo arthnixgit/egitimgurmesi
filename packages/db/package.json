@@ -14,6 +14,7 @@
     "seed:public-website": "tsx prisma/seed-public-website.ts",
     "rbac:upsert-scoped": "tsx prisma/upsert-scoped-rbac.ts",
     "rbac:restrict-global-catalog": "tsx prisma/restrict-global-catalog-rbac.ts",
+    "rbac:enable-website-editor": "tsx prisma/enable-website-editor-rbac.ts",
     "import:licensed-packages": "tsx prisma/apply-licensed-package-content.ts",
     "sync:unikazan-yks": "tsx prisma/sync-unikazan-yks-packages.ts",
     "studio": "prisma studio",

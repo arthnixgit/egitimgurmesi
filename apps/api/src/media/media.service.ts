@@ -8,7 +8,7 @@ import {
   PERMISSION_KEYS,
   Prisma
 } from "@ega/db";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { appEnv } from "../config/env";
 import { PrismaService } from "../database/prisma.service";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
@@ -51,6 +51,8 @@ export class MediaService {
     fields: UploadFields,
     auth: AuthenticatedRequestContext
   ) {
+    requireWebsiteManage(auth);
+
     if (!file) {
       throw new BadRequestException("A media file is required.");
     }
@@ -106,6 +108,8 @@ export class MediaService {
   }
 
   async createExternalAsset(payload: CreateExternalMediaDto, auth: AuthenticatedRequestContext) {
+    requireWebsiteManage(auth);
+
     const normalized = normalizeExternalMediaUrl(payload.externalUrl, payload.kind);
     const title = payload.title.trim();
 
@@ -218,7 +222,10 @@ export class MediaService {
       summary: string;
     }
   ) {
-    if (!auth.actorId || !auth.permissionKeys.includes(PERMISSION_KEYS.cmsManage)) {
+    if (
+      !auth.actorId ||
+      (!auth.isSuperAdmin && !auth.permissionKeys.includes(PERMISSION_KEYS.websiteManage))
+    ) {
       return;
     }
 
@@ -233,6 +240,14 @@ export class MediaService {
       }
     });
   }
+}
+
+function requireWebsiteManage(auth: AuthenticatedRequestContext) {
+  if (auth.isSuperAdmin || auth.permissionKeys.includes(PERMISSION_KEYS.websiteManage)) {
+    return;
+  }
+
+  throw new ForbiddenException("Web sitesi yönetimini yalnızca yetkili kullanıcılar düzenleyebilir.");
 }
 
 function parseMediaKind(value?: string) {

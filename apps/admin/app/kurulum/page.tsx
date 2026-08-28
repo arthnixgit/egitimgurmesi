@@ -63,7 +63,7 @@ export default function BootstrapPage() {
     try {
       const response = await bootstrapStaff(form);
       saveStaffTokens(response);
-      router.push("/icerik");
+      router.push("/web-sitesi");
     } catch (submissionError) {
       setError(
         submissionError instanceof Error ? submissionError.message

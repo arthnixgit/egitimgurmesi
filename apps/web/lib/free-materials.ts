@@ -1,8 +1,19 @@
 export type ResourceLink = {
+  id?: string;
+  slug?: string;
   title: string;
   type: string;
   summary: string;
   href: string;
+  itemType?: string;
+  downloadHref?: string;
+  iconKey?: string;
+  tone?: string;
+  coverImageUrl?: string;
+  displayFilename?: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+  accessibilityLabel?: string;
   buttonLabel?: string;
   countdownSlug?: string;
   opensInNewTab?: boolean;

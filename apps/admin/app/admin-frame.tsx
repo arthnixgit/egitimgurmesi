@@ -28,7 +28,7 @@ type AdminModule = {
     | "Kurum & Şube"
     | "Öğrenci Operasyonu"
     | "Eğitim Operasyonu"
-    | "İçerik & Medya"
+    | "Web Sitesi"
     | "Paket & Satış"
     | "Finans"
     | "Sistem & Güvenlik";
@@ -123,20 +123,26 @@ const adminModules: AdminModule[] = [
       isSuperOrAdmin(overview) || isBranchAdmin(overview) || isAccountant(overview) || hasPermission(overview, "products.manage")
   },
   {
-    href: "/icerik",
-    icon: "İÇ",
-    label: "İçerik Yönetimi",
-    description: "Sayfalar, menüler, kadro ve materyaller",
-    group: "İçerik & Medya",
-    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
+    href: "/web-sitesi",
+    icon: "WS",
+    label: "Web Sitesi Yönetimi",
+    description: "Genel ayarlar, sayfalar, footer ve ücretsiz materyaller",
+    group: "Web Sitesi",
+    visibleFor: (overview) =>
+      isSuperOrAdmin(overview) ||
+      isBranchAdmin(overview) ||
+      hasPermission(overview, "website.read")
   },
   {
     href: "/medya",
     icon: "MK",
     label: "Medya Kütüphanesi",
     description: "Görsel, doküman ve video bağlantıları",
-    group: "İçerik & Medya",
-    visibleFor: (overview) => isSuperOrAdmin(overview) || hasPermission(overview, "cms.manage")
+    group: "Web Sitesi",
+    visibleFor: (overview) =>
+      isSuperOrAdmin(overview) ||
+      isBranchAdmin(overview) ||
+      hasPermission(overview, "website.manage")
   },
   {
     href: "/personel",
@@ -350,7 +356,7 @@ function groupModules(modules: AdminModule[]) {
       "Kurum & Şube": [],
       "Öğrenci Operasyonu": [],
       "Eğitim Operasyonu": [],
-      "İçerik & Medya": [],
+      "Web Sitesi": [],
       "Paket & Satış": [],
       Finans: [],
       "Sistem & Güvenlik": []

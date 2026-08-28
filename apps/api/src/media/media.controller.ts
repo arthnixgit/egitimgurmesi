@@ -32,7 +32,7 @@ type UploadedMediaFile = {
 @Controller("admin-media")
 @UseGuards(AccessTokenGuard, PermissionsGuard)
 @StaffOnly()
-@RequirePermissions(PERMISSION_KEYS.cmsManage)
+@RequirePermissions(PERMISSION_KEYS.websiteManage)
 export class AdminMediaController {
   constructor(private readonly mediaService: MediaService) {}
 

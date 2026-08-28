@@ -14,10 +14,18 @@ type AccessMode = "super" | "orders";
 
 let accessMode: AccessMode = "super";
 let catalogEditorRequestCount = 0;
+let lastProductSaveBody: Record<string, unknown> | null = null;
+let lastProductDeleteBody: string | null = null;
+let deleteMode: "safe" | "history" = "safe";
+
+const adminViewports = [1920, 1440, 1280, 1024, 768, 390];
 
 test.beforeEach(async ({ page }) => {
   accessMode = "super";
   catalogEditorRequestCount = 0;
+  lastProductSaveBody = null;
+  lastProductDeleteBody = null;
+  deleteMode = "safe";
 
   await page.addInitScript(() => {
     window.localStorage.setItem("ega_staff_access_token", "mock-access-token");
@@ -27,7 +35,7 @@ test.beforeEach(async ({ page }) => {
   await mockCommerceApi(page);
 });
 
-for (const width of [1440, 390]) {
+for (const width of adminViewports) {
   test(`commerce category hierarchy at ${width}px`, async ({ page }) => {
     await openCommerce(page, width);
 
@@ -44,7 +52,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-for (const width of [1440, 1024, 390]) {
+for (const width of adminViewports) {
   test(`commerce package editor at ${width}px`, async ({ page }) => {
     await openCommerce(page, width);
     await page.getByRole("button", { name: /Paket Yönetimi/ }).click();
@@ -75,6 +83,41 @@ test("commerce card preview supports desktop and mobile modes without checkout n
   await expect(checkoutPreviewLink).toHaveAttribute("aria-disabled", "true");
   await page.screenshot({
     path: "test-results/admin-commerce/mobile-card-preview.png",
+    fullPage: true
+  });
+});
+
+test("package save succeeds without sending response-only metadata", async ({ page }) => {
+  await openCommerce(page, 1440);
+  await page.getByRole("button", { name: /Paket/ }).first().click();
+
+  await page.getByRole("button", { name: /Tasla/ }).click();
+  await expect(page.getByText("Taslak kaydedildi.")).toBeVisible();
+  expect(lastProductSaveBody).not.toBeNull();
+  expect(lastProductSaveBody).not.toHaveProperty("categoryName");
+  expect(lastProductSaveBody).not.toHaveProperty("rootCategorySlug");
+  expect(lastProductSaveBody).not.toHaveProperty("rootCategoryName");
+  expect(lastProductSaveBody).not.toHaveProperty("categoryIsRoot");
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: "test-results/admin-commerce/package-save-success.png",
+    fullPage: true
+  });
+});
+
+test("package delete with history shows controlled archive recommendation", async ({ page }) => {
+  deleteMode = "history";
+  await openCommerce(page, 1440);
+  await page.getByRole("button", { name: /Paket/ }).first().click();
+  page.once("dialog", (dialog) => dialog.accept("SİL"));
+
+  await page.getByRole("button", { name: /^Sil$/ }).last().click();
+
+  await expect(page.getByText(/Paket silinemez/)).toBeVisible();
+  expect(lastProductDeleteBody).toBeNull();
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: "test-results/admin-commerce/package-delete-history-message.png",
     fullPage: true
   });
 });
@@ -203,6 +246,31 @@ async function mockCommerceApi(page: Page) {
         status: accessMode === "super" ? 200 : 403,
         json: accessMode === "super" ? catalogProducts() : { message: "Paket kataloğunu yalnızca Super Admin yönetebilir." }
       });
+      return;
+    }
+
+    if (path === "/admin-commerce/products/product_yks" && route.request().method() === "PATCH") {
+      catalogEditorRequestCount += 1;
+      lastProductSaveBody = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ json: { ...catalogProducts()[0], ...lastProductSaveBody, id: "product_yks" } });
+      return;
+    }
+
+    if (path === "/admin-commerce/products/product_yks" && route.request().method() === "DELETE") {
+      catalogEditorRequestCount += 1;
+      lastProductDeleteBody = route.request().postData();
+      if (deleteMode === "history") {
+        await route.fulfill({
+          status: 400,
+          json: {
+            message:
+              "Bu paketin sipariş veya kayıt geçmişi bulunuyor. Paket silinemez; arşivleyerek yayından kaldırabilirsiniz."
+          }
+        });
+        return;
+      }
+
+      await route.fulfill({ json: { status: "deleted", id: "product_yks" } });
       return;
     }
 

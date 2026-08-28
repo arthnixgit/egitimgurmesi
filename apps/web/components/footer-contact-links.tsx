@@ -1,31 +1,48 @@
+import React from "react";
 import {
   CONTACT_ADDRESS,
   CONTACT_DISPLAY_PHONE,
   CONTACT_TEL_HREF,
-  CONTACT_WHATSAPP_HREF
+  CONTACT_WHATSAPP_HREF,
+  normalizePublicSiteSettings,
+  type PublicSiteSettings
 } from "../lib/contact";
 
-export function FooterContactLinks({ whatsappHref = CONTACT_WHATSAPP_HREF }: { whatsappHref?: string }) {
+export function FooterContactLinks({
+  settings,
+  whatsappHref
+}: {
+  settings?: Partial<PublicSiteSettings> | null;
+  whatsappHref?: string;
+}) {
+  const normalized = normalizePublicSiteSettings(settings);
+  const resolvedWhatsappHref = whatsappHref ?? normalized.whatsappHref ?? CONTACT_WHATSAPP_HREF;
+
   return (
-    <div className="ega-footer__contact" aria-label="İletişim bilgileri">
-      <span className="ega-footer__contact-label">İletişime Geçin</span>
-      <a className="ega-footer__contact-phone" href={CONTACT_TEL_HREF} title="Bizi Arayın">
+    <address className="ega-footer__contact" aria-label="İletişim bilgileri">
+      <span className="ega-footer__contact-label">{normalized.footerContactTitle || "İletişime Geçin"}</span>
+      <a className="ega-footer__contact-phone" href={normalized.telHref || CONTACT_TEL_HREF} title="Bizi Arayın">
         Bizi Arayın
-        <strong>{CONTACT_DISPLAY_PHONE}</strong>
+        <strong>{normalized.displayPhone || CONTACT_DISPLAY_PHONE}</strong>
       </a>
       <div className="ega-footer__contact-address">
         <span>Adres</span>
-        <strong>{CONTACT_ADDRESS}</strong>
+        <strong>{normalized.address || CONTACT_ADDRESS}</strong>
       </div>
+      {normalized.publicContactEmail ? (
+        <a className="ega-footer__contact-email" href={`mailto:${normalized.publicContactEmail}`}>
+          {normalized.publicContactEmail}
+        </a>
+      ) : null}
       <a
         className="ega-footer__contact-whatsapp"
-        href={whatsappHref}
+        href={resolvedWhatsappHref}
         target="_blank"
         rel="noreferrer"
         title="WhatsApp ile iletişime geçin"
       >
         WhatsApp ile Yazın
       </a>
-    </div>
+    </address>
   );
 }

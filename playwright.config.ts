@@ -81,8 +81,24 @@ export default defineConfig({
       }
     },
     {
+      name: "admin-website-builder-mocked",
+      testMatch: /.*admin\.website-builder-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: ADMIN_BASE_URL
+      }
+    },
+    {
       name: "public-catalog-responsive",
       testMatch: /.*public\.catalog-responsive\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: WEB_BASE_URL
+      }
+    },
+    {
+      name: "public-website-content-responsive",
+      testMatch: /.*public\.website-content-responsive\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: WEB_BASE_URL

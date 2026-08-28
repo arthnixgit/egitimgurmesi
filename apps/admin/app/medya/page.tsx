@@ -211,8 +211,8 @@ export default function AdminMediaPage() {
           <Link className="admin-button--ghost" href="/">
             Kontrol Merkezi
           </Link>
-          <Link className="admin-button--ghost" href="/icerik">
-            İçerik Stüdyosu
+          <Link className="admin-button--ghost" href="/web-sitesi">
+            Web Sitesi Yönetimi
           </Link>
           <Link className="admin-button--ghost" href="/ticaret">
             Ticaret Merkezi
@@ -232,7 +232,7 @@ export default function AdminMediaPage() {
       <section className="admin-media-destination-grid" aria-label="Medya kullanım rehberi">
         <article>
           <span>Ana Sayfa Banner</span>
-          <strong>İçerik Yönetimi → Sayfa Bölümleri → Ana Sayfa</strong>
+          <strong>Web Sitesi Yönetimi → Sayfalar → Ana Sayfa</strong>
           <p>Banner görseli veya videosu için kütüphanedeki medya URL’sini kullanın.</p>
         </article>
         <article>
@@ -242,12 +242,12 @@ export default function AdminMediaPage() {
         </article>
         <article>
           <span>Akademik Kadro Videosu</span>
-          <strong>İçerik Yönetimi → Akademik Kadro</strong>
+          <strong>Web Sitesi Yönetimi → Akademik Kadro</strong>
           <p>Koç ve öğretmen tanıtım videolarını kadro alanlarına bağlayın.</p>
         </article>
         <article>
           <span>PDF / Ücretsiz Materyal</span>
-          <strong>İçerik Yönetimi → Ücretsiz Materyaller</strong>
+          <strong>Web Sitesi Yönetimi → Ücretsiz Materyaller</strong>
           <p>PDF dosyasını yükle, kullanılacak URL'yi materyal kartının bağlantı alanına ekle.</p>
         </article>
       </section>

@@ -8,6 +8,12 @@ const catalogWritePermissions = [
   PERMISSION_KEYS.couponsManage
 ];
 
+const websitePermissions = [
+  PERMISSION_KEYS.websiteRead,
+  PERMISSION_KEYS.websiteManage,
+  PERMISSION_KEYS.websitePublish
+];
+
 describe("default RBAC catalog policy", () => {
   it("keeps global catalog-writing permissions on Super Admin only", () => {
     const superAdminRole = DEFAULT_ROLES.find((role) => role.key === ROLE_KEYS.superAdmin);
@@ -39,5 +45,19 @@ describe("default RBAC catalog policy", () => {
     assert.ok(rolesWithOrderRead.has(ROLE_KEYS.branchAdmin));
     assert.ok(rolesWithOrderRead.has(ROLE_KEYS.accountant));
     assert.ok(rolesWithOrderRead.has(ROLE_KEYS.accounting));
+  });
+
+  it("grants global website editing only to Super Admin and Branch Admin by default", () => {
+    const allowedWebsiteRoles = new Set<string>([ROLE_KEYS.superAdmin, ROLE_KEYS.branchAdmin]);
+
+    for (const role of DEFAULT_ROLES) {
+      for (const permission of websitePermissions) {
+        assert.equal(
+          role.permissions.includes(permission),
+          allowedWebsiteRoles.has(role.key),
+          `${role.key} website permission mismatch for ${permission}`
+        );
+      }
+    }
   });
 });

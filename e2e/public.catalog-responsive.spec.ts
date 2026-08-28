@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const productSlug = "yks-sinava-kadar-full-paket";
+const publicViewports = [1440, 1024, 390];
 
-for (const width of [1440, 390]) {
+for (const width of publicViewports) {
   test(`public packages catalog at ${width}px`, async ({ page }) => {
     await openPublicRoute(page, "/paketlerimiz", width);
 

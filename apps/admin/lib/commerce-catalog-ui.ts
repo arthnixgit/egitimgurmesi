@@ -1,5 +1,10 @@
 import type { PackageCardProduct, PackTone } from "@ega/ui";
-import type { AdminCatalogCategory, AdminCatalogProduct } from "./commerce-client";
+import type {
+  AdminCatalogCategory,
+  AdminCatalogProduct,
+  SaveAdminCatalogCategoryPayload,
+  SaveAdminCatalogProductPayload
+} from "./commerce-client";
 
 export type CommerceTabKey = "categories" | "products" | "orders";
 
@@ -185,27 +190,34 @@ export function getPublicSubcategoryFilterId(category: AdminCatalogCategory) {
     : category.slug;
 }
 
-export function normalizeCategoryForSave(category: AdminCatalogCategory) {
-  const nextCategory = {
-    ...category,
+export function normalizeCategoryForSave(
+  category: AdminCatalogCategory
+): SaveAdminCatalogCategoryPayload {
+  const trimmedCategory: SaveAdminCatalogCategoryPayload = {
+    id: category.id,
     slug: category.slug.trim(),
     name: category.name.trim(),
     parentSlug: category.parentSlug || null,
     description: category.description?.trim() || null,
     seoTitle: category.seoTitle?.trim() || null,
     seoDescription: category.seoDescription?.trim() || null,
-    ctaHref: category.ctaHref?.trim() || null
+    ctaHref: category.ctaHref?.trim() || null,
+    sortOrder: category.sortOrder,
+    isActive: category.isActive
   };
 
   return {
-    ...nextCategory,
-    ctaHref: nextCategory.ctaHref || getCanonicalCategoryHref(nextCategory)
+    ...trimmedCategory,
+    ctaHref: trimmedCategory.ctaHref || getCanonicalCategoryHref(trimmedCategory)
   };
 }
 
-export function normalizeProductForSave(product: AdminCatalogProduct, publishStatus?: string) {
+export function normalizeProductForSave(
+  product: AdminCatalogProduct,
+  publishStatus?: string
+): SaveAdminCatalogProductPayload {
   return {
-    ...product,
+    id: product.id,
     publishStatus: publishStatus ?? product.publishStatus ?? "DRAFT",
     slug: product.slug.trim(),
     name: product.name.trim(),
@@ -221,22 +233,34 @@ export function normalizeProductForSave(product: AdminCatalogProduct, publishSta
     introVideoUrl: product.introVideoUrl?.trim() || null,
     introVideoPosterUrl: product.introVideoPosterUrl?.trim() || null,
     introVideoTitle: product.introVideoTitle?.trim() || null,
+    type: product.type,
+    provider: product.provider,
+    isFeatured: product.isFeatured,
+    sortOrder: product.sortOrder,
+    accentColor: product.accentColor?.trim() || null,
     variants: product.variants.map((variant, index) => ({
-      ...variant,
+      id: variant.id,
       title: variant.title.trim(),
       sku: variant.sku.trim(),
       billingLabel: variant.billingLabel?.trim() || null,
+      price: variant.price,
       compareAtPrice: variant.compareAtPrice?.trim() || null,
+      currency: variant.currency,
       externalProductId: variant.externalProductId?.trim() || null,
       externalVariantId: variant.externalVariantId?.trim() || null,
-      isDefault: variant.isDefault ?? index === 0
+      isDefault: variant.isDefault ?? index === 0,
+      isActive: variant.isActive,
+      hasInstallments: variant.hasInstallments,
+      installmentCount: variant.installmentCount,
+      sortOrder: variant.sortOrder
     })),
     features: product.features
       .map((feature) => ({
-        ...feature,
+        id: feature.id,
         title: feature.title.trim(),
         description: feature.description?.trim() || null,
-        iconKey: feature.iconKey?.trim() || null
+        iconKey: feature.iconKey?.trim() || null,
+        sortOrder: feature.sortOrder
       }))
       .filter((feature) => feature.title.length > 0)
   };

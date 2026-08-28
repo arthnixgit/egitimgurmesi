@@ -12,6 +12,11 @@ import {
 } from "./free-materials";
 import type { PublicNavItem, PublicMegaMenuColumn, PublicNavLeaf } from "./navigation";
 import { publicNavigationItems } from "./navigation";
+import {
+  fallbackSiteSettings,
+  normalizePublicSiteSettings,
+  type PublicSiteSettings
+} from "./contact";
 
 const fallbackHomePage = {
   key: "home",
@@ -227,11 +232,21 @@ type StaffProfileGroupResponse = {
 
 type FreeMaterialItemResponse = {
   id: string;
+  slug?: string | null;
   title: string;
+  itemType?: string;
   badgeLabel: string | null;
   summary: string;
   href: string;
+  downloadHref?: string | null;
   buttonLabel: string | null;
+  iconKey?: string | null;
+  tone?: string | null;
+  coverImageUrl?: string | null;
+  displayFilename?: string | null;
+  mimeType?: string | null;
+  fileSizeBytes?: number | null;
+  accessibilityLabel?: string | null;
   opensInNewTab: boolean;
   countdownPage: {
     slug: string;
@@ -323,6 +338,8 @@ type SuccessStoryResponse = {
 };
 
 type CollectionPayload<T> = T[] | { value: T[] };
+
+type SiteSettingsResponse = Partial<PublicSiteSettings>;
 
 export type FreeMaterialsContent = {
   freeTools: readonly ResourceLink[];
@@ -448,14 +465,27 @@ function normalizeStaffGroup(group: StaffProfileGroupResponse): AcademicStaffGro
 }
 
 function normalizeResourceLink(item: FreeMaterialItemResponse): ResourceLink {
+  const isDownload = item.itemType === "DOWNLOAD" || item.itemType === "PDF" || Boolean(item.downloadHref);
   return {
+    id: item.id,
+    slug: item.slug ?? undefined,
     title: item.title,
     type: item.badgeLabel ?? "İçerik",
     summary: item.summary,
-    href: item.href,
+    href: item.downloadHref ?? item.href,
+    itemType: item.itemType,
+    downloadHref: item.downloadHref ?? undefined,
+    iconKey: item.iconKey ?? undefined,
+    tone: item.tone ?? undefined,
+    coverImageUrl: item.coverImageUrl ?? undefined,
+    displayFilename: item.displayFilename ?? undefined,
+    mimeType: item.mimeType ?? undefined,
+    fileSizeBytes: item.fileSizeBytes ?? undefined,
+    accessibilityLabel:
+      item.accessibilityLabel ?? (isDownload ? `${item.title} dosyasını indir` : undefined),
     buttonLabel: item.buttonLabel ?? undefined,
     countdownSlug: item.countdownPage?.slug,
-    opensInNewTab: item.opensInNewTab
+    opensInNewTab: isDownload ? false : item.opensInNewTab
   };
 }
 
@@ -560,6 +590,15 @@ export async function getNavigationItems() {
     return menu.items.map(normalizeNavigationNode);
   } catch {
     return publicNavigationItems;
+  }
+}
+
+export async function getPublicSiteSettings() {
+  try {
+    const settings = await requestJson<SiteSettingsResponse>("/public/site-settings");
+    return normalizePublicSiteSettings(settings);
+  } catch {
+    return fallbackSiteSettings;
   }
 }
 

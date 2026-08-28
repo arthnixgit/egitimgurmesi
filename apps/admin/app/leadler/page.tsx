@@ -253,8 +253,8 @@ export default function AdminLeadsPage() {
           <Link className="admin-button--ghost" href="/">
             Kontrol Merkezi
           </Link>
-          <Link className="admin-button--ghost" href="/icerik">
-            İçerik Stüdyosu
+          <Link className="admin-button--ghost" href="/web-sitesi">
+            Web Sitesi Yönetimi
           </Link>
           <Link className="admin-button--ghost" href="/ticaret">
             Ticaret Merkezi

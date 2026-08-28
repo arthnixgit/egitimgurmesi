@@ -1,4 +1,4 @@
-import { ButtonLink } from "@ega/ui";
+import { FreeMaterialCard } from "../../../components/free-material-card";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getFreeMaterialsContent } from "../../../lib/public-content-api";
 
@@ -53,14 +53,7 @@ export default async function BlogHubPage() {
       <section className="ega-section ega-container">
         <div className="ega-exam-link-grid">
           {guidanceContent.map((item) => (
-            <article key={item.title} className="ega-free-link-card ega-free-link-card--compact">
-              <span className="ega-free-link-card__type">{item.type}</span>
-              <h3>{item.title}</h3>
-              <p>{item.summary}</p>
-              <div className="ega-pack-card__actions">
-                <ButtonLink href={item.href} label={item.buttonLabel ?? "İçeriği Aç"} />
-              </div>
-            </article>
+            <FreeMaterialCard key={item.id ?? item.title} item={item} compact />
           ))}
         </div>
       </section>

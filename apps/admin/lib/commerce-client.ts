@@ -16,6 +16,19 @@ export type AdminCatalogCategory = {
   productCount?: number;
 };
 
+export type SaveAdminCatalogCategoryPayload = {
+  id?: string;
+  slug: string;
+  name: string;
+  parentSlug?: string | null;
+  description?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  ctaHref?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
 export type AdminCatalogFeature = {
   id?: string;
   title: string;
@@ -25,6 +38,31 @@ export type AdminCatalogFeature = {
 };
 
 export type AdminCatalogVariant = {
+  id?: string;
+  title: string;
+  sku: string;
+  billingLabel?: string | null;
+  price: string;
+  compareAtPrice?: string | null;
+  currency?: string;
+  isDefault?: boolean;
+  isActive?: boolean;
+  hasInstallments?: boolean;
+  installmentCount?: number | null;
+  sortOrder?: number;
+  externalProductId?: string | null;
+  externalVariantId?: string | null;
+};
+
+export type SaveAdminCatalogFeaturePayload = {
+  id?: string;
+  title: string;
+  description?: string | null;
+  iconKey?: string | null;
+  sortOrder?: number;
+};
+
+export type SaveAdminCatalogVariantPayload = {
   id?: string;
   title: string;
   sku: string;
@@ -71,9 +109,38 @@ export type AdminCatalogProduct = {
   features: AdminCatalogFeature[];
 };
 
+export type SaveAdminCatalogProductPayload = {
+  id?: string;
+  slug: string;
+  name: string;
+  categorySlug?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
+  type: string;
+  provider: string;
+  publishStatus?: string;
+  isFeatured?: boolean;
+  sortOrder?: number;
+  accentColor?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  coverImageUrl?: string | null;
+  introVideoSourceType?: "DIRECT" | "EMBED" | null;
+  introVideoUrl?: string | null;
+  introVideoPosterUrl?: string | null;
+  introVideoTitle?: string | null;
+  variants: SaveAdminCatalogVariantPayload[];
+  features: SaveAdminCatalogFeaturePayload[];
+};
+
 export type AdminCatalogDocument = {
   categories: AdminCatalogCategory[];
   products: AdminCatalogProduct[];
+};
+
+export type SaveAdminCatalogDocumentPayload = {
+  categories: SaveAdminCatalogCategoryPayload[];
+  products: SaveAdminCatalogProductPayload[];
 };
 
 export type AdminOrderSummary = {
@@ -178,14 +245,14 @@ export function fetchAdminCategories() {
   return requestWithStaffToken<AdminCatalogCategory[]>("/admin-commerce/categories");
 }
 
-export function createAdminCategory(payload: AdminCatalogCategory) {
+export function createAdminCategory(payload: SaveAdminCatalogCategoryPayload) {
   return requestWithStaffToken<AdminCatalogCategory>("/admin-commerce/categories", {
     method: "POST",
     body: payload
   });
 }
 
-export function updateAdminCategory(categoryId: string, payload: AdminCatalogCategory) {
+export function updateAdminCategory(categoryId: string, payload: SaveAdminCatalogCategoryPayload) {
   return requestWithStaffToken<AdminCatalogCategory>(
     `/admin-commerce/categories/${encodeURIComponent(categoryId)}`,
     {
@@ -214,14 +281,14 @@ export function fetchAdminProduct(productId: string) {
   );
 }
 
-export function createAdminProduct(payload: AdminCatalogProduct) {
+export function createAdminProduct(payload: SaveAdminCatalogProductPayload) {
   return requestWithStaffToken<AdminCatalogProduct>("/admin-commerce/products", {
     method: "POST",
     body: payload
   });
 }
 
-export function updateAdminProduct(productId: string, payload: AdminCatalogProduct) {
+export function updateAdminProduct(productId: string, payload: SaveAdminCatalogProductPayload) {
   return requestWithStaffToken<AdminCatalogProduct>(
     `/admin-commerce/products/${encodeURIComponent(productId)}`,
     {
@@ -240,7 +307,7 @@ export function deleteAdminProduct(productId: string) {
   );
 }
 
-export function saveAdminCatalogDocument(payload: AdminCatalogDocument) {
+export function saveAdminCatalogDocument(payload: SaveAdminCatalogDocumentPayload) {
   return requestWithStaffToken<AdminCatalogDocument>("/admin-commerce/catalog", {
     method: "PUT",
     body: payload

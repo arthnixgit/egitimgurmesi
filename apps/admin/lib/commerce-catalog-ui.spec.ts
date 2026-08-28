@@ -11,6 +11,7 @@ import {
   getPublishReadiness,
   getSubcategoriesForRoot,
   normalizeCategoryForSave,
+  normalizeProductForSave,
   shouldClearStaffSessionForCommerceError
 } from "./commerce-catalog-ui";
 import type { AdminCatalogCategory, AdminCatalogProduct } from "./commerce-client";
@@ -108,6 +109,90 @@ describe("commerce catalog admin UI helpers", () => {
       normalizeCategoryForSave(child).ctaHref,
       "/paketlerimiz?kategori=online-kocluk&alt=lgs"
     );
+  });
+
+  it("strips category response-only fields from save payloads", () => {
+    const payload = normalizeCategoryForSave({
+      ...category({
+        slug: "online-kocluk",
+        name: "Online KoÃ§luk",
+        ctaHref: null
+      }),
+      parentName: "YanlÄ±ÅŸ parent",
+      childCategoryCount: 5,
+      productCount: 8
+    });
+
+    assert.deepEqual(Object.keys(payload).sort(), [
+      "ctaHref",
+      "description",
+      "id",
+      "isActive",
+      "name",
+      "parentSlug",
+      "seoDescription",
+      "seoTitle",
+      "slug",
+      "sortOrder"
+    ]);
+    assert.equal("parentName" in payload, false);
+    assert.equal("childCategoryCount" in payload, false);
+    assert.equal("productCount" in payload, false);
+  });
+
+  it("strips product response-only fields from save payloads", () => {
+    const responseProduct = productDraft({
+      id: "prod_1",
+      categorySlug: "online-kocluk",
+      categoryName: "Online KoÃ§luk",
+      rootCategorySlug: "online-kocluk",
+      rootCategoryName: "Online KoÃ§luk",
+      categoryIsRoot: true,
+      categoryIsActive: true,
+      rootCategoryIsActive: true,
+      variants: [
+        {
+          ...variant({
+            id: "variant_1",
+            title: " AylÄ±k ",
+            sku: " YKS-AYLIK ",
+            billingLabel: " â‚º1.200 ",
+            compareAtPrice: " 1500 ",
+            isDefault: true,
+            sortOrder: 20
+          }),
+          derivedLabel: "response-only"
+        } as AdminCatalogProduct["variants"][number]
+      ],
+      features: [
+        {
+          id: "feature_1",
+          title: " HaftalÄ±k takip ",
+          description: " Plan ",
+          iconKey: " coach ",
+          sortOrder: 30,
+          derivedPreviewLabel: "response-only"
+        } as AdminCatalogProduct["features"][number]
+      ]
+    });
+
+    const payload = normalizeProductForSave(responseProduct, "DRAFT");
+
+    assert.equal("categoryName" in payload, false);
+    assert.equal("rootCategorySlug" in payload, false);
+    assert.equal("rootCategoryName" in payload, false);
+    assert.equal("categoryIsRoot" in payload, false);
+    assert.equal("categoryIsActive" in payload, false);
+    assert.equal("rootCategoryIsActive" in payload, false);
+    assert.equal("derivedLabel" in payload.variants[0], false);
+    assert.equal("derivedPreviewLabel" in payload.features[0], false);
+    assert.equal(payload.publishStatus, "DRAFT");
+    assert.equal(payload.categorySlug, "online-kocluk");
+    assert.equal(payload.variants[0].title, "AylÄ±k");
+    assert.equal(payload.variants[0].sku, "YKS-AYLIK");
+    assert.equal(payload.variants[0].sortOrder, 20);
+    assert.equal(payload.features[0].title, "HaftalÄ±k takip");
+    assert.equal(payload.features[0].sortOrder, 30);
   });
 
   it("creates a PackageCard-compatible preview model with readiness and warnings", () => {

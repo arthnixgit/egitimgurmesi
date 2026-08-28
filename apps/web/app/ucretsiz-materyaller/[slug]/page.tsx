@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ButtonLink } from "@ega/ui";
 import { ExamCountdownGrid } from "../../../components/exam-countdown-grid";
 import { ExamCountdownRingSessions, ExamCountdownRings } from "../../../components/exam-countdown-rings";
+import { FreeMaterialCard } from "../../../components/free-material-card";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getCountdownPageBySlug, getFreeMaterialsContent } from "../../../lib/public-content-api";
 
@@ -109,19 +109,7 @@ export default async function FreeMaterialCountdownPage({
 
             <div className="ega-exam-link-grid">
               {page.officialLinks.map((item) => (
-                <article key={item.title} className="ega-free-link-card ega-free-link-card--compact">
-                  <span className="ega-free-link-card__type">{item.type}</span>
-                  <h3>{item.title}</h3>
-                  <p>{item.summary}</p>
-                  <div className="ega-pack-card__actions">
-                    <ButtonLink
-                      href={item.href}
-                      label={item.buttonLabel ?? "Bağlantıyı Aç"}
-                      target="_blank"
-                      rel="noreferrer"
-                    />
-                  </div>
-                </article>
+                <FreeMaterialCard key={item.id ?? item.title} item={item} compact />
               ))}
             </div>
           </section>

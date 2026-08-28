@@ -5,15 +5,15 @@ test.describe("admin core smoke", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     await expect(page).toHaveURL(/localhost:3001\/?$/);
-    await expect(page.locator('a[href="/icerik"]').first()).toBeVisible();
+    await expect(page.locator('a[href="/web-sitesi"]').first()).toBeVisible();
     await expect(page.locator('a[href="/ticaret"]').first()).toBeVisible();
   });
 
-  test("content studio loads", async ({ page }) => {
-    await page.goto("/icerik", { waitUntil: "domcontentloaded" });
+  test("website management loads", async ({ page }) => {
+    await page.goto("/web-sitesi", { waitUntil: "domcontentloaded" });
 
-    await expect(page).toHaveURL(/\/icerik$/);
-    await expect(page.getByText(/İçerik Stüdyosu|Icerik Studyosu/i).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/web-sitesi/);
+    await expect(page.getByText(/Web Sitesi Yönetimi|Web Sitesi Yonetimi/i).first()).toBeVisible();
   });
 
   test("commerce center and lead center load", async ({ page }) => {
@@ -27,29 +27,9 @@ test.describe("admin core smoke", () => {
     await expect(page.getByText(/Ücretsiz Ön Görüşme Talepleri|Ucretsiz On Gorusme Talepleri/i).first()).toBeVisible();
   });
 
-  test("packages ribbon content can be saved and reverted", async ({ page }) => {
+  test("legacy content route redirects to website management", async ({ page }) => {
     await page.goto("/icerik", { waitUntil: "domcontentloaded" });
 
-    await page.getByRole("button", { name: /Pazarlama Sayfaları|Pazarlama Sayfalari/i }).click();
-    await page.locator("select").first().selectOption("packages");
-    await expect(page.getByText("Paketlerimiz Ribbon").first()).toBeVisible();
-
-    const ribbonInput = page.getByLabel(/Ribbon metni/i);
-    const originalValue = (await ribbonInput.inputValue()).trim();
-    const updatedValue = `${originalValue} [E2E]`;
-
-    await ribbonInput.fill(updatedValue);
-    await page.getByRole("button", { name: /Kaydet/i }).click();
-    await expect(page.getByText(/Paketlerimiz sayfası kaydedildi|Paketlerimiz sayfasi kaydedildi/i).first()).toBeVisible();
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: /Pazarlama Sayfaları|Pazarlama Sayfalari/i }).click();
-    await page.locator("select").first().selectOption("packages");
-    await expect(page.getByLabel(/Ribbon metni/i)).toHaveValue(updatedValue);
-
-    await page.getByLabel(/Ribbon metni/i).fill(originalValue);
-    await page.getByRole("button", { name: /Kaydet/i }).click();
-    await expect(page.getByText(/Paketlerimiz sayfası kaydedildi|Paketlerimiz sayfasi kaydedildi/i).first()).toBeVisible();
-    await expect(page.getByLabel(/Ribbon metni/i)).toHaveValue(originalValue);
+    await expect(page).toHaveURL(/\/web-sitesi/);
   });
 });

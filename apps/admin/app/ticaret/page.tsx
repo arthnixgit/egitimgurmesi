@@ -30,6 +30,8 @@ import {
   type AdminCatalogVariant,
   type AdminOrderDetail,
   type AdminOrderSummary,
+  type SaveAdminCatalogCategoryPayload,
+  type SaveAdminCatalogProductPayload,
   updateAdminCategory,
   updateAdminOrderNote,
   updateAdminOrderStatus,
@@ -717,10 +719,13 @@ export default function AdminCommercePage() {
         ? await updateAdminProduct(payload.id, payload)
         : await createAdminProduct(payload);
       const productsResponse = await fetchAdminProducts();
+      const savedRoot = getRootForCategory(categories, saved.categorySlug);
       setProducts(productsResponse);
       setSelectedProductId(saved.id ?? "new");
       setProductDraft(cloneProduct(saved));
       setProductSnapshot(snapshotProduct(saved));
+      setProductRootFilter(savedRoot?.slug ?? "");
+      setProductSubcategoryFilter(saved.categorySlug ?? "");
       setSuccess(
         nextPublishStatus === "PUBLISHED"
           ? "Paket yayına alındı."
@@ -742,10 +747,10 @@ export default function AdminCommercePage() {
     }
 
     const confirmation = window.prompt(
-      `Bu paketi kalıcı olarak silmek için paket slug değerini yazın: ${productDraft.slug}`
+      `Bu paketi kalıcı olarak silmek için SİL yazın. Paket: ${productDraft.name || productDraft.slug}`
     );
 
-    if (confirmation !== productDraft.slug) {
+    if (confirmation !== "SİL") {
       return;
     }
 
@@ -761,14 +766,19 @@ export default function AdminCommercePage() {
       const nextProduct = productsResponse[0] ?? null;
 
       if (nextProduct) {
+        const nextRoot = getRootForCategory(categories, nextProduct.categorySlug);
         setSelectedProductId(nextProduct.id ?? "new");
         setProductDraft(cloneProduct(nextProduct));
         setProductSnapshot(snapshotProduct(nextProduct));
+        setProductRootFilter(nextRoot?.slug ?? "");
+        setProductSubcategoryFilter(nextProduct.categorySlug ?? "");
       } else {
         const emptyProduct = createEmptyProduct();
         setSelectedProductId("new");
         setProductDraft(emptyProduct);
         setProductSnapshot(snapshotProduct(emptyProduct));
+        setProductRootFilter("");
+        setProductSubcategoryFilter("");
       }
 
       setSuccess("Ürün silindi.");
@@ -898,8 +908,8 @@ export default function AdminCommercePage() {
           <Link className="admin-button--ghost" href="/">
             Kontrol Merkezi
           </Link>
-          <Link className="admin-button--ghost" href="/icerik">
-            İçerik Stüdyosu
+          <Link className="admin-button--ghost" href="/web-sitesi">
+            Web Sitesi Yönetimi
           </Link>
           <Link className="admin-button--ghost" href="/medya">
             Medya Kütüphanesi
@@ -3056,11 +3066,11 @@ function cloneProduct(product: AdminCatalogProduct): AdminCatalogProduct {
   };
 }
 
-function normalizeCategoryDraft(draft: AdminCatalogCategory): AdminCatalogCategory {
+function normalizeCategoryDraft(draft: AdminCatalogCategory): SaveAdminCatalogCategoryPayload {
   return normalizeCategoryForSave(draft);
 }
 
-function normalizeProductDraft(draft: AdminCatalogProduct): AdminCatalogProduct {
+function normalizeProductDraft(draft: AdminCatalogProduct): SaveAdminCatalogProductPayload {
   return normalizeProductForSave(draft);
 }
 

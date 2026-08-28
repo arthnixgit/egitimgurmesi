@@ -1,4 +1,4 @@
-import { ContentStatus, Prisma } from "@ega/db";
+import { ContentStatus, FreeMaterialItemType, Prisma } from "@ega/db";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 
@@ -129,6 +129,21 @@ export class PublicContentRepository {
       include: freeMaterialCategoryInclude,
       orderBy: {
         sortOrder: "asc"
+      }
+    });
+  }
+
+  getPublishedDownloadMaterialItem(itemIdOrSlug: string) {
+    return this.prisma.freeMaterialItem.findFirst({
+      where: {
+        OR: [{ id: itemIdOrSlug }, { slug: itemIdOrSlug }],
+        publishStatus: ContentStatus.PUBLISHED,
+        itemType: {
+          in: [FreeMaterialItemType.PDF, FreeMaterialItemType.DOWNLOAD]
+        },
+        category: {
+          publishStatus: ContentStatus.PUBLISHED
+        }
       }
     });
   }

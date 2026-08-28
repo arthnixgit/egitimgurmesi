@@ -4,10 +4,10 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
-import { FooterContactLinks } from "../components/footer-contact-links";
+import { PublicFooter } from "../components/public-footer";
 import { PublicNavbar } from "../components/public-navbar";
 import { ShowcaseQuickActions } from "../components/showcase-quick-actions";
-import { CONTACT_TEL_HREF, CONTACT_WHATSAPP_HREF } from "../lib/contact";
+import { fallbackSiteSettings, type PublicSiteSettings } from "../lib/contact";
 import { isEmbeddableVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 import { getPackageCatalogContent } from "../lib/public-commerce-api";
 import {
@@ -16,7 +16,11 @@ import {
   type PackageCategory,
   type PackageProduct
 } from "../lib/package-catalog";
-import { getMarketingPageContent, type MarketingPageContent } from "../lib/public-content-api";
+import {
+  getMarketingPageContent,
+  getPublicSiteSettings,
+  type MarketingPageContent
+} from "../lib/public-content-api";
 
 type FilterMode = "grade" | "preference";
 
@@ -735,6 +739,7 @@ function VideoCard({ title, category, duration, teacher, summary, tone }: VideoC
 
 export default function HomePage() {
   const [homePageContent, setHomePageContent] = useState<MarketingPageContent | null>(null);
+  const [siteSettings, setSiteSettings] = useState<PublicSiteSettings>(fallbackSiteSettings);
   const [catalogCategories, setCatalogCategories] =
     useState<readonly PackageCategory[]>(packageCategories);
   const [catalogProducts, setCatalogProducts] =
@@ -764,6 +769,12 @@ export default function HomePage() {
 
   useEffect(() => {
     let isCancelled = false;
+
+    void getPublicSiteSettings().then((settings) => {
+      if (!isCancelled) {
+        setSiteSettings(settings);
+      }
+    });
 
     void getMarketingPageContent("home").then((page) => {
       if (!isCancelled) {
@@ -1028,45 +1039,22 @@ export default function HomePage() {
 
           <div className="ega-cta-panel__actions">
             <ButtonLink
-              href={CONTACT_WHATSAPP_HREF}
+              href={siteSettings.whatsappHref}
               label="WhatsApp ile Yazın"
               target="_blank"
               rel="noreferrer"
             />
-            <ButtonLink href={CONTACT_TEL_HREF} label="Bizi Arayın" variant="ghost" />
+            <ButtonLink href={siteSettings.telHref} label="Bizi Arayın" variant="ghost" />
             <ButtonLink href="/kayit" label="Hesap Oluştur" variant="ghost" />
           </div>
         </div>
       </section>
 
-      <footer className="ega-footer">
-        <div className="ega-footer__inner">
-          <div className="ega-footer__brand">
-            <Image
-              src="/branding/ega-logo-official.png"
-              alt="Eğitim Gurmesi Akademi"
-              width={229}
-              height={121}
-              className="ega-footer__logo"
-            />
-            <p>
-              Eğitim Gurmesi Akademi; video paketleri, koçluk desteği ve öğrenci takibini aynı çatı altında düzenli biçimde sunan bir hazırlık platformudur.
-            </p>
-            <FooterContactLinks />
-          </div>
-
-          <div className="ega-footer__links">
-            <a href="/paketlerimiz">Paketler</a>
-            <a href="/ucretsiz-materyaller">Ücretsiz Materyaller</a>
-            <a href="/hakkimizda">Hakkımızda</a>
-            <a href="/giris">Öğrenci Girişi</a>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter settings={siteSettings} />
 
       <a
         className="ega-contact-bookmark"
-        href={CONTACT_WHATSAPP_HREF}
+        href={siteSettings.whatsappHref}
         aria-label="WhatsApp ile iletişime geçin"
         title="WhatsApp ile iletişime geçin"
         target="_blank"

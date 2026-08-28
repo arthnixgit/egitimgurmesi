@@ -3,10 +3,7 @@ import { ButtonLink, SectionHeading } from "@ega/ui";
 import { PublicPageLayout } from "../../components/public-page-layout";
 import { buildWhatsAppHref } from "../../lib/contact";
 import { buildPackagesPageHref, getPackageCategoryById } from "../../lib/package-catalog";
-
-const whatsAppHref = buildWhatsAppHref(
-  "Merhaba, Ankara yüz yüze koçluk paketleri hakkında bilgi almak istiyorum."
-);
+import { getPublicSiteSettings } from "../../lib/public-content-api";
 
 const inPersonCategory = getPackageCategoryById("in-person-coaching");
 
@@ -25,9 +22,15 @@ const inPersonHighlights = [
   }
 ] as const;
 
-export default function InPersonCoachingPage() {
+export default async function InPersonCoachingPage() {
+  const siteSettings = await getPublicSiteSettings();
+  const whatsAppHref = buildWhatsAppHref(
+    "Merhaba, Ankara yüz yüze koçluk paketleri hakkında bilgi almak istiyorum.",
+    siteSettings.supportWhatsappNumber
+  );
+
   return (
-    <PublicPageLayout contactHref={whatsAppHref}>
+    <PublicPageLayout contactHref={whatsAppHref} settings={siteSettings}>
       <section className="ega-coaching-topline">
         <div className="ega-container ega-coaching-topline__inner">
           <strong>+6 yıllık saha deneyimi ile Eğitim Gurmesi Akademi ekibi yanında</strong>

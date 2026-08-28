@@ -56,6 +56,11 @@ export class SaveNavigationMenuItemDto {
 }
 
 export class SaveNavigationMenuDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @IsString()
   name!: string;
 
@@ -119,6 +124,11 @@ export class SaveMarketingPageSectionDto {
 }
 
 export class SaveMarketingPageDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @IsString()
   slug!: string;
 
@@ -241,6 +251,11 @@ export class SaveStaffProfileGroupDto {
 }
 
 export class SaveStaffProfilesDocumentDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaveStaffProfileGroupDto)
@@ -291,6 +306,11 @@ export class SaveSuccessStoryDto {
 }
 
 export class SaveSuccessStoriesDocumentDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaveSuccessStoryDto)
@@ -323,6 +343,43 @@ export class SaveFreeMaterialItemDto {
   @IsOptional()
   @IsString()
   buttonLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  iconKey?: string;
+
+  @IsOptional()
+  @IsString()
+  tone?: string;
+
+  @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  downloadUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  mediaAssetId?: string;
+
+  @IsOptional()
+  @IsString()
+  displayFilename?: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  fileSizeBytes?: number;
+
+  @IsOptional()
+  @IsString()
+  accessibilityLabel?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -472,6 +529,11 @@ export class SaveCountdownPageDto {
 }
 
 export class SaveFreeMaterialsDocumentDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaveFreeMaterialCategoryDto)
@@ -481,4 +543,111 @@ export class SaveFreeMaterialsDocumentDto {
   @ValidateNested({ each: true })
   @Type(() => SaveCountdownPageDto)
   countdownPages!: SaveCountdownPageDto[];
+}
+
+export class SaveSiteSettingsDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  version?: number;
+
+  @IsString()
+  siteName!: string;
+
+  @IsString()
+  siteTitle!: string;
+
+  @IsOptional()
+  @IsString()
+  tagline?: string | null;
+
+  @IsOptional()
+  @IsString()
+  supportEmail?: string | null;
+
+  @IsOptional()
+  @IsString()
+  supportPhone?: string | null;
+
+  @IsString()
+  supportWhatsappNumber!: string;
+
+  @IsOptional()
+  @IsString()
+  logoPrimaryUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoMarkUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoFooterUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoCompactUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoDarkUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoLightUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  faviconUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  defaultSocialImageUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logoAltText?: string | null;
+
+  @IsString()
+  displayPhone!: string;
+
+  @IsString()
+  canonicalPhone!: string;
+
+  @IsString()
+  whatsappMessage!: string;
+
+  @IsString()
+  address!: string;
+
+  @IsOptional()
+  @IsString()
+  publicContactEmail?: string | null;
+
+  @IsString()
+  footerBrandDescription!: string;
+
+  @IsArray()
+  footerQuickLinks!: Array<{ label: string; href: string }>;
+
+  @IsString()
+  footerContactTitle!: string;
+
+  @IsArray()
+  socialLinks!: Array<{ label: string; href: string }>;
+
+  @IsString()
+  copyrightText!: string;
+
+  @IsOptional()
+  @IsString()
+  footerNotice?: string | null;
+
+  @IsOptional()
+  @IsString()
+  defaultSeoTitle?: string | null;
+
+  @IsOptional()
+  @IsString()
+  defaultSeoDescription?: string | null;
 }

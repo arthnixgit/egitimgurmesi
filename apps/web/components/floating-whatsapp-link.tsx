@@ -1,10 +1,12 @@
-import { CONTACT_WHATSAPP_HREF } from "../lib/contact";
+import { getPublicSiteSettings } from "../lib/public-content-api";
 
-export function FloatingWhatsAppLink() {
+export async function FloatingWhatsAppLink() {
+  const settings = await getPublicSiteSettings();
+
   return (
     <a
       className="ega-whatsapp-float"
-      href={CONTACT_WHATSAPP_HREF}
+      href={settings.whatsappHref}
       target="_blank"
       rel="noreferrer"
       aria-label="WhatsApp ile iletişime geçin"

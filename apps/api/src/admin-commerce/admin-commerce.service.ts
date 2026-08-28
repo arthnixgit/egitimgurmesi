@@ -465,7 +465,7 @@ export class AdminCommerceService {
 
     if (existing._count.orderItems > 0 || existing._count.enrollments > 0) {
       throw new BadRequestException(
-        "Bu paketin sipariş veya kayıt geçmişi bulunduğu için silinemez. Arşivlemeyi kullanın."
+        "Bu paketin sipariş veya kayıt geçmişi bulunuyor. Paket silinemez; arşivleyerek yayından kaldırabilirsiniz."
       );
     }
 

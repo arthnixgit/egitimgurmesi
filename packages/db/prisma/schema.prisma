@@ -90,6 +90,14 @@ enum FreeMaterialItemType {
   PDF
   GUIDANCE
   EXTERNAL
+  DOWNLOAD
+  INTERNAL_PAGE
+  EXTERNAL_LINK
+  COUNTDOWN
+  CALCULATOR
+  BLOG
+  SIMULATION
+  SYSTEM_TOOL
 }
 
 enum MediaAssetKind {
@@ -879,6 +887,7 @@ model NavigationMenu {
   location    NavigationMenuLocation @default(PRIMARY)
   description String?
   isActive    Boolean                @default(true)
+  version     Int                    @default(1)
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
   items       NavigationMenuItem[]
@@ -921,6 +930,7 @@ model MarketingPage {
   seoDescription String?
   heroImageUrl   String?
   metadata       Json?
+  version        Int                    @default(1)
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
   sections       MarketingPageSection[]
@@ -962,6 +972,7 @@ model StaffProfileGroup {
   introVideoTitle      String?
   sortOrder            Int                     @default(0)
   publishStatus        ContentStatus           @default(PUBLISHED)
+  version              Int                     @default(1)
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   profiles             StaffProfile[]
@@ -1001,6 +1012,7 @@ model SuccessStory {
   sortOrder     Int           @default(0)
   isFeatured    Boolean       @default(false)
   publishStatus ContentStatus @default(PUBLISHED)
+  version       Int           @default(1)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -1015,6 +1027,7 @@ model FreeMaterialCategory {
   description   String?
   sortOrder     Int                @default(0)
   publishStatus ContentStatus      @default(PUBLISHED)
+  version       Int                @default(1)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   items         FreeMaterialItem[]
@@ -1023,24 +1036,34 @@ model FreeMaterialCategory {
 }
 
 model FreeMaterialItem {
-  id              String               @id @default(cuid())
-  categoryId      String
-  slug            String?              @unique
-  title           String
-  itemType        FreeMaterialItemType
-  badgeLabel      String?
-  summary         String?
-  href            String?
-  buttonLabel     String?
-  opensInNewTab   Boolean              @default(false)
-  sortOrder       Int                  @default(0)
-  isFeatured      Boolean              @default(false)
-  publishStatus   ContentStatus        @default(PUBLISHED)
-  countdownPageId String?              @unique
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  category        FreeMaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  countdownPage   CountdownPage?       @relation(fields: [countdownPageId], references: [id], onDelete: SetNull)
+  id                 String               @id @default(cuid())
+  categoryId         String
+  slug               String?              @unique
+  title              String
+  itemType           FreeMaterialItemType
+  badgeLabel         String?
+  summary            String?
+  href               String?
+  buttonLabel        String?
+  iconKey            String?
+  tone               String?
+  coverImageUrl      String?
+  downloadUrl        String?
+  mediaAssetId       String?
+  displayFilename    String?
+  mimeType           String?
+  fileSizeBytes      Int?
+  accessibilityLabel String?
+  opensInNewTab      Boolean              @default(false)
+  sortOrder          Int                  @default(0)
+  isFeatured         Boolean              @default(false)
+  publishStatus      ContentStatus        @default(PUBLISHED)
+  version            Int                  @default(1)
+  countdownPageId    String?              @unique
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  category           FreeMaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  countdownPage      CountdownPage?       @relation(fields: [countdownPageId], references: [id], onDelete: SetNull)
 
   @@index([categoryId, sortOrder])
   @@map("free_material_items")
@@ -1056,6 +1079,7 @@ model CountdownPage {
   videoTitle       String
   videoNote        String
   publishStatus    ContentStatus             @default(PUBLISHED)
+  version          Int                       @default(1)
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
   freeMaterialItem FreeMaterialItem?
@@ -1145,23 +1169,61 @@ model MediaAsset {
 }
 
 model SiteSetting {
-  id                    String   @id @default(cuid())
-  key                   String   @unique
-  siteName              String
-  siteTitle             String
-  tagline               String?
-  supportEmail          String?
-  supportPhone          String?
-  supportWhatsappNumber String?
-  logoPrimaryUrl        String?
-  logoMarkUrl           String?
-  footerNotice          String?
-  defaultSeoTitle       String?
-  defaultSeoDescription String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                         String    @id @default(cuid())
+  key                        String    @unique
+  siteName                   String
+  siteTitle                  String
+  tagline                    String?
+  supportEmail               String?
+  supportPhone               String?
+  supportWhatsappNumber      String?
+  logoPrimaryUrl             String?
+  logoMarkUrl                String?
+  logoFooterUrl              String?
+  logoCompactUrl             String?
+  logoDarkUrl                String?
+  logoLightUrl               String?
+  faviconUrl                 String?
+  defaultSocialImageUrl      String?
+  logoAltText                String?
+  displayPhone               String?
+  canonicalPhone             String?
+  whatsappMessage            String?
+  address                    String?
+  publicContactEmail         String?
+  footerBrandDescription     String?
+  footerQuickLinks           Json?
+  footerContactTitle         String?
+  socialLinks                Json?
+  copyrightText              String?
+  footerNotice               String?
+  defaultSeoTitle            String?
+  defaultSeoDescription      String?
+  version                    Int       @default(1)
+  publishedAt                DateTime?
+  lastPublishedByStaffUserId String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   @@map("site_settings")
+}
+
+model WebsiteContentRevision {
+  id                   String   @id @default(cuid())
+  scope                String
+  entityType           String
+  entityKey            String
+  version              Int
+  action               String
+  summary              String?
+  beforeData           Json?
+  afterData            Json
+  createdByStaffUserId String?
+  createdAt            DateTime @default(now())
+
+  @@index([scope, entityType, entityKey, createdAt])
+  @@index([createdByStaffUserId, createdAt])
+  @@map("website_content_revisions")
 }
 
 model ProductCategory {

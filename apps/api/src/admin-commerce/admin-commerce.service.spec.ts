@@ -276,6 +276,83 @@ describe("AdminCommerceService publish-readiness validation", () => {
   });
 });
 
+describe("AdminCommerceService package delete/archive safety", () => {
+  it("blocks deleting a package with order or enrollment history using a controlled message", async () => {
+    const service = new AdminCommerceService({
+      product: {
+        findUnique: async () => ({
+          id: "product_1",
+          slug: "history-package",
+          _count: {
+            orderItems: 1,
+            enrollments: 0
+          }
+        })
+      }
+    } as never);
+
+    await assertBadRequest(
+      () => service.deleteProduct("product_1", superAdminAuth),
+      "Bu paketin sipariş veya kayıt geçmişi bulunuyor. Paket silinemez; arşivleyerek yayından kaldırabilirsiniz."
+    );
+  });
+
+  it("deletes only dependency-free packages and records an audit event", async () => {
+    const calls: string[] = [];
+    const tx = {
+      externalProviderProduct: {
+        deleteMany: async () => {
+          calls.push("externalProviderProduct.deleteMany");
+        }
+      },
+      productFeature: {
+        deleteMany: async () => {
+          calls.push("productFeature.deleteMany");
+        }
+      },
+      productVariant: {
+        deleteMany: async () => {
+          calls.push("productVariant.deleteMany");
+        }
+      },
+      product: {
+        delete: async () => {
+          calls.push("product.delete");
+        }
+      }
+    };
+    const service = new AdminCommerceService({
+      product: {
+        findUnique: async () => ({
+          id: "product_1",
+          slug: "safe-delete-package",
+          _count: {
+            orderItems: 0,
+            enrollments: 0
+          }
+        })
+      },
+      $transaction: async (callback: (client: typeof tx) => Promise<void>) => callback(tx),
+      auditLog: {
+        create: async () => {
+          calls.push("auditLog.create");
+        }
+      }
+    } as never);
+
+    const result = await service.deleteProduct("product_1", superAdminAuth);
+
+    assert.deepEqual(result, { status: "deleted", id: "product_1" });
+    assert.deepEqual(calls, [
+      "externalProviderProduct.deleteMany",
+      "productFeature.deleteMany",
+      "productVariant.deleteMany",
+      "product.delete",
+      "auditLog.create"
+    ]);
+  });
+});
+
 async function assertBadRequest(call: () => Promise<unknown>, message: string) {
   await assert.rejects(call, (error: unknown) => {
     assert.ok(error instanceof BadRequestException);
