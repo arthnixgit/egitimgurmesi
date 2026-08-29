@@ -26,44 +26,44 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE "navigation_menus" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "marketing_pages" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "staff_profile_groups" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "success_stories" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "free_material_categories" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "free_material_items" ADD COLUMN "iconKey" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "tone" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "coverImageUrl" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "downloadUrl" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "mediaAssetId" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "displayFilename" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "mimeType" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "fileSizeBytes" INTEGER;
-ALTER TABLE "free_material_items" ADD COLUMN "accessibilityLabel" TEXT;
-ALTER TABLE "free_material_items" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "countdown_pages" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "site_settings" ADD COLUMN "logoFooterUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "logoCompactUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "logoDarkUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "logoLightUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "faviconUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "defaultSocialImageUrl" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "logoAltText" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "displayPhone" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "canonicalPhone" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "whatsappMessage" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "address" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "publicContactEmail" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "footerBrandDescription" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "footerQuickLinks" JSONB;
-ALTER TABLE "site_settings" ADD COLUMN "footerContactTitle" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "socialLinks" JSONB;
-ALTER TABLE "site_settings" ADD COLUMN "copyrightText" TEXT;
-ALTER TABLE "site_settings" ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE "site_settings" ADD COLUMN "publishedAt" TIMESTAMP(3);
-ALTER TABLE "site_settings" ADD COLUMN "lastPublishedByStaffUserId" TEXT;
+ALTER TABLE "navigation_menus" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "marketing_pages" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "staff_profile_groups" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "success_stories" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "free_material_categories" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "iconKey" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "tone" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "coverImageUrl" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "downloadUrl" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "mediaAssetId" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "displayFilename" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "mimeType" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "fileSizeBytes" INTEGER;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "accessibilityLabel" TEXT;
+ALTER TABLE "free_material_items" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "countdown_pages" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "logoFooterUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "logoCompactUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "logoDarkUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "logoLightUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "faviconUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "defaultSocialImageUrl" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "logoAltText" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "displayPhone" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "canonicalPhone" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "whatsappMessage" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "publicContactEmail" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "footerBrandDescription" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "footerQuickLinks" JSONB;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "footerContactTitle" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "socialLinks" JSONB;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "copyrightText" TEXT;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "version" INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "publishedAt" TIMESTAMP(3);
+ALTER TABLE "site_settings" ADD COLUMN IF NOT EXISTS "lastPublishedByStaffUserId" TEXT;
 
-CREATE TABLE "website_content_revisions" (
+CREATE TABLE IF NOT EXISTS "website_content_revisions" (
   "id" TEXT NOT NULL,
   "scope" TEXT NOT NULL,
   "entityType" TEXT NOT NULL,
@@ -78,10 +78,10 @@ CREATE TABLE "website_content_revisions" (
   CONSTRAINT "website_content_revisions_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "website_content_revisions_scope_entityType_entityKey_createdAt_idx"
+CREATE INDEX IF NOT EXISTS "website_content_revisions_scope_entityType_entityKey_createdAt_idx"
   ON "website_content_revisions"("scope", "entityType", "entityKey", "createdAt");
 
-CREATE INDEX "website_content_revisions_createdByStaffUserId_createdAt_idx"
+CREATE INDEX IF NOT EXISTS "website_content_revisions_createdByStaffUserId_createdAt_idx"
   ON "website_content_revisions"("createdByStaffUserId", "createdAt");
 
 INSERT INTO "site_settings" (
@@ -115,6 +115,8 @@ INSERT INTO "site_settings" (
   "footerNotice",
   "defaultSeoTitle",
   "defaultSeoDescription",
+  "createdAt",
+  "updatedAt",
   "publishedAt"
 ) VALUES (
   'site_default',
@@ -147,8 +149,11 @@ INSERT INTO "site_settings" (
   'Eğitim Gurmesi Akademi iletişim ve marka bilgileri.',
   'Eğitim Gurmesi Akademi',
   'Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 ) ON CONFLICT ("key") DO UPDATE SET
+  "updatedAt" = CURRENT_TIMESTAMP,
   "supportPhone" = '+90 531 855 38 27',
   "supportWhatsappNumber" = '905318553827',
   "logoPrimaryUrl" = COALESCE("site_settings"."logoPrimaryUrl", EXCLUDED."logoPrimaryUrl"),
