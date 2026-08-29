@@ -34,13 +34,25 @@ type MediaAssetRecord = Prisma.MediaAssetGetPayload<object>;
 export class MediaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listAssets(kind?: MediaAssetKind) {
+  async listAssets(kind?: MediaAssetKind, options: { search?: string; take?: number } = {}) {
+    const search = options.search?.trim();
     const assets = await this.prisma.mediaAsset.findMany({
-      where: kind ? { kind } : undefined,
+      where: {
+        ...(kind ? { kind } : {}),
+        ...(search
+          ? {
+              OR: [
+                { title: { contains: search, mode: "insensitive" } },
+                { originalFileName: { contains: search, mode: "insensitive" } },
+                { altText: { contains: search, mode: "insensitive" } }
+              ]
+            }
+          : {})
+      },
       orderBy: {
         createdAt: "desc"
       },
-      take: 200
+      take: Math.min(Math.max(options.take ?? 48, 1), 100)
     });
 
     return assets.map((asset) => this.normalizeAsset(asset));
@@ -54,14 +66,11 @@ export class MediaService {
     requireWebsiteManage(auth);
 
     if (!file) {
-      throw new BadRequestException("A media file is required.");
-    }
-
-    if (file.size > appEnv.mediaMaxUploadBytes()) {
-      throw new BadRequestException("Uploaded file is larger than the configured media limit.");
+      throw new BadRequestException("Yüklenecek medya dosyası zorunludur.");
     }
 
     const kind = parseMediaKind(fields.kind) ?? inferMediaKind(file.mimetype);
+    validateUploadedMediaFile(file, kind);
     const assetId = randomUUID();
     const extension = sanitizeExtension(path.extname(file.originalname));
     const storageKey = createStorageKey(assetId, extension);
@@ -85,7 +94,7 @@ export class MediaService {
           mimeType: file.mimetype || null,
           storageKey,
           publicUrl,
-          originalFileName: file.originalname,
+          originalFileName: sanitizeOriginalFileName(file.originalname),
           sizeBytes: file.size,
           metadata: {
             checksumSha256: checksum,
@@ -285,12 +294,130 @@ function inferMediaKind(mimeType: string) {
   return MediaAssetKind.OTHER;
 }
 
+const allowedUploadMimeTypes: Record<MediaAssetKind, readonly string[]> = {
+  [MediaAssetKind.IMAGE]: ["image/png", "image/jpeg", "image/webp", "image/avif"],
+  [MediaAssetKind.BRANDING]: [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/avif",
+    "image/x-icon",
+    "image/vnd.microsoft.icon"
+  ],
+  [MediaAssetKind.DOCUMENT]: [
+    "application/pdf",
+    "application/zip",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  ],
+  [MediaAssetKind.VIDEO]: ["video/mp4", "video/webm", "video/quicktime"],
+  [MediaAssetKind.AUDIO]: ["audio/mpeg", "audio/wav", "audio/webm"],
+  [MediaAssetKind.OTHER]: []
+};
+
+const allowedUploadExtensions: Record<MediaAssetKind, readonly string[]> = {
+  [MediaAssetKind.IMAGE]: [".png", ".jpg", ".jpeg", ".webp", ".avif"],
+  [MediaAssetKind.BRANDING]: [".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico"],
+  [MediaAssetKind.DOCUMENT]: [".pdf", ".zip", ".docx", ".xlsx", ".pptx"],
+  [MediaAssetKind.VIDEO]: [".mp4", ".webm", ".mov"],
+  [MediaAssetKind.AUDIO]: [".mp3", ".wav", ".webm"],
+  [MediaAssetKind.OTHER]: []
+};
+
+export function validateUploadedMediaFile(file: UploadedMediaFile, kind: MediaAssetKind) {
+  if (file.size <= 0 || file.buffer.byteLength <= 0) {
+    throw new BadRequestException("Boş medya dosyası yüklenemez.");
+  }
+
+  if (file.size > appEnv.mediaMaxUploadBytes()) {
+    throw new BadRequestException("Yüklenen dosya izin verilen medya sınırından büyük.");
+  }
+
+  const extension = path.extname(file.originalname).toLowerCase();
+  if (file.mimetype === "image/svg+xml" || extension === ".svg") {
+    throw new BadRequestException("SVG dosyaları güvenli şekilde temizlenmediği için yüklenemez.");
+  }
+
+  const allowedMimeTypes = allowedUploadMimeTypes[kind] ?? [];
+  if (allowedMimeTypes.length > 0 && !allowedMimeTypes.includes(file.mimetype)) {
+    throw new BadRequestException("Bu medya türü için desteklenmeyen MIME tipi.");
+  }
+
+  const allowedExtensions = allowedUploadExtensions[kind] ?? [];
+  if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
+    throw new BadRequestException("Bu medya türü için desteklenmeyen dosya uzantısı.");
+  }
+
+  if (!hasExpectedSignature(file.buffer, file.mimetype)) {
+    throw new BadRequestException("Dosya içeriği bildirilen medya türüyle eşleşmiyor.");
+  }
+}
+
+function hasExpectedSignature(buffer: Buffer, mimeType: string) {
+  if (mimeType === "image/png") {
+    return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+
+  if (mimeType === "image/jpeg") {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+
+  if (mimeType === "image/webp") {
+    return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+  }
+
+  if (mimeType === "image/avif") {
+    return buffer.subarray(4, 8).toString("ascii") === "ftyp";
+  }
+
+  if (mimeType === "application/pdf") {
+    return buffer.subarray(0, 4).toString("ascii") === "%PDF";
+  }
+
+  if (mimeType.includes("zip") || mimeType.includes("officedocument")) {
+    return buffer[0] === 0x50 && buffer[1] === 0x4b;
+  }
+
+  if (mimeType === "video/mp4" || mimeType === "video/quicktime") {
+    return buffer.subarray(4, 8).toString("ascii") === "ftyp";
+  }
+
+  if (mimeType === "video/webm" || mimeType === "audio/webm") {
+    return buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+  }
+
+  if (mimeType === "audio/mpeg") {
+    return buffer.subarray(0, 3).toString("ascii") === "ID3" || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0);
+  }
+
+  if (mimeType === "audio/wav") {
+    return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WAVE";
+  }
+
+  if (mimeType === "image/x-icon" || mimeType === "image/vnd.microsoft.icon") {
+    return buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 && buffer[3] === 0x00;
+  }
+
+  return true;
+}
+
 function createStorageKey(assetId: string, extension: string) {
   const now = new Date();
   const year = String(now.getUTCFullYear());
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
 
   return `${year}/${month}/${assetId}${extension}`;
+}
+
+function sanitizeOriginalFileName(fileName: string) {
+  const cleaned = path
+    .basename(fileName)
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned || "media-file";
 }
 
 function sanitizeExtension(extension: string) {

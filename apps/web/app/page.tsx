@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { ButtonLink, SectionHeading } from "@ega/ui";
+import { ButtonLink, HomeShowcaseHero, SectionHeading, type HomeShowcaseSlide } from "@ega/ui";
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
 import { PublicFooter } from "../components/public-footer";
 import { PublicNavbar } from "../components/public-navbar";
@@ -58,18 +58,6 @@ type VideoCardData = {
   teacher: string;
   summary: string;
   tone: "amber" | "teal" | "blue";
-};
-
-type ShowcaseSlide = {
-  id: string;
-  label: string;
-  title: string;
-  description: string;
-  tone: "amber" | "teal" | "blue";
-  mediaType: "IMAGE" | "VIDEO";
-  mediaUrl: string;
-  mediaPosterUrl: string;
-  mediaAlt: string;
 };
 
 const heroSlides: readonly HeroSlide[] = [
@@ -526,7 +514,7 @@ const faqs = [
   }
 ] as const;
 
-const showcaseSlides: readonly ShowcaseSlide[] = [
+const showcaseSlides: readonly HomeShowcaseSlide[] = [
   {
     id: "showcase-plan",
     label: "Başarıya Hazırlık",
@@ -565,11 +553,11 @@ const showcaseSlides: readonly ShowcaseSlide[] = [
   }
 ] as const;
 
-function isShowcaseTone(value: unknown): value is ShowcaseSlide["tone"] {
+function isShowcaseTone(value: unknown): value is HomeShowcaseSlide["tone"] {
   return value === "amber" || value === "teal" || value === "blue";
 }
 
-function isShowcaseMediaType(value: unknown): value is ShowcaseSlide["mediaType"] {
+function isShowcaseMediaType(value: unknown): value is HomeShowcaseSlide["mediaType"] {
   return value === "IMAGE" || value === "VIDEO";
 }
 
@@ -577,19 +565,15 @@ function looksLikeEmbedUrl(value: string) {
   return isEmbeddableVideoUrl(value);
 }
 
-function hasShowcaseMedia(url: string) {
-  return url.trim().length > 0;
-}
-
 function normalizeShowcaseSlides(
   payload: Record<string, unknown> | undefined,
-  fallbackSlides: readonly ShowcaseSlide[],
+  fallbackSlides: readonly HomeShowcaseSlide[],
   sectionOverride?: {
     eyebrow?: string;
     title?: string;
     body?: string;
   }
-): ShowcaseSlide[] {
+): HomeShowcaseSlide[] {
   const payloadSlides = Array.isArray(payload?.slides) ? payload.slides : [];
 
   if (payloadSlides.length === 0) {
@@ -606,7 +590,7 @@ function normalizeShowcaseSlides(
   }
 
   return payloadSlides
-    .map((rawSlide, index) => {
+    .map((rawSlide, index): HomeShowcaseSlide | null => {
       if (!rawSlide || typeof rawSlide !== "object") {
         return null;
       }
@@ -639,13 +623,22 @@ function normalizeShowcaseSlides(
           typeof source.mediaPosterUrl === "string" && source.mediaPosterUrl.trim().length > 0
             ? source.mediaPosterUrl.trim()
             : fallback.mediaPosterUrl,
+        mobileMediaUrl:
+          typeof source.mobileMediaUrl === "string" && source.mobileMediaUrl.trim().length > 0
+            ? source.mobileMediaUrl.trim()
+            : fallback.mobileMediaUrl,
         mediaAlt:
           typeof source.mediaAlt === "string" && source.mediaAlt.trim().length > 0
             ? source.mediaAlt
-            : fallback.mediaAlt
-      } satisfies ShowcaseSlide;
+            : fallback.mediaAlt,
+        primaryCtaLabel: typeof source.primaryCtaLabel === "string" ? source.primaryCtaLabel : fallback.primaryCtaLabel,
+        primaryCtaHref: typeof source.primaryCtaHref === "string" ? source.primaryCtaHref : fallback.primaryCtaHref,
+        secondaryCtaLabel: typeof source.secondaryCtaLabel === "string" ? source.secondaryCtaLabel : fallback.secondaryCtaLabel,
+        secondaryCtaHref: typeof source.secondaryCtaHref === "string" ? source.secondaryCtaHref : fallback.secondaryCtaHref,
+        isActive: typeof source.isActive === "boolean" ? source.isActive : fallback.isActive ?? true
+      } satisfies HomeShowcaseSlide;
     })
-    .filter((slide): slide is ShowcaseSlide => slide !== null);
+    .filter((slide): slide is HomeShowcaseSlide => slide !== null);
 }
 
 function getActiveCategory(
@@ -751,6 +744,16 @@ export default function HomePage() {
   const [activeFeatureId, setActiveFeatureId] = useState<(typeof featureHighlights)[number]["id"]>(
     featureHighlights[0].id
   );
+  const showcaseSection = homePageContent?.sections.find((section) => section.sectionKey === "showcase-hero");
+  const logoRailSection = homePageContent?.sections.find((section) => section.sectionKey === "logo-rail");
+  const packageSurfaceSection = homePageContent?.sections.find((section) => section.sectionKey === "package-surface");
+
+  const showcaseSlidesWithContent = normalizeShowcaseSlides(showcaseSection?.payload, showcaseSlides, {
+    eyebrow: showcaseSection?.eyebrow ?? undefined,
+    title: showcaseSection?.title,
+    body: showcaseSection?.body ?? undefined
+  });
+  const activeShowcaseSlideCount = Math.max(1, showcaseSlidesWithContent.filter((slide) => slide.isActive !== false).length);
 
   useEffect(() => {
     const heroInterval = window.setInterval(() => {
@@ -758,14 +761,18 @@ export default function HomePage() {
     }, 4800);
 
     const showcaseInterval = window.setInterval(() => {
-      setActiveShowcaseSlide((current) => (current + 1) % showcaseSlides.length);
+      setActiveShowcaseSlide((current) => (current + 1) % activeShowcaseSlideCount);
     }, 5200);
 
     return () => {
       window.clearInterval(heroInterval);
       window.clearInterval(showcaseInterval);
     };
-  }, []);
+  }, [activeShowcaseSlideCount]);
+
+  useEffect(() => {
+    setActiveShowcaseSlide((current) => Math.min(current, activeShowcaseSlideCount - 1));
+  }, [activeShowcaseSlideCount]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -794,20 +801,9 @@ export default function HomePage() {
     };
   }, []);
 
-  const showcaseSection = homePageContent?.sections.find((section) => section.sectionKey === "showcase-hero");
-  const logoRailSection = homePageContent?.sections.find((section) => section.sectionKey === "logo-rail");
-  const packageSurfaceSection = homePageContent?.sections.find((section) => section.sectionKey === "package-surface");
-
-  const showcaseSlidesWithContent = normalizeShowcaseSlides(showcaseSection?.payload, showcaseSlides, {
-    eyebrow: showcaseSection?.eyebrow ?? undefined,
-    title: showcaseSection?.title,
-    body: showcaseSection?.body ?? undefined
-  });
-
   const liveLogoRailItems = logoRailItems;
 
   const currentSlide = heroSlides[activeHeroSlide];
-  const currentShowcase = showcaseSlidesWithContent[activeShowcaseSlide] ?? showcaseSlidesWithContent[0];
   const activeFeature =
     featureHighlights.find((item) => item.id === activeFeatureId) ?? featureHighlights[0];
   const activeCategory = getActiveCategory(catalogCategories, activeCategoryId);
@@ -822,83 +818,13 @@ export default function HomePage() {
     <main className="ega-page">
       <PublicNavbar />
 
-      <section className="ega-showcase-hero" id="anasayfa" aria-label="Öne çıkan görsel anlatım alanı">
-        <div className="ega-showcase-hero__inner">
-          <div className="ega-showcase-hero__main" data-tone={currentShowcase.tone} data-slide={currentShowcase.id}>
-            <div className="ega-showcase-hero__copybox">
-              <div className="ega-showcase-hero__badge">{currentShowcase.label}</div>
-              <div className="ega-showcase-hero__copy">
-                <h2>{currentShowcase.title}</h2>
-                <p>{currentShowcase.description}</p>
-              </div>
-
-              <div className="ega-showcase-hero__indicator-wrap" aria-label="Slayt göstergesi">
-                <span className="ega-showcase-hero__indicator-count">
-                  {String(activeShowcaseSlide + 1).padStart(2, "0")} / {String(showcaseSlidesWithContent.length).padStart(2, "0")}
-                </span>
-
-                <div className="ega-showcase-hero__indicators">
-                  {showcaseSlidesWithContent.map((slide, index) => (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      className="ega-showcase-hero__indicator"
-                      data-active={index === activeShowcaseSlide}
-                      aria-label={`${index + 1}. slayta geç`}
-                      onClick={() => setActiveShowcaseSlide(index)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="ega-showcase-hero__media">
-              <div className="ega-showcase-hero__media-shell">
-                {!hasShowcaseMedia(currentShowcase.mediaUrl) ? (
-                  <div className="ega-showcase-hero__placeholder">
-                    <strong>{currentShowcase.label}</strong>
-                    <span>{currentShowcase.description}</span>
-                  </div>
-                ) : currentShowcase.mediaType === "VIDEO" ? (
-                  looksLikeEmbedUrl(currentShowcase.mediaUrl) ? (
-                    <iframe
-                      className="ega-showcase-hero__video-frame"
-                      src={normalizeVideoEmbedUrl(currentShowcase.mediaUrl)}
-                      title={currentShowcase.mediaAlt}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video
-                      className="ega-showcase-hero__video-frame"
-                      controls
-                      playsInline
-                      poster={currentShowcase.mediaPosterUrl}
-                    >
-                      <source src={currentShowcase.mediaUrl} />
-                    </video>
-                  )
-                ) : (
-                  <div className="ega-showcase-hero__image-frame">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={currentShowcase.mediaUrl}
-                      alt={currentShowcase.mediaAlt}
-                      className="ega-showcase-hero__image"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          <div className="ega-showcase-hero__footer">
-            <div className="ega-showcase-hero__footer-line" />
-            <div className="ega-showcase-hero__footer-line ega-showcase-hero__footer-line--soft" />
-          </div>
-        </div>
-      </section>
+      <HomeShowcaseHero
+        slides={showcaseSlidesWithContent}
+        activeIndex={activeShowcaseSlide}
+        onSelectSlide={setActiveShowcaseSlide}
+        isEmbedVideo={looksLikeEmbedUrl}
+        normalizeVideoUrl={normalizeVideoEmbedUrl}
+      />
 
       <section className="ega-showcase-actions-section" aria-label="Hızlı etkileşim alanı">
         <div className="ega-container ega-showcase-actions-section__inner">

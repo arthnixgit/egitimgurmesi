@@ -24,8 +24,25 @@ export type AdminMediaAsset = {
   metadata?: Record<string, unknown>;
 };
 
-export function fetchAdminMedia(kind?: AdminMediaKind) {
-  const query = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+export function fetchAdminMedia(
+  kind?: AdminMediaKind,
+  options: { search?: string; take?: number } = {}
+) {
+  const params = new URLSearchParams();
+
+  if (kind) {
+    params.set("kind", kind);
+  }
+
+  if (options.search?.trim()) {
+    params.set("search", options.search.trim());
+  }
+
+  if (options.take) {
+    params.set("take", String(options.take));
+  }
+
+  const query = params.toString() ? `?${params.toString()}` : "";
   return requestWithStaffToken<AdminMediaAsset[]>(`/admin-media${query}`);
 }
 

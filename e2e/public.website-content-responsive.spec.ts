@@ -6,6 +6,7 @@ for (const width of publicViewports) {
   test(`homepage footer uses shared contact contract at ${width}px`, async ({ page }) => {
     await openPublicRoute(page, "/", width);
 
+    await expect(page.locator(".ega-showcase-hero")).toBeVisible();
     await expect(page.locator(".ega-footer")).toHaveCount(1);
     await expect(page.locator(".ega-footer__brand")).toBeVisible();
     await expect(page.locator(".ega-footer__links")).toBeVisible();
@@ -18,6 +19,18 @@ for (const width of publicViewports) {
       path: `test-results/public-website/homepage-footer-${width}.png`,
       fullPage: true
     });
+    if (width === 1440) {
+      await page.screenshot({
+        path: "test-results/public-website/homepage-slider-desktop.png",
+        fullPage: true
+      });
+    }
+    if (width === 390) {
+      await page.screenshot({
+        path: "test-results/public-website/homepage-slider-mobile.png",
+        fullPage: true
+      });
+    }
   });
 }
 

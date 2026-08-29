@@ -28,6 +28,59 @@ Ana alanlar:
 - **Akademik Kadro / Başarı Hikayeleri:** ilgili genel içerik grupları.
 - **Taslaklar ve Geçmiş:** kaydedilen taslak, yayın ve geri yükleme kayıtları.
 
+## Görsel Editör Düzeni
+
+Yeni Web Sitesi Yönetimi ekranı üç çalışma alanından oluşur:
+
+- **Sol panel:** Sayfalar, Bölümler ve Bileşenler modları. Sayfalar modunda global
+  alanlar, public sayfalar, Ana Sayfa Sliderı kısayolu ve kilitli sistem rotaları
+  görünür. Bölümler modunda seçili sayfanın bölüm sırası, görünürlük durumu,
+  yukarı/aşağı taşıma ve seçme işlemleri vardır. Bileşenler modunda yalnızca
+  gerçekten eklenebilen widget kartları aktiftir; kilitli dinamik modüller neden
+  eklenemediğini açıklar.
+- **Orta canvas:** gerçek public sunum bileşenlerini editör çerçeveleriyle gösterir.
+  Bölümün üzerine gelince çerçeve görünür; tıklayınca bölüm seçilir. Başlık ve metin
+  alanları güvenli inline düzenlemeyle değiştirilebilir. Görsel alanları medya
+  seçimine, buton alanları sağ paneldeki bağlantı ayarlarına yönlendirir.
+- **Sağ panel:** İçerik, Tasarım ve Gelişmiş sekmeleri. Editörler için başlık,
+  açıklama, görsel, buton, renk tonu ve hizalama gibi alanlar öne alınır; ham payload,
+  sistem anahtarı ve teknik URL bilgileri yalnızca Gelişmiş altında tutulur.
+
+Üst toolbar sayfa seçici, durum rozeti, bölüm kırılımı, Undo/Redo, Desktop/Tablet/Mobil
+önizleme, zoom, Taslağı Kaydet, Önizle, Yayınla, Geçmiş ve Canlı Sayfa işlemlerini
+tek bağlamda gösterir. `Ctrl/Cmd + S` taslak kaydeder, `Ctrl/Cmd + Z` geri alır,
+`Ctrl/Cmd + Shift + Z` veya `Ctrl/Cmd + Y` ileri alır, Escape inline düzenlemeyi
+kapatır.
+
+## Medya Alanları
+
+Logo, slider görseli, sayfa görseli, doküman, video ve poster seçimleri tek ortak
+`MediaField` kontrolüyle yapılır. Bu kontrol Dosya Yükle, Medya Kütüphanesinden Seç,
+Değiştir, Kaldır, Önizle ve güvenli varsayılan varsa Varsayılana Dön işlemlerini
+sunar.
+
+Medya Kütüphanesi yalnızca seçim penceresi açıldığında yüklenir. Arama, tür filtresi,
+son varlıklar, seçili varlık göstergesi, dosya adı, MIME etiketi, boyut ve alt metin
+bilgisi aynı kontrol üzerinden yönetilir. Harici medya URL girişi yalnızca Gelişmiş
+teknik bölümünde tutulur.
+
+## Ana Sayfa Sliderı
+
+Ana Sayfa Sliderı genel sayfa payload'ı içinde saklanmaya devam eder, ancak ayrı bir
+editörle yönetilir. Sol panelde **Ana Sayfa Sliderı** kısayolu ve Sayfalar > Ana Sayfa
+> Hero / Slider bölümü aynı editörü açar.
+
+Slide listesi küçük önizleme, sıra, etiket, medya türü, ton ve aktif/pasif bilgisini
+gösterir. Editör üst etiket, başlık, açıklama, Primary/Secondary CTA, aktif/pasif
+durumu, desktop medya, opsiyonel mobil medya, video posteri, alt metin, ton, autoplay,
+süre, geçiş tipi, hover duraklatma, oklar, noktalar, klavye ve dokunmatik gezinme
+alanlarını destekler.
+
+Yayına almadan önce en az bir aktif slide, benzersiz slide ID, başlık, güvenli CTA
+hedefi, güvenli medya hedefi ve gerektiğinde alt metin doğrulanır. Admin canvas pasif
+slide'ı düzenleme amacıyla gösterebilir; public homepage yalnızca aktif slide'ları
+yayınlar.
+
 Üst araç çubuğunda:
 
 - **Taslağı Kaydet:** değişikliği canlı siteye yansıtmadan saklar.
@@ -139,6 +192,54 @@ Yayınlama hedefli revalidation metadatası üretir:
 Preview token'ı HMAC ile imzalanır, kısa ömürlüdür ve yalnızca yetkili staff
 oturumu için kullanılır. Preview checkout, sipariş veya form gönderimi
 başlatmaz.
+
+### Builder Bileşenleri
+
+`apps/admin/app/web-sitesi/website-builder-client.tsx` yalnızca oturum, yetki,
+veri yükleme, seçili alan, dirty state, Undo/Redo, kaydetme, yayınlama, preview token
+ve revizyon restore orkestrasyonunu tutar.
+
+Görsel editör şu modüllere ayrılmıştır:
+
+- `components/website-builder-shell.tsx`: üç panelli ana kabuk.
+- `components/builder-toolbar.tsx`: sticky toolbar ve klavye kısayolu hedefleri.
+- `components/builder-left-panel.tsx`: Sayfalar/Bölümler/Bileşenler paneli.
+- `components/builder-canvas.tsx`: gerçek public sunum bileşenleriyle canvas.
+- `components/editable-section-frame.tsx`: seçme, toolbar, inline text editing.
+- `components/builder-inspector.tsx`: İçerik/Tasarım/Gelişmiş denetçi sekmeleri.
+- `components/media-field.tsx` ve `media-picker-dialog.tsx`: upload ve medya seçimi.
+- `components/homepage-slider-editor.tsx`: siteye özel slider editörü.
+- `components/free-material-editor.tsx`: yapılandırılmış ücretsiz materyal düzenleyici.
+- `components/revision-panel.tsx`: revizyon yükleme ve restore işlemleri.
+
+Destek kütüphaneleri:
+
+- `lib/widget-registry.ts`: typed widget tanımları, yerleşim uygunluğu ve safe default
+  section üretimi.
+- `lib/section-registry.ts`: public bölüm davranışı, kilitli rota envanteri, slider
+  payload normalizasyonu ve section çoğaltma/sıralama.
+- `lib/builder-history.ts`: undo/redo snapshot geçmişi.
+- `lib/builder-validation.ts`: slider ve güvenli link doğrulamaları.
+- `lib/builder-media.ts`: istemci tarafı upload ön doğrulaması ve medya etiketleri.
+
+### Public Renderer Ayrımı
+
+Ana sayfa slider sunumu `packages/ui/src/home-showcase.tsx` içindeki saf
+`HomeShowcaseHero` bileşenidir. Public homepage ve Admin canvas aynı bileşeni kullanır.
+Admin canvas `disableActions` ile CTA tıklamalarını pasifleştirir ve
+`includeInactiveSlides` ile pasif slide'ları yalnızca düzenleme amacıyla gösterebilir.
+Public site bu bayrakları kullanmaz ve yalnızca aktif slide'ları yayınlar.
+
+### Payload Uyumluluğu ve Performans
+
+Yeni editör mevcut `SiteSetting`, `MarketingPage`, `MarketingPageSection`,
+`MediaAsset`, ücretsiz materyal, akademik kadro, başarı hikayesi ve revizyon verilerini
+kullanır. Bilinmeyen section payload alanları korunur; slider yazma işlemi mevcut
+payload'ı spread ederek yalnızca `slides` ve `settings` alanlarını günceller.
+
+Medya listesi ilk render'da çekilmez. Preview yerel draft state ile güncellenir;
+klavye ile yazmak API isteği üretmez. Save/Publish butonları işlem sırasında tekrar
+gönderime kapatılır. Responsive mod değiştirmek içerik refetch'i yapmaz.
 
 ## Paket Editörü Sözleşmesi
 

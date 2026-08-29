@@ -5,6 +5,7 @@ type AccessMode = "branch" | "none";
 let accessMode: AccessMode = "branch";
 let contentRequestCount = 0;
 let saveRequestCount = 0;
+let mediaRequestCount = 0;
 
 const adminViewports = [1920, 1440, 1280, 1024, 768, 390];
 
@@ -12,6 +13,7 @@ test.beforeEach(async ({ page }) => {
   accessMode = "branch";
   contentRequestCount = 0;
   saveRequestCount = 0;
+  mediaRequestCount = 0;
 
   await page.addInitScript(() => {
     window.localStorage.setItem("ega_staff_access_token", "mock-access-token");
@@ -28,18 +30,28 @@ for (const width of adminViewports) {
     await expect(page.locator(".admin-website-builder__left")).toBeVisible();
     await expect(page.locator(".admin-website-builder__canvas")).toBeVisible();
     await expect(page.locator(".admin-website-builder__right")).toBeVisible();
-    await expect(page.getByText("Bu alanda yapılan değişiklikler tüm genel web sitesini etkiler.")).toBeVisible();
+    await expect(page.locator(".admin-builder-toolbar")).toBeVisible();
+    await expect(page.locator(".admin-builder-panel-tabs").first()).toBeVisible();
+    await expect(page.locator(".admin-website-builder__global-warning")).toBeVisible();
     await assertNoHorizontalOverflow(page);
     await page.screenshot({
-      path: `test-results/admin-website-builder/editor-${width}.png`,
+      path: `test-results/admin-website-builder/website-builder-overview-${width}.png`,
       fullPage: true
     });
   });
 }
 
-test("website editor branding, footer, page navigator and material preview areas render", async ({ page }) => {
+test("website editor branding, media picker, canvas, slider and material preview areas render", async ({ page }) => {
   await openWebsiteBuilder(page, "/web-sitesi?alan=marka", 1440);
-  await expect(page.getByLabel("Header ana logo")).toBeVisible();
+  await expect(page.getByText("Header ana logo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dosya Yükle" }).first()).toBeVisible();
+  expect(mediaRequestCount).toBe(0);
+  await page.getByRole("button", { name: "Medya Kütüphanesinden Seç" }).first().click();
+  await expect(page.locator(".admin-builder-modal")).toBeVisible();
+  await expect(page.getByRole("button", { name: /EGA logo/ })).toBeVisible();
+  expect(mediaRequestCount).toBe(1);
+  await page.screenshot({ path: "test-results/admin-website-builder/media-library-picker.png", fullPage: true });
+  await page.keyboard.press("Escape");
   await expect(page.locator(".admin-website-builder__footer-preview")).toBeVisible();
   await page.screenshot({ path: "test-results/admin-website-builder/branding-settings.png", fullPage: true });
 
@@ -50,9 +62,31 @@ test("website editor branding, footer, page navigator and material preview areas
   await page.screenshot({ path: "test-results/admin-website-builder/footer-editor.png", fullPage: true });
 
   await openWebsiteBuilder(page, "/web-sitesi?alan=sayfalar", 1440);
-  await expect(page.locator(".admin-website-builder__section-stack article").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Çoğalt" })).toBeVisible();
+  await expect(page.locator(".admin-page-canvas")).toBeVisible();
+  await expect(page.locator(".admin-editable-frame").first()).toBeVisible();
+  await page.locator(".admin-editable-frame").nth(1).click();
+  await expect(page.locator(".admin-editable-frame").nth(1)).toHaveAttribute("data-selected", "true");
+  await page.screenshot({ path: "test-results/admin-website-builder/selected-editable-canvas-section.png", fullPage: true });
+  await page.locator(".admin-inline-select").first().dblclick();
+  await expect(page.locator(".admin-inline-editor").first()).toBeVisible();
+  await page.locator(".admin-inline-editor").first().fill("Guncellenen baslik");
+  await page.screenshot({ path: "test-results/admin-website-builder/inline-text-editing-state.png", fullPage: true });
+  await page.getByRole("tab", { name: "Bileşenler" }).click();
+  await page.locator(".admin-builder-widget-card").first().click();
+  await expect(page.locator(".admin-editable-frame")).toHaveCount(4);
+  await page.screenshot({ path: "test-results/admin-website-builder/widget-insertion-state.png", fullPage: true });
   await page.screenshot({ path: "test-results/admin-website-builder/page-section-navigator.png", fullPage: true });
+
+  await page.getByRole("tab", { name: "Sayfalar" }).click();
+  await page.getByRole("button", { name: /Ana Sayfa Sliderı/ }).click();
+  await expect(page.locator(".admin-slider-editor")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Yeni Slide" })).toBeVisible();
+  await expect(page.getByText("Primary CTA metni")).toBeVisible();
+  await expect(page.getByText("Mobil slide görseli")).toBeVisible();
+  await page.screenshot({ path: "test-results/admin-website-builder/homepage-slider-list.png", fullPage: true });
+  await page.screenshot({ path: "test-results/admin-website-builder/homepage-slider-slide-editor.png", fullPage: true });
+  await page.getByRole("button", { name: "Mobil" }).click();
+  await page.screenshot({ path: "test-results/admin-website-builder/homepage-slider-mobile-preview.png", fullPage: true });
 
   await openWebsiteBuilder(page, "/web-sitesi?alan=ucretsiz-materyaller", 1440);
   await expect(page.getByRole("button", { name: "Yeni Kategori" })).toBeVisible();
@@ -262,7 +296,31 @@ async function mockWebsiteApi(page: Page) {
     }
 
     if (path === "/admin-media") {
-      await route.fulfill({ json: [] });
+      mediaRequestCount += 1;
+      await route.fulfill({
+        json: [
+          {
+            id: "media_logo",
+            kind: "BRANDING",
+            sourceType: "LOCAL_UPLOAD",
+            title: "EGA logo",
+            altText: "EGA logo",
+            mimeType: "image/png",
+            originalFileName: "ega-logo.png",
+            sizeBytes: 8192,
+            publicUrl: "/branding/ega-logo-official.png",
+            externalProvider: null,
+            externalUrl: null,
+            embedUrl: null,
+            thumbnailUrl: "/branding/ega-logo-official.png",
+            url: "/branding/ega-logo-official.png",
+            playbackSourceType: null,
+            createdAt: "2026-08-29T09:00:00.000Z",
+            updatedAt: "2026-08-29T09:00:00.000Z",
+            metadata: {}
+          }
+        ]
+      });
       return;
     }
 
@@ -366,13 +424,67 @@ function pages() {
       sections: [
         {
           id: "section_1",
-          sectionKey: "hero",
-          eyebrow: "Başla",
-          title: "Eğitim Gurmesi",
-          body: "Canlı önizleme",
-          variantKey: "Heading",
-          payload: {},
+          sectionKey: "showcase-hero",
+          eyebrow: "Basla",
+          title: "Egitim Gurmesi",
+          body: "Canli onizleme",
+          variantKey: "showcase-hero",
+          payload: {
+            slides: [
+              {
+                id: "slide_mock",
+                label: "Ana Sayfa",
+                title: "Egitim Gurmesi slider",
+                description: "Canli slider onizleme",
+                tone: "teal",
+                mediaType: "IMAGE",
+                mediaUrl: "/homepage/showcase-plan.png",
+                mobileMediaUrl: "",
+                mediaAlt: "Slider gorseli",
+                primaryCtaLabel: "Paketleri Incele",
+                primaryCtaHref: "/paketlerimiz",
+                secondaryCtaLabel: "Ucretsiz Materyaller",
+                secondaryCtaHref: "/ucretsiz-materyaller",
+                isActive: true
+              }
+            ],
+            settings: {
+              autoplay: true,
+              intervalMs: 5200,
+              transition: "fade",
+              pauseOnHover: true,
+              showArrows: true,
+              showDots: true,
+              keyboard: true,
+              swipe: true,
+              initialSlideId: "slide_mock"
+            }
+          },
           sortOrder: 10,
+          isActive: true,
+          publishStatus: "PUBLISHED"
+        },
+        {
+          id: "section_2",
+          sectionKey: "intro-text",
+          eyebrow: "Rehberlik",
+          title: "Sayfa bolumu",
+          body: "Bu alan dogrudan canvas uzerinden duzenlenir.",
+          variantKey: "heading",
+          payload: {},
+          sortOrder: 20,
+          isActive: true,
+          publishStatus: "PUBLISHED"
+        },
+        {
+          id: "section_3",
+          sectionKey: "package-surface",
+          eyebrow: "Paketler",
+          title: "Paket dizini cevresi",
+          body: "Paket verisi kilitli dinamik modulden gelir.",
+          variantKey: "packages-surface",
+          payload: {},
+          sortOrder: 30,
           isActive: true,
           publishStatus: "PUBLISHED"
         }

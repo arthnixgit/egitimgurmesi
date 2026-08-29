@@ -37,8 +37,15 @@ export class AdminMediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Get()
-  listMedia(@Query("kind") kind?: string) {
-    return this.mediaService.listAssets(parseKind(kind));
+  listMedia(
+    @Query("kind") kind?: string,
+    @Query("search") search?: string,
+    @Query("take") take?: string
+  ) {
+    return this.mediaService.listAssets(parseKind(kind), {
+      search,
+      take: parseTake(take)
+    });
   }
 
   @Post("upload")
@@ -105,4 +112,13 @@ function parseKind(value?: string) {
   return Object.values(MediaAssetKind).includes(value as MediaAssetKind)
     ? (value as MediaAssetKind)
     : undefined;
+}
+
+function parseTake(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
