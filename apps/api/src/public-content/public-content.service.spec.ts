@@ -2,7 +2,153 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ContentStatus, FreeMaterialItemType } from "@ega/db";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { PublicContentRepository } from "../data-access/public-content.repository";
 import { PublicContentService } from "./public-content.service";
+
+describe("PublicContentService navigation", () => {
+  it("composes Paketlerimiz children from active catalog categories instead of legacy menu rows", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({
+            id: "legacy_child",
+            parentId: "nav_packages",
+            itemKey: "packages-old-online",
+            label: "Eski Online",
+            href: "/paketlerimiz?kategori=stale"
+          }),
+          navItem({ id: "nav_about", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" })
+        ]),
+      listPackageNavigationCategories: async () => [
+        packageRoot({
+          id: "root_online",
+          slug: "online-kocluk",
+          name: "Online Koçluk Güncel",
+          description: "Güncel açıklama",
+          ctaHref: "/paketlerimiz?kategori=online-kocluk",
+          childCategories: [
+            packageChild({
+              id: "child_lgs",
+              slug: "online-kocluk--lgs",
+              name: "LGS Yeni",
+              ctaHref: "/paketlerimiz?kategori=online-kocluk&alt=lgs"
+            }),
+            packageChild({
+              id: "child_yks",
+              slug: "online-kocluk--yks",
+              name: "YKS Yeni",
+              ctaHref: "/paketlerimiz?kategori=online-kocluk&alt=yks"
+            })
+          ]
+        }),
+        packageRoot({
+          id: "root_custom",
+          slug: "ozel-ders",
+          name: "Özel Ders",
+          ctaHref: "/ozel-dersler",
+          childCategories: []
+        })
+      ]
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+    const packages = menu.items.find((item) => item.itemKey === "packages");
+
+    assert.ok(packages);
+    assert.deepEqual(
+      packages.children.map((item) => item.label),
+      ["Online Koçluk Güncel", "Özel Ders"]
+    );
+    assert.deepEqual(
+      packages.children[0].children.map((item) => item.label),
+      ["LGS Yeni", "YKS Yeni"]
+    );
+    assert.equal(packages.children[0].description, "Güncel açıklama");
+    assert.equal(packages.children[0].href, "/paketlerimiz?kategori=online-kocluk");
+    assert.equal(packages.children[1].href, "/ozel-dersler");
+    assert.equal(
+      JSON.stringify(packages).includes("Eski Online"),
+      false
+    );
+    assert.equal(menu.items.find((item) => item.itemKey === "about")?.label, "Hakkımızda");
+  });
+
+  it("keeps only the safe top-level Paketlerimiz link when catalog composition fails", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({
+            id: "legacy_child",
+            parentId: "nav_packages",
+            itemKey: "packages-stale",
+            label: "Pasif Eski Kategori",
+            href: "/paketlerimiz?kategori=pasif"
+          })
+        ]),
+      listPackageNavigationCategories: async () => {
+        throw new Error("catalog unavailable");
+      }
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+    const packages = menu.items[0];
+
+    assert.equal(packages.itemKey, "packages");
+    assert.equal(packages.href, "/paketlerimiz");
+    assert.deepEqual(packages.children, []);
+  });
+
+  it("does not inject package categories when NavigationMenu disables the top-level item", async () => {
+    const service = createService({
+      getNavigationMenu: async () => navigationMenu([navItem({ id: "nav_about", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" })]),
+      listPackageNavigationCategories: async () => [
+        packageRoot({ slug: "online-kocluk", name: "Online Koçluk", childCategories: [] })
+      ]
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.deepEqual(menu.items.map((item) => item.itemKey), ["about"]);
+  });
+});
+
+describe("PublicContentRepository package navigation query", () => {
+  it("queries only active global roots and active global children in sort order", async () => {
+    let queryArgs: unknown = null;
+    const repository = new PublicContentRepository({
+      productCategory: {
+        findMany: async (args: unknown) => {
+          queryArgs = args;
+          return [];
+        }
+      }
+    } as never);
+
+    await repository.listPackageNavigationCategories();
+
+    assert.deepEqual(queryArgs, {
+      where: {
+        parentCategoryId: null,
+        isActive: true,
+        organizationId: null,
+        branchId: null
+      },
+      include: {
+        childCategories: {
+          where: {
+            isActive: true,
+            organizationId: null,
+            branchId: null
+          },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+        }
+      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+    });
+  });
+});
 
 describe("PublicContentService free materials", () => {
   it("maps published download cards to same-origin download actions without exposing raw URLs", async () => {
@@ -111,6 +257,7 @@ function createService(repositoryOverrides: Record<string, unknown>) {
     listFreeMaterialCategories: async () => [],
     getPublishedDownloadMaterialItem: async () => null,
     getCountdownPageBySlug: async () => null,
+    listPackageNavigationCategories: async () => [],
     ...repositoryOverrides
   };
   const mediaService = {
@@ -123,6 +270,88 @@ function createService(repositoryOverrides: Record<string, unknown>) {
   };
 
   return new PublicContentService(repository as never, mediaService as never);
+}
+
+function navigationMenu(items: ReturnType<typeof navItem>[]) {
+  return {
+    id: "menu_1",
+    key: "primary",
+    name: "Ana Menü",
+    location: "PRIMARY",
+    items
+  };
+}
+
+function navItem(input: {
+  id: string;
+  itemKey: string;
+  label: string;
+  href: string;
+  parentId?: string | null;
+  description?: string | null;
+  target?: string | null;
+}) {
+  return {
+    id: input.id,
+    itemKey: input.itemKey,
+    label: input.label,
+    href: input.href,
+    parentId: input.parentId ?? null,
+    description: input.description ?? null,
+    target: input.target ?? null
+  };
+}
+
+function packageRoot(input: {
+  id?: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  ctaHref?: string | null;
+  childCategories: ReturnType<typeof packageChild>[];
+}) {
+  return {
+    id: input.id ?? `root_${input.slug}`,
+    organizationId: null,
+    branchId: null,
+    parentCategoryId: null,
+    name: input.name,
+    slug: input.slug,
+    description: input.description ?? null,
+    seoTitle: null,
+    seoDescription: null,
+    ctaHref: input.ctaHref ?? null,
+    sortOrder: 10,
+    isActive: true,
+    createdAt: new Date("2026-09-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+    childCategories: input.childCategories
+  };
+}
+
+function packageChild(input: {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  ctaHref?: string | null;
+}) {
+  return {
+    id: input.id,
+    organizationId: null,
+    branchId: null,
+    parentCategoryId: "root_1",
+    name: input.name,
+    slug: input.slug,
+    description: input.description ?? null,
+    seoTitle: null,
+    seoDescription: null,
+    ctaHref: input.ctaHref ?? null,
+    sortOrder: 10,
+    isActive: true,
+    createdAt: new Date("2026-09-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-09-01T00:00:00.000Z")
+  };
 }
 
 function downloadItem(overrides: Partial<ReturnType<typeof downloadItemBase>> = {}) {

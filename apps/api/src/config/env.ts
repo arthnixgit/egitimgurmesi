@@ -53,9 +53,12 @@ export const appEnv = {
   paymentBaseUrl: () => process.env.PAYMENT_BASE_URL ?? "",
   paymentTestMode: () =>
     ["1", "true", "yes", "on"].includes((process.env.PAYMENT_TEST_MODE ?? "").trim().toLowerCase()),
-  mediaStorageDir: () => process.env.MEDIA_STORAGE_DIR?.trim() || "../../storage/media",
+  mediaStorageDir: () => process.env.MEDIA_STORAGE_DIR?.trim() || "storage/media",
   mediaPublicBaseUrl: () =>
-    process.env.MEDIA_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "") || `${appEnv.apiAppUrl()}/v1`,
+    process.env.MEDIA_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "") ||
+    (process.env.NODE_ENV === "production"
+      ? "https://api.egitimgurmesi.com/v1"
+      : `${appEnv.apiAppUrl()}/v1`),
   mediaMaxUploadBytes: () => Number(process.env.MEDIA_MAX_UPLOAD_BYTES ?? "52428800"),
   unikazanBaseUrl: () => getRequiredEnv("UNIKAZAN_API_BASE_URL"),
   unikazanApiKey: () => getRequiredEnv("UNIKAZAN_API_KEY"),

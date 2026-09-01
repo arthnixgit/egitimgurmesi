@@ -37,6 +37,14 @@ export function validateClientMediaFile(file: File, kind: AdminMediaKind) {
   return "";
 }
 
+export function shouldStartMediaUpload(file: File | null | undefined, isUploading: boolean) {
+  return Boolean(file) && !isUploading;
+}
+
+export function getMediaUploadErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Dosya yüklenemedi.";
+}
+
 export function formatBytes(value?: number | null) {
   if (!value) {
     return "Boyut bilinmiyor";

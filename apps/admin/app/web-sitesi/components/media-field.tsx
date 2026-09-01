@@ -1,11 +1,16 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   uploadAdminMedia,
   type AdminMediaAsset
 } from "../../../lib/media-client";
-import { formatBytes, validateClientMediaFile } from "../lib/builder-media";
+import {
+  formatBytes,
+  getMediaUploadErrorMessage,
+  shouldStartMediaUpload,
+  validateClientMediaFile
+} from "../lib/builder-media";
 import type { MediaFieldIntent } from "../lib/builder-types";
 import { MediaPickerDialog } from "./media-picker-dialog";
 
@@ -28,14 +33,20 @@ export function MediaField({
   const [error, setError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [lastAsset, setLastAsset] = useState<AdminMediaAsset | null>(null);
+  const uploadingRef = useRef(false);
 
   async function uploadFile(file: File) {
+    if (!shouldStartMediaUpload(file, uploadingRef.current)) {
+      return;
+    }
+
     const validationError = validateClientMediaFile(file, intent.kind);
     if (validationError) {
       setError(validationError);
       return;
     }
 
+    uploadingRef.current = true;
     setUploading(true);
     setError("");
     try {
@@ -48,8 +59,9 @@ export function MediaField({
       setLastAsset(asset);
       onChange(asset.publicUrl || asset.url || "", asset);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Dosya yüklenemedi.");
+      setError(getMediaUploadErrorMessage(requestError));
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
     }
   }
@@ -70,7 +82,7 @@ export function MediaField({
         event.preventDefault();
         setDragActive(false);
         const file = event.dataTransfer.files[0];
-        if (file) {
+        if (shouldStartMediaUpload(file, uploadingRef.current)) {
           void uploadFile(file);
         }
       }}
@@ -100,6 +112,7 @@ export function MediaField({
             id={inputId}
             type="file"
             className="admin-visually-hidden"
+            disabled={uploading}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
@@ -108,11 +121,11 @@ export function MediaField({
               event.currentTarget.value = "";
             }}
           />
-          <label className="admin-button--compact" htmlFor={inputId}>
+          <label className="admin-button--compact" htmlFor={inputId} role="button" aria-disabled={uploading}>
             {uploading ? "Yükleniyor..." : "Dosya Yükle"}
           </label>
           {value ? (
-            <label className="admin-button--compact admin-button--ghost" htmlFor={inputId}>
+            <label className="admin-button--compact admin-button--ghost" htmlFor={inputId} role="button" aria-disabled={uploading}>
               Değiştir
             </label>
           ) : null}

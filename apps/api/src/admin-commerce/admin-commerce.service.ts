@@ -26,8 +26,14 @@ import {
 } from "./dto/admin-commerce.dto";
 
 const CATALOG_SUPER_ADMIN_MESSAGE = "Paket kataloğunu yalnızca Super Admin yönetebilir.";
+const CATEGORY_CTA_HREF_MESSAGE =
+  "Kategori hedefi yalnızca site içi rota veya güvenli HTTPS adresi olabilir.";
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)?$/;
 const VALID_ACCENT_COLORS = new Set(["blue", "teal", "amber"]);
+const CATALOG_REVALIDATION = {
+  revalidateRoutes: ["/", "/paketlerimiz"],
+  revalidateTags: ["navigation", "public-layout", "public-commerce-catalog"]
+} as const;
 
 const catalogCategoryInclude = {
   parentCategory: {
@@ -202,7 +208,7 @@ export class AdminCommerceService {
         description: normalizeNullableText(payload.description),
         seoTitle: normalizeNullableText(payload.seoTitle),
         seoDescription: normalizeNullableText(payload.seoDescription),
-        ctaHref: normalizeNullableText(payload.ctaHref),
+        ctaHref: normalizeCategoryCtaHref(payload.ctaHref),
         sortOrder: payload.sortOrder ?? 0,
         isActive: payload.isActive ?? true
       },
@@ -216,7 +222,7 @@ export class AdminCommerceService {
       summary: `Created category ${created.slug}.`
     });
 
-    return normalizeCategory(created);
+    return withCatalogRevalidation(normalizeCategory(created));
   }
 
   async updateCategory(
@@ -247,7 +253,7 @@ export class AdminCommerceService {
         description: normalizeNullableText(payload.description),
         seoTitle: normalizeNullableText(payload.seoTitle),
         seoDescription: normalizeNullableText(payload.seoDescription),
-        ctaHref: normalizeNullableText(payload.ctaHref),
+        ctaHref: normalizeCategoryCtaHref(payload.ctaHref),
         sortOrder: payload.sortOrder ?? existing.sortOrder,
         isActive: payload.isActive ?? existing.isActive
       },
@@ -261,7 +267,7 @@ export class AdminCommerceService {
       summary: `Updated category ${updated.slug}.`
     });
 
-    return normalizeCategory(updated);
+    return withCatalogRevalidation(normalizeCategory(updated));
   }
 
   async deleteCategory(categoryId: string, auth: AuthenticatedRequestContext) {
@@ -301,7 +307,8 @@ export class AdminCommerceService {
 
     return {
       status: "deleted" as const,
-      id: categoryId
+      id: categoryId,
+      ...CATALOG_REVALIDATION
     };
   }
 
@@ -529,7 +536,7 @@ export class AdminCommerceService {
             description: category.description,
             seoTitle: category.seoTitle,
             seoDescription: category.seoDescription,
-            ctaHref: category.ctaHref,
+            ctaHref: normalizeCategoryCtaHref(category.ctaHref),
             sortOrder: category.sortOrder ?? (index + 1) * 10,
             isActive: category.isActive ?? true
           }
@@ -558,7 +565,7 @@ export class AdminCommerceService {
             description: category.description,
             seoTitle: category.seoTitle,
             seoDescription: category.seoDescription,
-            ctaHref: category.ctaHref,
+            ctaHref: normalizeCategoryCtaHref(category.ctaHref),
             sortOrder: category.sortOrder ?? (index + 1) * 10,
             isActive: category.isActive ?? true
           }
@@ -613,7 +620,10 @@ export class AdminCommerceService {
       });
     });
 
-    return this.getCatalogDocument(auth);
+    return {
+      ...(await this.getCatalogDocument(auth)),
+      ...CATALOG_REVALIDATION
+    };
   }
 
   async listOrders() {
@@ -1381,6 +1391,40 @@ function validateProductBasics(product: SaveProductDto) {
 function normalizeNullableText(value?: string | null) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeCategoryCtaHref(value?: string | null) {
+  const normalized = normalizeNullableText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (!isSafeCategoryHref(normalized)) {
+    throw new BadRequestException(CATEGORY_CTA_HREF_MESSAGE);
+  }
+
+  return normalized;
+}
+
+function isSafeCategoryHref(value: string) {
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return !/[\u0000-\u001f]/.test(value);
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function withCatalogRevalidation<T extends Record<string, unknown>>(payload: T) {
+  return {
+    ...payload,
+    ...CATALOG_REVALIDATION
+  };
 }
 
 function normalizeFeaturePayloads(features: SaveProductFeatureDto[]) {

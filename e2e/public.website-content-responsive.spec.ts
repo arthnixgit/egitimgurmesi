@@ -49,6 +49,101 @@ test("internal page footer uses the same shared component", async ({ page }) => 
   });
 });
 
+test("public navbar uses the same catalog-driven package hierarchy on desktop and mobile", async ({ page }) => {
+  let navigationRequests = 0;
+  await page.route("**/v1/public/navigation?key=primary", async (route) => {
+    navigationRequests += 1;
+    await route.fulfill({
+      json: {
+        id: "menu_1",
+        key: "primary",
+        name: "Ana Menü",
+        location: "PRIMARY",
+        items: [
+          {
+            id: "packages",
+            itemKey: "packages",
+            label: "Paketlerimiz",
+            href: "/paketlerimiz",
+            description: null,
+            target: null,
+            children: [
+              {
+                id: "catalog-online",
+                itemKey: "packages-online",
+                label: "Katalog Online",
+                href: "/paketlerimiz?kategori=online",
+                description: "Katalogdan gelen kök",
+                target: null,
+                children: [
+                  {
+                    id: "catalog-online-yks",
+                    itemKey: "packages-online-yks",
+                    label: "Katalog YKS",
+                    href: "/paketlerimiz?kategori=online&alt=yks",
+                    description: null,
+                    target: null,
+                    children: []
+                  }
+                ]
+              },
+              {
+                id: "catalog-mentorluk",
+                itemKey: "packages-mentorluk",
+                label: "Mentorluk",
+                href: "/mentorluk",
+                description: null,
+                target: null,
+                children: []
+              }
+            ]
+          },
+          {
+            id: "about",
+            itemKey: "about",
+            label: "Hakkımızda",
+            href: "/hakkimizda",
+            description: null,
+            target: null,
+            children: []
+          }
+        ]
+      }
+    });
+  });
+
+  await openPublicRoute(page, "/", 1440);
+  await page.getByRole("link", { name: "Paketlerimiz" }).first().hover();
+  const onlinePackageTab = page.getByRole("link", { name: "Katalog Online" });
+  await expect(onlinePackageTab).toBeVisible();
+  await onlinePackageTab.hover();
+  await expect(page.getByRole("link", { name: "Katalog YKS" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mentorluk" })).toBeVisible();
+  await expect(page.getByText("Pasif Eski Kategori")).toHaveCount(0);
+  const desktopRoots = normalizeTexts(await page.locator(".ega-nav__mega-tab").allTextContents());
+  await page.screenshot({
+    path: "test-results/public-website/catalog-navbar-desktop.png"
+  });
+
+  await openPublicRoute(page, "/", 390);
+  await page.locator(".ega-mobile-nav-toggle").click();
+  await page.locator(".ega-mobile-nav__group-toggle").first().click();
+  await expect(page.locator(".ega-mobile-nav__submenu-title", { hasText: "Katalog Online" })).toBeVisible();
+  await expect(page.locator(".ega-mobile-nav__submenu-link", { hasText: "Katalog YKS" })).toBeVisible();
+  await expect(page.locator(".ega-mobile-nav__submenu-title", { hasText: "Mentorluk" })).toBeVisible();
+  const mobileRoots = normalizeTexts(await page.locator(".ega-mobile-nav__submenu-title").allTextContents());
+
+  expect(mobileRoots).toEqual(desktopRoots);
+  await page.waitForTimeout(400);
+  expect(navigationRequests).toBeGreaterThan(0);
+  expect(navigationRequests).toBeLessThanOrEqual(4);
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: "test-results/public-website/catalog-navbar-mobile.png",
+    fullPage: true
+  });
+});
+
 for (const width of publicViewports) {
   test(`free-material directory and cards are responsive at ${width}px`, async ({ page }) => {
     await openPublicRoute(page, "/ucretsiz-materyaller", width);
@@ -93,4 +188,8 @@ async function hideNextDevOverlay(page: Page) {
 async function assertNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(2);
+}
+
+function normalizeTexts(values: string[]) {
+  return values.map((value) => value.trim()).filter(Boolean);
 }

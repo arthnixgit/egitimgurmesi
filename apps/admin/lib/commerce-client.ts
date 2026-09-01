@@ -14,6 +14,8 @@ export type AdminCatalogCategory = {
   isActive?: boolean;
   childCategoryCount?: number;
   productCount?: number;
+  revalidateRoutes?: string[];
+  revalidateTags?: string[];
 };
 
 export type SaveAdminCatalogCategoryPayload = {
@@ -136,6 +138,8 @@ export type SaveAdminCatalogProductPayload = {
 export type AdminCatalogDocument = {
   categories: AdminCatalogCategory[];
   products: AdminCatalogProduct[];
+  revalidateRoutes?: string[];
+  revalidateTags?: string[];
 };
 
 export type SaveAdminCatalogDocumentPayload = {

@@ -10,75 +10,7 @@ const primaryNavigationItems = [
   {
     itemKey: "packages",
     label: "Paketlerimiz",
-    href: "/paketlerimiz",
-    children: [
-      {
-        itemKey: "packages-online-coaching",
-        label: "Online Koçluk",
-        href: "/paketlerimiz?kategori=online-coaching",
-        description: "Uzaktan takip ve haftalık koçluk akışı.",
-        children: [
-          { itemKey: "packages-online-coaching-yks", label: "YKS", href: "/paketlerimiz?kategori=online-coaching&alt=yks" },
-          { itemKey: "packages-online-coaching-lgs", label: "LGS", href: "/paketlerimiz?kategori=online-coaching&alt=lgs" },
-          { itemKey: "packages-online-coaching-grade-9-10", label: "9. ve 10. Sınıflar", href: "/paketlerimiz?kategori=online-coaching&alt=grade-9-10" },
-          { itemKey: "packages-online-coaching-grade-11", label: "11. Sınıf", href: "/paketlerimiz?kategori=online-coaching&alt=grade-11" },
-          { itemKey: "packages-online-coaching-kpss", label: "KPSS", href: "/paketlerimiz?kategori=online-coaching&alt=kpss" }
-        ]
-      },
-      {
-        itemKey: "packages-in-person-coaching",
-        label: "Yüz Yüze Koçluk",
-        href: "/yuz-yuze-kocluk",
-        description: "Ankara merkezli birebir takip modeli.",
-        children: [
-          { itemKey: "packages-in-person-coaching-yks", label: "YKS", href: "/paketlerimiz?kategori=in-person-coaching&alt=yks" },
-          { itemKey: "packages-in-person-coaching-lgs", label: "LGS", href: "/paketlerimiz?kategori=in-person-coaching&alt=lgs" },
-          { itemKey: "packages-in-person-coaching-grade-9-10", label: "9. ve 10. Sınıflar", href: "/paketlerimiz?kategori=in-person-coaching&alt=grade-9-10" },
-          { itemKey: "packages-in-person-coaching-grade-11", label: "11. Sınıf", href: "/paketlerimiz?kategori=in-person-coaching&alt=grade-11" },
-          { itemKey: "packages-in-person-coaching-kpss", label: "KPSS", href: "/paketlerimiz?kategori=in-person-coaching&alt=kpss" }
-        ]
-      },
-      {
-        itemKey: "packages-exam-camp",
-        label: "Yazılı Kampı (Hazırlık)",
-        href: "/paketlerimiz?kategori=exam-camp",
-        description: "Hazırlık ve kamp odaklı dönem setleri.",
-        children: [
-          { itemKey: "packages-exam-camp-content", label: "Kamp İçeriği", href: "/paketlerimiz?kategori=exam-camp&alt=camp-content" },
-          { itemKey: "packages-exam-camp-calendar", label: "Hazırlık Takvimi", href: "/paketlerimiz?kategori=exam-camp&alt=prep-calendar" }
-        ]
-      },
-      {
-        itemKey: "packages-private-lessons",
-        label: "Özel Ders",
-        href: "/paketlerimiz?kategori=private-lessons",
-        description: "Online veya yüz yüze birebir ders akışı.",
-        children: [
-          { itemKey: "packages-private-lessons-online", label: "Online", href: "/paketlerimiz?kategori=private-lessons&alt=private-online" },
-          { itemKey: "packages-private-lessons-in-person", label: "Yüz Yüze", href: "/paketlerimiz?kategori=private-lessons&alt=private-in-person" }
-        ]
-      },
-      {
-        itemKey: "packages-mock-exam-club",
-        label: "Deneme Kulübü",
-        href: "/paketlerimiz?kategori=mock-exam-club",
-        description: "Deneme, analiz ve geri bildirim düzeni.",
-        children: [
-          { itemKey: "packages-mock-exam-club-printed", label: "Basılı Kargo", href: "/paketlerimiz?kategori=mock-exam-club&alt=printed-cargo" },
-          { itemKey: "packages-mock-exam-club-location", label: "Gerçek Mekan", href: "/paketlerimiz?kategori=mock-exam-club&alt=real-location" }
-        ]
-      },
-      {
-        itemKey: "packages-revision-camp",
-        label: "Tekrar Kampı",
-        href: "/paketlerimiz?kategori=revision-camp",
-        description: "Son viraj tekrar ve kapanış akışı.",
-        children: [
-          { itemKey: "packages-revision-camp-flow", label: "Tekrar Planı", href: "/paketlerimiz?kategori=revision-camp&alt=revision-flow" },
-          { itemKey: "packages-revision-camp-calendar", label: "Başvuru Takvimi", href: "/paketlerimiz?kategori=revision-camp&alt=closing-calendar" }
-        ]
-      }
-    ]
+    href: "/paketlerimiz"
   },
   { itemKey: "academic-staff", label: "Akademik Kadro", href: "/akademik-kadro" },
   { itemKey: "success-stories", label: "Başarılarımız", href: "/basarilarimiz" },

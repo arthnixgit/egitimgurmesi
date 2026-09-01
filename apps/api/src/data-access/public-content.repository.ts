@@ -63,6 +63,17 @@ const countdownPageInclude = {
   }
 } satisfies Prisma.CountdownPageInclude;
 
+const packageNavigationCategoryInclude = {
+  childCategories: {
+    where: {
+      isActive: true,
+      organizationId: null,
+      branchId: null
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  }
+} satisfies Prisma.ProductCategoryInclude;
+
 @Injectable()
 export class PublicContentRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -87,6 +98,19 @@ export class PublicContentRepository {
           ]
         }
       }
+    });
+  }
+
+  listPackageNavigationCategories() {
+    return this.prisma.productCategory.findMany({
+      where: {
+        parentCategoryId: null,
+        isActive: true,
+        organizationId: null,
+        branchId: null
+      },
+      include: packageNavigationCategoryInclude,
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
     });
   }
 

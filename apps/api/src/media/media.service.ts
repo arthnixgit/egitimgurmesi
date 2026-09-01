@@ -8,7 +8,16 @@ import {
   PERMISSION_KEYS,
   Prisma
 } from "@ega/db";
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import { appEnv } from "../config/env";
 import { PrismaService } from "../database/prisma.service";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
@@ -29,10 +38,19 @@ type UploadFields = {
 };
 
 type MediaAssetRecord = Prisma.MediaAssetGetPayload<object>;
+type NodeError = Error & { code?: string };
+
+const DEFAULT_MEDIA_STORAGE_DIR = "storage/media";
+const MEDIA_STORAGE_UNAVAILABLE_MESSAGE =
+  "Medya depolama alanı kullanıma hazır değil. Lütfen sistem yöneticisine bildirin.";
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    await validateMediaStorageReady();
+  }
 
   async listAssets(kind?: MediaAssetKind, options: { search?: string; take?: number } = {}) {
     const search = options.search?.trim();
@@ -74,44 +92,57 @@ export class MediaService {
     const assetId = randomUUID();
     const extension = sanitizeExtension(path.extname(file.originalname));
     const storageKey = createStorageKey(assetId, extension);
-    const storageRoot = getStorageRoot();
+    const storageRoot = resolveMediaStorageRoot();
     const targetPath = resolveStoragePath(storageRoot, storageKey);
     const title = fields.title?.trim() || stripExtension(file.originalname) || "Untitled media";
     const checksum = createHash("sha256").update(file.buffer).digest("hex");
     const publicUrl = `${appEnv.mediaPublicBaseUrl()}/media/assets/${assetId}/file`;
 
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    await fs.writeFile(targetPath, file.buffer);
+    await validateMediaStorageReady(storageRoot);
+    await writeLocalMediaFile(targetPath, file.buffer);
 
-    const asset = await this.prisma.$transaction(async (tx) => {
-      const record = await tx.mediaAsset.create({
-        data: {
-          id: assetId,
-          kind,
-          sourceType: MediaAssetSourceType.LOCAL_UPLOAD,
-          title,
-          altText: fields.altText?.trim() || null,
-          mimeType: file.mimetype || null,
-          storageKey,
-          publicUrl,
-          originalFileName: sanitizeOriginalFileName(file.originalname),
-          sizeBytes: file.size,
-          metadata: {
-            checksumSha256: checksum,
-            storage: "local-filesystem"
-          },
-          createdByStaffUserId: auth.actorId ?? null
-        }
+    let asset: MediaAssetRecord;
+    try {
+      asset = await this.prisma.$transaction(async (tx) => {
+        const record = await tx.mediaAsset.create({
+          data: {
+            id: assetId,
+            kind,
+            sourceType: MediaAssetSourceType.LOCAL_UPLOAD,
+            title,
+            altText: fields.altText?.trim() || null,
+            mimeType: file.mimetype || null,
+            storageKey,
+            publicUrl,
+            originalFileName: sanitizeOriginalFileName(file.originalname),
+            sizeBytes: file.size,
+            metadata: {
+              checksumSha256: checksum,
+              storage: "local-filesystem"
+            },
+            createdByStaffUserId: auth.actorId ?? null
+          }
+        });
+
+        await this.recordAuditLog(tx, auth, {
+          action: "media.upload",
+          entityId: record.id,
+          summary: `Uploaded media asset ${record.title}.`
+        });
+
+        return record;
       });
+    } catch {
+      try {
+        await removeFileIfExists(targetPath);
+      } catch {
+        throw new InternalServerErrorException(
+          "Medya kaydı tamamlanamadı ve dosya temizlenemedi. Lütfen sistem yöneticisine bildirin."
+        );
+      }
 
-      await this.recordAuditLog(tx, auth, {
-        action: "media.upload",
-        entityId: record.id,
-        summary: `Uploaded media asset ${record.title}.`
-      });
-
-      return record;
-    });
+      throw new InternalServerErrorException("Medya kaydı tamamlanamadı. Dosya yüklenmedi.");
+    }
 
     return this.normalizeAsset(asset);
   }
@@ -180,13 +211,13 @@ export class MediaService {
       throw new NotFoundException("Media file is not stored locally.");
     }
 
-    const storageRoot = getStorageRoot();
+    const storageRoot = resolveMediaStorageRoot();
     const filePath = resolveStoragePath(storageRoot, asset.storageKey);
 
     try {
       await fs.access(filePath);
     } catch {
-      throw new NotFoundException("Media file is missing from storage.");
+      throw new NotFoundException("Medya dosyası depolama alanında bulunamadı.");
     }
 
     return {
@@ -429,19 +460,104 @@ function stripExtension(fileName: string) {
   return path.basename(fileName, path.extname(fileName)).trim();
 }
 
-function getStorageRoot() {
-  return path.resolve(process.cwd(), appEnv.mediaStorageDir());
+export function resolveMediaStorageRoot(configuredDir = appEnv.mediaStorageDir()) {
+  const trimmed = configuredDir.trim();
+
+  if (trimmed && path.isAbsolute(trimmed)) {
+    return path.resolve(trimmed);
+  }
+
+  return path.resolve(resolveProjectRoot(), trimmed || DEFAULT_MEDIA_STORAGE_DIR);
 }
 
-function resolveStoragePath(storageRoot: string, storageKey: string) {
+export async function validateMediaStorageReady(storageRoot = resolveMediaStorageRoot()) {
+  try {
+    await fs.mkdir(storageRoot, { recursive: true });
+    const probePath = resolveStoragePath(
+      storageRoot,
+      `.media-storage-ready-${process.pid}-${randomUUID()}.tmp`
+    );
+
+    await fs.writeFile(probePath, "ready", { flag: "wx" });
+    await fs.unlink(probePath);
+  } catch (error) {
+    throw mapMediaStorageError(error, MEDIA_STORAGE_UNAVAILABLE_MESSAGE);
+  }
+}
+
+export function mapMediaStorageError(error: unknown, fallbackMessage?: string) {
+  const code = getNodeErrorCode(error);
+
+  if (code === "EACCES" || code === "EPERM") {
+    return new ServiceUnavailableException(
+      "Medya depolama alanına yazma izni yok. Lütfen sistem yöneticisine bildirin."
+    );
+  }
+
+  if (code === "EROFS") {
+    return new ServiceUnavailableException(
+      "Medya depolama alanı salt okunur. Lütfen sistem yöneticisine bildirin."
+    );
+  }
+
+  if (code === "ENOENT") {
+    return new ServiceUnavailableException(
+      "Medya depolama klasörü hazırlanamadı. Lütfen sistem yöneticisine bildirin."
+    );
+  }
+
+  if (code === "ENOSPC") {
+    return new HttpException(
+      "Medya depolama alanında yeterli boş yer yok. Lütfen sistem yöneticisine bildirin.",
+      507
+    );
+  }
+
+  return new ServiceUnavailableException(fallbackMessage ?? MEDIA_STORAGE_UNAVAILABLE_MESSAGE);
+}
+
+export function resolveStoragePath(storageRoot: string, storageKey: string) {
   const filePath = path.resolve(storageRoot, storageKey);
   const relative = path.relative(storageRoot, filePath);
 
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new BadRequestException("Invalid media storage key.");
+    throw new BadRequestException("Medya depolama anahtarı geçerli değil.");
   }
 
   return filePath;
+}
+
+async function writeLocalMediaFile(targetPath: string, buffer: Buffer) {
+  const tempPath = `${targetPath}.${randomUUID()}.tmp`;
+
+  try {
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(tempPath, buffer, { flag: "wx" });
+    await fs.rename(tempPath, targetPath);
+  } catch (error) {
+    await removeFileIfExists(tempPath);
+    throw mapMediaStorageError(error);
+  }
+}
+
+async function removeFileIfExists(filePath: string) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    const code = getNodeErrorCode(error);
+
+    if (code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+function getNodeErrorCode(error: unknown) {
+  return error instanceof Error ? (error as NodeError).code : undefined;
+}
+
+function resolveProjectRoot() {
+  return path.resolve(__dirname, "../../../..");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

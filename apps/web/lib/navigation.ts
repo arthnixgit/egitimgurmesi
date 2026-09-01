@@ -1,5 +1,3 @@
-import { buildPackagesPageHref, packageCategories } from "./package-catalog";
-
 export type PublicNavLeaf = {
   id: string;
   label: string;
@@ -24,25 +22,12 @@ export type PublicNavItem = {
   megaMenuColumns?: readonly PublicMegaMenuColumn[];
 };
 
-const packageMegaMenuColumns: readonly PublicMegaMenuColumn[] = packageCategories.map((category) => ({
-  id: category.id,
-  label: category.label,
-  href: category.id === "in-person-coaching" ? "/yuz-yuze-kocluk" : buildPackagesPageHref(category.id),
-  description: category.description,
-  items: category.subcategories.map((subcategory) => ({
-    id: subcategory.id,
-    label: subcategory.label,
-    href: buildPackagesPageHref(category.id, subcategory.id)
-  }))
-}));
-
 // Keep these ids stable so admin-managed menu records can later override this tree cleanly.
 export const publicNavigationItems: readonly PublicNavItem[] = [
   {
     id: "packages",
     label: "Paketlerimiz",
-    href: "/paketlerimiz",
-    megaMenuColumns: packageMegaMenuColumns
+    href: "/paketlerimiz"
   },
   {
     id: "coaches",

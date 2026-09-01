@@ -1,12 +1,17 @@
 import {
+  ArgumentsHost,
   Body,
+  Catch,
   Controller,
+  ExceptionFilter,
   Get,
   Param,
+  PayloadTooLargeException,
   Post,
   Query,
   Res,
   UploadedFile,
+  UseFilters,
   UseGuards,
   UseInterceptors
 } from "@nestjs/common";
@@ -29,6 +34,18 @@ type UploadedMediaFile = {
   buffer: Buffer;
 };
 
+@Catch(PayloadTooLargeException)
+class MediaUploadExceptionFilter implements ExceptionFilter {
+  catch(_exception: PayloadTooLargeException, host: ArgumentsHost) {
+    const response = host.switchToHttp().getResponse<Response>();
+    response.status(400).json({
+      statusCode: 400,
+      message: "Yüklenen dosya izin verilen medya sınırından büyük.",
+      error: "Bad Request"
+    });
+  }
+}
+
 @Controller("admin-media")
 @UseGuards(AccessTokenGuard, PermissionsGuard)
 @StaffOnly()
@@ -49,6 +66,7 @@ export class AdminMediaController {
   }
 
   @Post("upload")
+  @UseFilters(MediaUploadExceptionFilter)
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {

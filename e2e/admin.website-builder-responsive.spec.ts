@@ -6,6 +6,7 @@ let accessMode: AccessMode = "branch";
 let contentRequestCount = 0;
 let saveRequestCount = 0;
 let mediaRequestCount = 0;
+let mediaUploadRequestCount = 0;
 
 const adminViewports = [1920, 1440, 1280, 1024, 768, 390];
 
@@ -14,6 +15,7 @@ test.beforeEach(async ({ page }) => {
   contentRequestCount = 0;
   saveRequestCount = 0;
   mediaRequestCount = 0;
+  mediaUploadRequestCount = 0;
 
   await page.addInitScript(() => {
     window.localStorage.setItem("ega_staff_access_token", "mock-access-token");
@@ -96,6 +98,32 @@ test("website editor branding, media picker, canvas, slider and material preview
   await page.screenshot({ path: "test-results/admin-website-builder/download-card-preview.png", fullPage: true });
 
   await assertNoHorizontalOverflow(page);
+});
+
+test("website editor logo upload failure preserves draft, session and single upload request", async ({ page }) => {
+  await openWebsiteBuilder(page, "/web-sitesi?alan=marka", 1440);
+
+  const previewImage = page.locator(".admin-media-field__preview img").first();
+  const originalPreviewUrl = await previewImage.getAttribute("src");
+  await page.locator("input[type='file']").first().setInputFiles({
+    name: "logo.png",
+    mimeType: "image/png",
+    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])
+  });
+
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Medya depolama alanına yazma izni yok" })
+  ).toBeVisible();
+  await expect(previewImage).toHaveAttribute("src", originalPreviewUrl ?? "");
+  expect(mediaUploadRequestCount).toBe(1);
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("ega_staff_access_token")))
+    .toBe("mock-access-token");
+  await assertNoHorizontalOverflow(page);
+  await page.screenshot({
+    path: "test-results/admin-website-builder/branding-upload-error.png",
+    fullPage: true
+  });
 });
 
 test("website editor saves drafts and creates preview token without repeated calls", async ({ page }) => {
@@ -291,6 +319,16 @@ async function mockWebsiteApi(page: Page) {
             createdAt: "2026-08-28T09:00:00.000Z"
           }
         ]
+      });
+      return;
+    }
+
+    if (path === "/admin-media/upload") {
+      mediaUploadRequestCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await route.fulfill({
+        status: 503,
+        json: { message: "Medya depolama alanına yazma izni yok. Lütfen sistem yöneticisine bildirin." }
       });
       return;
     }

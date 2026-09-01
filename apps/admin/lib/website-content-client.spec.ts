@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { deleteAdminProduct } from "./commerce-client";
 import {
+  AdminApiError,
+  isStaffSessionError,
+  requestFormWithStaffToken,
   serializeFreeMaterialsPayload,
   serializeSiteSettingsPayload,
   serializeStaffProfilesPayload,
@@ -79,6 +82,38 @@ describe("Admin website content client payloads", () => {
     assert.equal(requests[0].init?.method, "DELETE");
     assert.equal(requests[0].init?.body, undefined);
     assert.deepEqual(requests[0].init?.headers, { Authorization: "Bearer access-token" });
+  });
+
+  it("keeps a 403 media upload rejection from clearing the staff session", async () => {
+    const removedKeys: string[] = [];
+    (globalThis as { localStorage?: Storage }).localStorage = {
+      getItem: (key: string) => (key.includes("access") ? "access-token" : "refresh-token"),
+      setItem: () => undefined,
+      removeItem: (key: string) => {
+        removedKeys.push(key);
+      },
+      clear: () => undefined,
+      key: () => null,
+      length: 2
+    } as Storage;
+    (globalThis as { fetch?: typeof fetch }).fetch = async () =>
+      ({
+        ok: false,
+        status: 403,
+        json: async () => ({ message: "Web sitesi yönetimini yalnızca yetkili kullanıcılar düzenleyebilir." })
+      }) as Response;
+
+    await assert.rejects(
+      () => requestFormWithStaffToken("/admin-media/upload", new FormData()),
+      (error: unknown) => {
+        assert.ok(error instanceof AdminApiError);
+        assert.equal(error.status, 403);
+        assert.equal(isStaffSessionError(error), false);
+        assert.equal(error.message, "Web sitesi yönetimini yalnızca yetkili kullanıcılar düzenleyebilir.");
+        return true;
+      }
+    );
+    assert.deepEqual(removedKeys, []);
   });
 });
 

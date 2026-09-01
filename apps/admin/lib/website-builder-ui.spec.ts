@@ -7,6 +7,10 @@ import {
   writeHomeSliderPayload
 } from "../app/web-sitesi/lib/section-registry";
 import { validateClientMediaFile } from "../app/web-sitesi/lib/builder-media";
+import {
+  getMediaUploadErrorMessage,
+  shouldStartMediaUpload
+} from "../app/web-sitesi/lib/builder-media";
 import { emptyHistory, pushHistory, undoHistory } from "../app/web-sitesi/lib/builder-history";
 import { createSectionFromWidget, getWidgetDefinition, widgetRegistry } from "../app/web-sitesi/lib/widget-registry";
 import { validateSlider } from "../app/web-sitesi/lib/builder-validation";
@@ -167,6 +171,19 @@ describe("website builder client media validation", () => {
   it("accepts supported website image and document candidates", () => {
     assert.equal(validateClientMediaFile(file("logo.webp", "image/webp", 4096), "BRANDING"), "");
     assert.equal(validateClientMediaFile(file("plan.pdf", "application/pdf", 4096), "DOCUMENT"), "");
+  });
+
+  it("keeps one upload active and preserves controlled upload error messages", () => {
+    const logo = file("logo.png", "image/png", 4096);
+
+    assert.equal(shouldStartMediaUpload(logo, false), true);
+    assert.equal(shouldStartMediaUpload(logo, true), false);
+    assert.equal(shouldStartMediaUpload(null, false), false);
+    assert.equal(
+      getMediaUploadErrorMessage(new Error("Medya depolama alanına yazma izni yok.")),
+      "Medya depolama alanına yazma izni yok."
+    );
+    assert.equal(getMediaUploadErrorMessage("unknown"), "Dosya yüklenemedi.");
   });
 });
 

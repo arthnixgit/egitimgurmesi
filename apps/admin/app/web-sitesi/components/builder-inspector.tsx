@@ -247,6 +247,10 @@ function FooterSettingsPanel({ settings, actions }: { settings: AdminSiteSetting
 function NavigationPanel({ navigation, actions }: { navigation: AdminNavigationMenu; actions: BuilderActions }) {
   return (
     <div className="admin-website-builder__form">
+      <div className="admin-alert" role="status">
+        Paketlerimiz alt başlıkları katalogdan gelir; kategori adı, sırası, görünürlüğü ve hedefi
+        Super Admin tarafından <a href="/ticaret">/ticaret</a> alanından yönetilir.
+      </div>
       <button className="admin-button--ghost" type="button" onClick={actions.addNavigationItem}>Yeni Menü Öğesi</button>
       {navigation.items.map((item, index) => (
         <fieldset key={`${item.itemKey}-${index}`}>

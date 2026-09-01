@@ -18,15 +18,15 @@ Date: 2026-05-20
 Required media settings:
 
 ```env
-MEDIA_STORAGE_DIR=../../storage/media
-MEDIA_PUBLIC_BASE_URL=http://localhost:4000/v1
+MEDIA_STORAGE_DIR=storage/media
+MEDIA_PUBLIC_BASE_URL=https://api.egitimgurmesi.com/v1
 MEDIA_MAX_UPLOAD_BYTES=52428800
 ```
 
 Production/staging guidance:
 
-- `MEDIA_STORAGE_DIR` must point to a persistent disk/volume, not an ephemeral container directory.
-- `MEDIA_PUBLIC_BASE_URL` must be reachable by visitors and should include the API prefix, for example `https://api.example.com/v1`.
+- `MEDIA_STORAGE_DIR` must resolve to a persistent disk/volume, not an ephemeral container directory. Relative paths resolve from the project root; valid absolute paths are preserved.
+- `MEDIA_PUBLIC_BASE_URL` must be reachable by visitors and should include the API prefix, for example `https://api.egitimgurmesi.com/v1`.
 - `MEDIA_MAX_UPLOAD_BYTES` is currently `50 MB`; larger lesson videos should use cloud streamer/embed URLs instead of direct API upload.
 
 ## Admin Workflow

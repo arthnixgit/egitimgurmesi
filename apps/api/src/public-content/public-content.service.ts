@@ -16,6 +16,10 @@ type NavigationNode = {
   children: NavigationNode[];
 };
 
+type PackageNavigationCategory = Awaited<
+  ReturnType<PublicContentRepository["listPackageNavigationCategories"]>
+>[number];
+
 type PublicDownloadResult =
   | {
       kind: "local";
@@ -100,13 +104,23 @@ export class PublicContentService {
       }
     }
 
+    const packageCategories = await this.loadPackageNavigationCategories();
+
     return {
       id: menu.id,
       key: menu.key,
       name: menu.name,
       location: menu.location,
-      items: roots
+      items: attachCatalogPackageNavigation(roots, packageCategories)
     };
+  }
+
+  private async loadPackageNavigationCategories() {
+    try {
+      return await this.publicContentRepository.listPackageNavigationCategories();
+    } catch {
+      return [] as PackageNavigationCategory[];
+    }
   }
 
   async getMarketingPage(slug: string) {
@@ -292,6 +306,115 @@ function normalizeJsonLinks(value: unknown) {
         : null;
     })
     .filter((item): item is { label: string; href: string } => Boolean(item));
+}
+
+function attachCatalogPackageNavigation(
+  roots: NavigationNode[],
+  categories: PackageNavigationCategory[]
+) {
+  const packageChildren = categories.map(normalizePackageNavigationRoot);
+
+  return roots.map((root) =>
+    isPackagesNavigationNode(root)
+      ? {
+          ...root,
+          children: packageChildren
+        }
+      : root
+  );
+}
+
+function normalizePackageNavigationRoot(category: PackageNavigationCategory): NavigationNode {
+  const rootHref = normalizeCategoryHref(
+    category.ctaHref,
+    `/paketlerimiz?kategori=${encodeURIComponent(category.slug)}`
+  );
+
+  return {
+    id: `catalog-root:${category.id}`,
+    itemKey: `packages-${category.slug}`,
+    label: category.name,
+    href: rootHref,
+    description: category.description,
+    target: isExternalHttpsHref(rootHref) ? "_blank" : null,
+    children: category.childCategories.map((child) =>
+      normalizePackageNavigationChild(category, child)
+    )
+  };
+}
+
+function normalizePackageNavigationChild(
+  root: PackageNavigationCategory,
+  child: PackageNavigationCategory["childCategories"][number]
+): NavigationNode {
+  const subcategoryId = extractSubcategoryFilterId(child) ?? child.slug;
+  const childHref = normalizeCategoryHref(
+    child.ctaHref,
+    `/paketlerimiz?kategori=${encodeURIComponent(root.slug)}&alt=${encodeURIComponent(
+      subcategoryId
+    )}`
+  );
+
+  return {
+    id: `catalog-child:${child.id}`,
+    itemKey: `packages-${root.slug}-${subcategoryId}`,
+    label: child.name,
+    href: childHref,
+    description: child.description,
+    target: isExternalHttpsHref(childHref) ? "_blank" : null,
+    children: []
+  };
+}
+
+function isPackagesNavigationNode(node: NavigationNode) {
+  return node.itemKey === "packages" || normalizePathname(node.href) === "/paketlerimiz";
+}
+
+function normalizeCategoryHref(value: string | null | undefined, fallback: string) {
+  const trimmed = value?.trim();
+  return trimmed && isSafeContentHref(trimmed) ? trimmed : fallback;
+}
+
+function isSafeContentHref(value: string) {
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return !/[\u0000-\u001f]/.test(value);
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isExternalHttpsHref(value: string) {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function normalizePathname(value: string) {
+  try {
+    return new URL(value, "https://egitimgurmesi.com").pathname.replace(/\/+$/, "") || "/";
+  } catch {
+    return value.split("?")[0].replace(/\/+$/, "") || "/";
+  }
+}
+
+function extractSubcategoryFilterId(category: { ctaHref: string | null; slug: string }) {
+  if (!category.ctaHref) {
+    return null;
+  }
+
+  const search = category.ctaHref.includes("?")
+    ? category.ctaHref.slice(category.ctaHref.indexOf("?") + 1)
+    : "";
+  const params = new URLSearchParams(search);
+
+  return params.get("alt");
 }
 
 async function validatePublicDownloadUrl(value: string) {

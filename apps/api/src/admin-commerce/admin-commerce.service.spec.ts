@@ -44,6 +44,57 @@ describe("AdminCommerceService catalog authorization", () => {
 });
 
 describe("AdminCommerceService category hierarchy validation", () => {
+  it("returns public navbar/catalog revalidation metadata after category changes", async () => {
+    let savedCtaHref: unknown = null;
+    const service = new AdminCommerceService({
+      productCategory: {
+        create: async (args: { data: { ctaHref?: string | null } }) => {
+          savedCtaHref = args.data.ctaHref;
+          return categoryRecord({
+            id: "online_root",
+            slug: "online-kocluk",
+            name: "Online Koçluk"
+          });
+        }
+      },
+      auditLog: {
+        create: async () => ({ id: "audit_1" })
+      }
+    } as never);
+
+    const result = await service.createCategory(
+      categoryPayload({ ctaHref: "/paketlerimiz?kategori=online-kocluk" }),
+      superAdminAuth
+    );
+
+    assert.equal(savedCtaHref, "/paketlerimiz?kategori=online-kocluk");
+    assert.deepEqual(result.revalidateRoutes, ["/", "/paketlerimiz"]);
+    assert.deepEqual(result.revalidateTags, [
+      "navigation",
+      "public-layout",
+      "public-commerce-catalog"
+    ]);
+  });
+
+  it("rejects unsafe category destinations before they can drive the navbar", async () => {
+    const service = new AdminCommerceService({
+      productCategory: {
+        create: async () => {
+          throw new Error("should not create");
+        }
+      }
+    } as never);
+
+    await assertBadRequest(
+      () =>
+        service.createCategory(
+          categoryPayload({ ctaHref: "javascript:alert(1)" }),
+          superAdminAuth
+        ),
+      "Kategori hedefi yalnızca site içi rota veya güvenli HTTPS adresi olabilir."
+    );
+  });
+
   it("rejects creating a subcategory below another subcategory", async () => {
     const service = new AdminCommerceService({
       productCategory: {
