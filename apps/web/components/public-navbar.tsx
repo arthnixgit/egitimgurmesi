@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ButtonLink } from "@ega/ui";
 import {
   fetchCurrentUser,
@@ -10,17 +11,32 @@ import {
   isAuthFailure,
   USER_AUTH_CHANGED_EVENT
 } from "../lib/auth-client";
-import { getNavigationItems } from "../lib/public-content-api";
-import { publicNavigationItems, type PublicNavItem } from "../lib/navigation";
+import { requestNavigationSnapshot } from "../lib/public-content-api";
+import {
+  isValidNavigationSnapshot,
+  navigationSnapshotFingerprint,
+  type PublicNavigationSnapshot
+} from "../lib/navigation";
+import { usePublicNavigationSnapshot } from "./public-navigation-provider";
 
 type NavbarAuthState =
   | { status: "checking" }
   | { status: "anonymous" }
   | { status: "authenticated"; label: string };
 
-export function PublicNavbar() {
-  const [navigationItems, setNavigationItems] =
-    useState<readonly PublicNavItem[]>(publicNavigationItems);
+const NAVIGATION_STALE_MS = 60_000;
+export const PUBLIC_NAVIGATION_REFRESH_EVENT = "ega:public-navigation-refresh";
+
+export function PublicNavbar({
+  initialSnapshot
+}: {
+  initialSnapshot?: PublicNavigationSnapshot;
+} = {}) {
+  const contextSnapshot = usePublicNavigationSnapshot();
+  const authoritativeSnapshot = initialSnapshot ?? contextSnapshot;
+  const pathname = usePathname();
+  const [navigationSnapshot, setNavigationSnapshot] =
+    useState<PublicNavigationSnapshot>(authoritativeSnapshot);
   const [openMegaMenuId, setOpenMegaMenuId] = useState<string | null>(null);
   const [activeMegaColumnId, setActiveMegaColumnId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,6 +45,11 @@ export function PublicNavbar() {
   const [authState, setAuthState] = useState<NavbarAuthState>({ status: "checking" });
   const closeTimerRef = useRef<number | null>(null);
   const scrollUnlockTimerRef = useRef<number | null>(null);
+  const navigationFingerprintRef = useRef(navigationSnapshotFingerprint(authoritativeSnapshot));
+  const refreshControllerRef = useRef<AbortController | null>(null);
+  const refreshRequestIdRef = useRef(0);
+  const lastRefreshAtRef = useRef(Date.now());
+  const lastPathnameRef = useRef(pathname);
 
   const clearCloseTimer = () => {
     if (closeTimerRef.current !== null) {
@@ -68,28 +89,112 @@ export function PublicNavbar() {
     setActiveMegaColumnId(null);
   };
 
+  const applyNavigationSnapshot = useCallback((nextSnapshot: PublicNavigationSnapshot, reason: string) => {
+    if (!isValidNavigationSnapshot(nextSnapshot)) {
+      logNavigationDiagnostic("rejected invalid snapshot", reason);
+      return false;
+    }
+
+    const nextFingerprint = navigationSnapshotFingerprint(nextSnapshot);
+    if (nextFingerprint === navigationFingerprintRef.current) {
+      return false;
+    }
+
+    navigationFingerprintRef.current = nextFingerprint;
+    setNavigationSnapshot(nextSnapshot);
+    return true;
+  }, []);
+
+  const refreshNavigationSnapshot = useCallback(
+    (reason: string, options: { replaceInFlight?: boolean } = {}) => {
+      if (refreshControllerRef.current) {
+        if (!options.replaceInFlight) {
+          logNavigationDiagnostic("deduplicated refresh request", reason);
+          return;
+        }
+
+        refreshControllerRef.current.abort();
+      }
+
+      const requestId = refreshRequestIdRef.current + 1;
+      const controller = new AbortController();
+      refreshRequestIdRef.current = requestId;
+      refreshControllerRef.current = controller;
+      lastRefreshAtRef.current = Date.now();
+
+      void requestNavigationSnapshot({ signal: controller.signal })
+        .then((nextSnapshot) => {
+          if (requestId !== refreshRequestIdRef.current) {
+            logNavigationDiagnostic("stale request ignored", reason);
+            return;
+          }
+
+          applyNavigationSnapshot(nextSnapshot, reason);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          logNavigationDiagnostic("navigation request failure", reason, error);
+        })
+        .finally(() => {
+          if (refreshControllerRef.current === controller) {
+            refreshControllerRef.current = null;
+          }
+        });
+    },
+    [applyNavigationSnapshot]
+  );
+
   useEffect(
-    () => () => {
-      clearCloseTimer();
-      clearScrollUnlockTimer();
-      document.body.style.overflow = "";
+    () => {
+      document.documentElement.dataset.publicNavigationReady = "true";
+
+      return () => {
+        clearCloseTimer();
+        clearScrollUnlockTimer();
+        refreshControllerRef.current?.abort();
+        delete document.documentElement.dataset.publicNavigationReady;
+        document.body.style.overflow = "";
+      };
     },
     []
   );
 
   useEffect(() => {
-    let isCancelled = false;
+    applyNavigationSnapshot(authoritativeSnapshot, "server-snapshot");
+  }, [applyNavigationSnapshot, authoritativeSnapshot]);
 
-    void getNavigationItems().then((items) => {
-      if (!isCancelled) {
-        setNavigationItems(items);
+  useEffect(() => {
+    if (pathname === lastPathnameRef.current) {
+      return;
+    }
+
+    lastPathnameRef.current = pathname;
+    if (Date.now() - lastRefreshAtRef.current >= NAVIGATION_STALE_MS) {
+      refreshNavigationSnapshot("route-transition");
+    }
+  }, [pathname, refreshNavigationSnapshot]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (Date.now() - lastRefreshAtRef.current >= NAVIGATION_STALE_MS) {
+        refreshNavigationSnapshot("window-focus");
       }
-    });
+    };
+    const handleNavigationRefresh = () => {
+      refreshNavigationSnapshot("application-event", { replaceInFlight: true });
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener(PUBLIC_NAVIGATION_REFRESH_EVENT, handleNavigationRefresh);
 
     return () => {
-      isCancelled = true;
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener(PUBLIC_NAVIGATION_REFRESH_EVENT, handleNavigationRefresh);
     };
-  }, []);
+  }, [refreshNavigationSnapshot]);
 
   useEffect(() => {
     const closeOnViewportChange = () => {
@@ -172,6 +277,7 @@ export function PublicNavbar() {
   const accountActionHref = authState.status === "authenticated" ? "/hesabim" : "/giris";
   const accountActionLabel =
     authState.status === "authenticated" ? authState.label : "Giriş Yap / Kayıt Ol";
+  const navigationItems = navigationSnapshot.enabled ? navigationSnapshot.items : [];
 
   return (
     <header className="ega-header">
@@ -428,4 +534,12 @@ export function PublicNavbar() {
       </div>
     </header>
   );
+}
+
+function logNavigationDiagnostic(message: string, reason: string, error?: unknown) {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
+  console.warn(`[public-navigation] ${message}: ${reason}`, error ?? "");
 }

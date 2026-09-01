@@ -4,7 +4,11 @@ import { AuthActorType, ContentStatus, FreeMaterialItemType, PERMISSION_KEYS, RO
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import { AdminContentService } from "./admin-content.service";
-import type { SaveFreeMaterialsDocumentDto, SaveSiteSettingsDto } from "./dto/admin-content.dto";
+import type {
+  SaveFreeMaterialsDocumentDto,
+  SaveNavigationMenuDto,
+  SaveSiteSettingsDto
+} from "./dto/admin-content.dto";
 
 describe("AdminContentService website policy", () => {
   it("allows Super Admin and Branch Admin website reads", async () => {
@@ -138,6 +142,68 @@ describe("AdminContentService free-material validation", () => {
   });
 });
 
+describe("AdminContentService navigation validation", () => {
+  it("blocks saving an active primary navigation with zero active top-level items", async () => {
+    const service = new AdminContentService({
+      navigationMenu: {
+        findUnique: async () => null
+      }
+    } as never);
+
+    await assertBadRequest(
+      () => service.saveNavigationMenu("primary", navigationPayload({ items: [] }), branchAdminAuth, "publish"),
+      "Ana menüde en az bir aktif öğe bulunmalıdır."
+    );
+    await assertBadRequest(
+      () =>
+        service.saveNavigationMenu(
+          "primary",
+          navigationPayload({
+            items: [
+              {
+                itemKey: "about",
+                label: "Hakkımızda",
+                href: "/hakkimizda",
+                isActive: false,
+                children: []
+              }
+            ]
+          }),
+          branchAdminAuth,
+          "draft"
+        ),
+      "Ana menüde en az bir aktif öğe bulunmalıdır."
+    );
+  });
+
+  it("allows explicitly disabled empty navigation documents", async () => {
+    const service = new AdminContentService({
+      navigationMenu: {
+        findUnique: async () => null
+      },
+      $transaction: async <T>(callback: (client: unknown) => Promise<T>) =>
+        callback({
+          websiteContentRevision: {
+            create: async (args: unknown) => args
+          },
+          auditLog: {
+            create: async (args: unknown) => args
+          }
+        })
+    } as never);
+
+    const result = await service.saveNavigationMenu(
+      "primary",
+      navigationPayload({ isActive: false, items: [] }),
+      branchAdminAuth,
+      "draft"
+    );
+
+    assert.equal(result.isActive, false);
+    assert.equal((result as { draftStatus?: string }).draftStatus, "DRAFT");
+  });
+});
+
 function createSiteSettingsHarness(overrides: Partial<ReturnType<typeof siteSettingRecord>> = {}) {
   const state = {
     siteSetting: siteSettingRecord(overrides),
@@ -183,6 +249,23 @@ function createSiteSettingsHarness(overrides: Partial<ReturnType<typeof siteSett
   return {
     state,
     service: new AdminContentService(prisma as never)
+  };
+}
+
+function navigationPayload(overrides: Partial<SaveNavigationMenuDto> = {}): SaveNavigationMenuDto {
+  return {
+    name: "Ana Menü",
+    location: "PRIMARY" as SaveNavigationMenuDto["location"],
+    isActive: true,
+    items: [
+      {
+        itemKey: "packages",
+        label: "Paketlerimiz",
+        href: "/paketlerimiz",
+        children: []
+      }
+    ],
+    ...overrides
   };
 }
 

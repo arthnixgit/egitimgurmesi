@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { FloatingInstagramLink } from "../components/floating-instagram-link";
 import { FloatingWhatsAppLink } from "../components/floating-whatsapp-link";
+import { PublicNavigationProvider } from "../components/public-navigation-provider";
 import { StudentSessionManager } from "../components/student-session-manager";
+import { getNavigationSnapshot } from "../lib/public-content-api";
 
 export const metadata: Metadata = {
   title: {
@@ -20,18 +22,22 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const navigationSnapshot = await getNavigationSnapshot();
+
   return (
     <html lang="tr">
       <body>
-        {children}
-        <StudentSessionManager />
-        <FloatingInstagramLink />
-        <FloatingWhatsAppLink />
+        <PublicNavigationProvider initialSnapshot={navigationSnapshot}>
+          {children}
+          <StudentSessionManager />
+          <FloatingInstagramLink />
+          <FloatingWhatsAppLink />
+        </PublicNavigationProvider>
       </body>
     </html>
   );

@@ -6,6 +6,29 @@ import { PublicContentRepository } from "../data-access/public-content.repositor
 import { PublicContentService } from "./public-content.service";
 
 describe("PublicContentService navigation", () => {
+  it("returns an explicit enabled database snapshot with valid top-level items in menu order", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_about", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" }),
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({ id: "nav_free", itemKey: "free-materials", label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" })
+        ])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.enabled, true);
+    assert.equal(menu.source, "database");
+    assert.equal(menu.catalogStatus, "ready");
+    assert.ok(menu.generatedAt);
+    assert.deepEqual(menu.items.map((item) => item.label), [
+      "Hakkımızda",
+      "Paketlerimiz",
+      "Ücretsiz Materyaller"
+    ]);
+  });
+
   it("composes Paketlerimiz children from active catalog categories instead of legacy menu rows", async () => {
     const service = createService({
       getNavigationMenu: async () =>
@@ -55,6 +78,7 @@ describe("PublicContentService navigation", () => {
     const menu = await service.getNavigationMenu("primary");
     const packages = menu.items.find((item) => item.itemKey === "packages");
 
+    assert.equal(menu.enabled, true);
     assert.ok(packages);
     assert.deepEqual(
       packages.children.map((item) => item.label),
@@ -72,6 +96,57 @@ describe("PublicContentService navigation", () => {
       false
     );
     assert.equal(menu.items.find((item) => item.itemKey === "about")?.label, "Hakkımızda");
+  });
+
+  it("reflects catalog rename and sort order in the package subtree", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" })
+        ]),
+      listPackageNavigationCategories: async () => [
+        packageRoot({
+          id: "root_second",
+          slug: "second",
+          name: "Second Root",
+          sortOrder: 20,
+          childCategories: []
+        }),
+        packageRoot({
+          id: "root_first",
+          slug: "first",
+          name: "Renamed First Root",
+          sortOrder: 10,
+          childCategories: [
+            packageChild({
+              id: "child_second",
+              slug: "second-child",
+              name: "Second Child",
+              sortOrder: 20
+            }),
+            packageChild({
+              id: "child_first",
+              slug: "first-child",
+              name: "Renamed First Child",
+              sortOrder: 10
+            })
+          ]
+        })
+      ]
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+    const packages = menu.items.find((item) => item.itemKey === "packages");
+
+    assert.ok(packages);
+    assert.deepEqual(packages.children.map((item) => item.label), [
+      "Renamed First Root",
+      "Second Root"
+    ]);
+    assert.deepEqual(packages.children[0].children.map((item) => item.label), [
+      "Renamed First Child",
+      "Second Child"
+    ]);
   });
 
   it("keeps only the safe top-level Paketlerimiz link when catalog composition fails", async () => {
@@ -95,6 +170,8 @@ describe("PublicContentService navigation", () => {
     const menu = await service.getNavigationMenu("primary");
     const packages = menu.items[0];
 
+    assert.equal(menu.enabled, true);
+    assert.equal(menu.catalogStatus, "unavailable");
     assert.equal(packages.itemKey, "packages");
     assert.equal(packages.href, "/paketlerimiz");
     assert.deepEqual(packages.children, []);
@@ -111,6 +188,120 @@ describe("PublicContentService navigation", () => {
     const menu = await service.getNavigationMenu("primary");
 
     assert.deepEqual(menu.items.map((item) => item.itemKey), ["about"]);
+  });
+
+  it("keeps Paketlerimiz as a direct link when no package categories are active", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({ id: "nav_about", itemKey: "about", label: "About", href: "/hakkimizda" })
+        ]),
+      listPackageNavigationCategories: async () => []
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+    const packages = menu.items.find((item) => item.itemKey === "packages");
+
+    assert.ok(packages);
+    assert.equal(packages.href, "/paketlerimiz");
+    assert.deepEqual(packages.children, []);
+    assert.deepEqual(menu.items.map((item) => item.itemKey), ["packages", "about"]);
+  });
+
+  it("returns an explicit disabled snapshot when the NavigationMenu is inactive", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_about", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" })
+        ], { isActive: false })
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.enabled, false);
+    assert.equal(menu.source, "disabled");
+    assert.deepEqual(menu.items, []);
+  });
+
+  it("uses the safe fallback when the primary NavigationMenu is missing", async () => {
+    const service = createService({
+      getNavigationMenu: async () => null
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.enabled, true);
+    assert.equal(menu.source, "fallback");
+    assert.deepEqual(menu.items.map((item) => item.label), [
+      "Paketlerimiz",
+      "Akademik Kadro",
+      "Başarılarımız",
+      "Ücretsiz Materyaller",
+      "Hakkımızda"
+    ]);
+    assert.deepEqual(menu.items[0].children, []);
+  });
+
+  it("does not return an unexplained successful empty result for an active empty menu", async () => {
+    const service = createService({
+      getNavigationMenu: async () => navigationMenu([])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.enabled, true);
+    assert.equal(menu.source, "fallback");
+    assert.notDeepEqual(menu.items, []);
+  });
+
+  it("rejects unsafe hrefs from the public snapshot and falls back when none remain", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "bad_js", itemKey: "bad", label: "Bad", href: "javascript:alert(1)" })
+        ])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.source, "fallback");
+    assert.equal(menu.items[0].itemKey, "packages");
+  });
+
+  it("deduplicates duplicate item keys deterministically without losing unrelated links", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_about_1", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" }),
+          navItem({ id: "nav_about_2", itemKey: "about", label: "Duplicate", href: "/duplicate" }),
+          navItem({ id: "nav_free", itemKey: "free-materials", label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" })
+        ])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.source, "database");
+    assert.deepEqual(menu.items.map((item) => item.label), ["Hakkımızda", "Ücretsiz Materyaller"]);
+  });
+  it("rejects package child keys outside the Paketlerimiz subtree", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({
+            id: "nav_stale_package",
+            itemKey: "packages-stale-root",
+            label: "Stale Package Root",
+            href: "/paketlerimiz?kategori=stale"
+          }),
+          navItem({ id: "nav_about", itemKey: "about", label: "About", href: "/hakkimizda" })
+        ])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.source, "fallback");
+    assert.equal(menu.items[0].itemKey, "packages");
   });
 });
 
@@ -147,6 +338,41 @@ describe("PublicContentRepository package navigation query", () => {
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
     });
+  });
+
+  it("uses one bounded active-global query for root and child package categories", async () => {
+    let findManyCalls = 0;
+    const repository = new PublicContentRepository({
+      productCategory: {
+        findMany: async (args: unknown) => {
+          findManyCalls += 1;
+          assert.deepEqual(args, {
+            where: {
+              parentCategoryId: null,
+              isActive: true,
+              organizationId: null,
+              branchId: null
+            },
+            include: {
+              childCategories: {
+                where: {
+                  isActive: true,
+                  organizationId: null,
+                  branchId: null
+                },
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+              }
+            },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+          });
+          return [];
+        }
+      }
+    } as never);
+
+    await repository.listPackageNavigationCategories();
+
+    assert.equal(findManyCalls, 1);
   });
 });
 
@@ -272,12 +498,17 @@ function createService(repositoryOverrides: Record<string, unknown>) {
   return new PublicContentService(repository as never, mediaService as never);
 }
 
-function navigationMenu(items: ReturnType<typeof navItem>[]) {
+function navigationMenu(
+  items: ReturnType<typeof navItem>[],
+  overrides: { isActive?: boolean } = {}
+) {
   return {
     id: "menu_1",
     key: "primary",
     name: "Ana Menü",
     location: "PRIMARY",
+    isActive: overrides.isActive ?? true,
+    version: 4,
     items
   };
 }
@@ -308,6 +539,7 @@ function packageRoot(input: {
   name: string;
   description?: string | null;
   ctaHref?: string | null;
+  sortOrder?: number;
   childCategories: ReturnType<typeof packageChild>[];
 }) {
   return {
@@ -321,7 +553,7 @@ function packageRoot(input: {
     seoTitle: null,
     seoDescription: null,
     ctaHref: input.ctaHref ?? null,
-    sortOrder: 10,
+    sortOrder: input.sortOrder ?? 10,
     isActive: true,
     createdAt: new Date("2026-09-01T00:00:00.000Z"),
     updatedAt: new Date("2026-09-01T00:00:00.000Z"),
@@ -335,6 +567,7 @@ function packageChild(input: {
   name: string;
   description?: string | null;
   ctaHref?: string | null;
+  sortOrder?: number;
 }) {
   return {
     id: input.id,
@@ -347,7 +580,7 @@ function packageChild(input: {
     seoTitle: null,
     seoDescription: null,
     ctaHref: input.ctaHref ?? null,
-    sortOrder: 10,
+    sortOrder: input.sortOrder ?? 10,
     isActive: true,
     createdAt: new Date("2026-09-01T00:00:00.000Z"),
     updatedAt: new Date("2026-09-01T00:00:00.000Z")

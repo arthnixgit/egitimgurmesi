@@ -10,8 +10,17 @@ import {
   speedReading as fallbackSpeedReading,
   usefulLinks as fallbackUsefulLinks
 } from "./free-materials";
-import type { PublicNavItem, PublicMegaMenuColumn, PublicNavLeaf } from "./navigation";
-import { publicNavigationItems } from "./navigation";
+import type {
+  PublicNavItem,
+  PublicMegaMenuColumn,
+  PublicNavLeaf,
+  PublicNavigationSnapshot
+} from "./navigation";
+import {
+  createFallbackNavigationSnapshot,
+  publicNavigationItems,
+  validateNavigationItems
+} from "./navigation";
 import {
   fallbackSiteSettings,
   normalizePublicSiteSettings,
@@ -202,10 +211,15 @@ type NavigationNodeResponse = {
 };
 
 type NavigationMenuResponse = {
-  id: string;
+  id?: string | null;
   key: string;
-  name: string;
-  location: string;
+  name?: string | null;
+  location?: string | null;
+  enabled?: boolean;
+  version?: number;
+  generatedAt?: string;
+  source?: PublicNavigationSnapshot["source"];
+  catalogStatus?: PublicNavigationSnapshot["catalogStatus"];
   items: NavigationNodeResponse[];
 };
 
@@ -387,8 +401,9 @@ export type SuccessStoryContent = {
   isFeatured: boolean;
 };
 
-async function requestJson<T>(path: string) {
+async function requestJson<T>(path: string, init: Pick<RequestInit, "signal"> = {}) {
   const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
+    signal: init.signal,
     cache: "no-store",
     headers: {
       "Content-Type": "application/json"
@@ -424,24 +439,65 @@ function normalizeNavLeaf(node: NavigationNodeResponse): PublicNavLeaf {
 }
 
 function normalizeMegaColumn(node: NavigationNodeResponse): PublicMegaMenuColumn {
+  const children = Array.isArray(node.children) ? node.children : [];
+
   return {
     id: node.itemKey,
     label: node.label,
     href: node.href,
     description: node.description ?? undefined,
     target: node.target ?? undefined,
-    items: node.children.map(normalizeNavLeaf)
+    items: children.map(normalizeNavLeaf)
   };
 }
 
 function normalizeNavigationNode(node: NavigationNodeResponse): PublicNavItem {
+  const children = Array.isArray(node.children) ? node.children : [];
+
   return {
     id: node.itemKey,
     label: node.label,
     href: node.href,
     target: node.target ?? undefined,
-    megaMenuColumns: node.children.length > 0 ? node.children.map(normalizeMegaColumn) : undefined
+    megaMenuColumns: children.length > 0 ? children.map(normalizeMegaColumn) : undefined
   };
+}
+
+function normalizeNavigationSnapshotResponse(menu: NavigationMenuResponse): PublicNavigationSnapshot {
+  const enabled = menu.enabled ?? true;
+  const items = enabled && Array.isArray(menu.items)
+    ? menu.items.map(normalizeNavigationNode)
+    : [];
+  const version = typeof menu.version === "number" && Number.isFinite(menu.version)
+    ? menu.version
+    : 1;
+  const snapshot: PublicNavigationSnapshot = {
+    key: typeof menu.key === "string" && menu.key.trim() ? menu.key : "primary",
+    enabled,
+    version,
+    generatedAt:
+      typeof menu.generatedAt === "string" && menu.generatedAt.trim()
+        ? menu.generatedAt
+        : new Date().toISOString(),
+    source: menu.source,
+    catalogStatus: menu.catalogStatus,
+    items
+  };
+
+  if (!enabled) {
+    return {
+      ...snapshot,
+      source: menu.source ?? "disabled",
+      items: []
+    };
+  }
+
+  const invalidReason = validateNavigationItems(snapshot.items);
+  if (invalidReason) {
+    throw new Error(`Invalid public navigation snapshot: ${invalidReason}.`);
+  }
+
+  return snapshot;
 }
 
 function normalizeStaffGroup(group: StaffProfileGroupResponse): AcademicStaffGroup {
@@ -584,13 +640,29 @@ function fallbackCountdownPage(slug: string) {
   return examCountdownPages.find((page) => page.slug === slug) ?? null;
 }
 
-export async function getNavigationItems() {
+export async function requestNavigationSnapshot(options: { signal?: AbortSignal } = {}) {
+  const menu = await requestJson<NavigationMenuResponse>("/public/navigation?key=primary", {
+    signal: options.signal
+  });
+  return normalizeNavigationSnapshotResponse(menu);
+}
+
+export async function getNavigationSnapshot(options: { signal?: AbortSignal } = {}) {
   try {
-    const menu = await requestJson<NavigationMenuResponse>("/public/navigation?key=primary");
-    return menu.items.map(normalizeNavigationNode);
-  } catch {
-    return publicNavigationItems;
+    return await requestNavigationSnapshot(options);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Public navigation request failed; using safe fallback.", error);
+    }
+
+    return createFallbackNavigationSnapshot({
+      generatedAt: new Date().toISOString()
+    });
   }
+}
+
+export async function getNavigationItems() {
+  return (await getNavigationSnapshot()).items;
 }
 
 export async function getPublicSiteSettings() {

@@ -30,6 +30,7 @@ const WHATSAPP_FORMAT_MESSAGE =
   "WhatsApp numarası wa.me için yalnızca ülke kodu ve rakamlardan oluşmalıdır.";
 const DOWNLOAD_URL_MESSAGE = "İndirilebilir materyal bağlantısı güvenli bir HTTPS adresi olmalıdır.";
 const UNSAFE_URL_MESSAGE = "Bağlantı yalnızca site içi rota veya güvenli HTTPS adresi olabilir.";
+const EMPTY_ACTIVE_NAVIGATION_MESSAGE = "Ana menüde en az bir aktif öğe bulunmalıdır.";
 const REQUIRED_QUICK_LINKS = [
   { label: "Paketlerimiz", href: "/paketlerimiz" },
   { label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" },
@@ -387,6 +388,7 @@ export class AdminContentService {
       include: navigationInclude
     });
     assertCurrentVersion(payload.version, before?.version);
+    assertNavigationMenuCanBeSaved(payload);
 
     const draft = normalizeNavigationMenuPayload(key, payload, before);
 
@@ -1502,6 +1504,24 @@ function normalizeNavigationMenuPayload(
     version: before?.version ?? 1,
     items: normalizeNavigationItems(payload.items)
   };
+}
+
+function assertNavigationMenuCanBeSaved(payload: SaveNavigationMenuDto) {
+  if (payload.isActive === false) {
+    return;
+  }
+
+  const hasActiveTopLevelItem = payload.items.some((item) => {
+    if (item.isActive === false) {
+      return false;
+    }
+
+    return Boolean(item.itemKey?.trim() && item.label?.trim() && item.href?.trim());
+  });
+
+  if (!hasActiveTopLevelItem) {
+    throw new BadRequestException(EMPTY_ACTIVE_NAVIGATION_MESSAGE);
+  }
 }
 
 function normalizeNavigationItems(items: readonly SaveNavigationMenuItemDto[]): NavigationTreeNode[] {

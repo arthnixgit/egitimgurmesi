@@ -128,6 +128,7 @@ const emptyMaterials: AdminFreeMaterialsDocument = {
   categories: [],
   countdownPages: []
 };
+const EMPTY_ACTIVE_NAVIGATION_MESSAGE = "Ana menüde en az bir aktif öğe bulunmalıdır.";
 
 export function WebsiteBuilderClient() {
   const router = useRouter();
@@ -150,6 +151,7 @@ export function WebsiteBuilderClient() {
 
   const [settings, setSettings] = useState<AdminSiteSettings>(defaultSettings);
   const [navigation, setNavigation] = useState<AdminNavigationMenu>(emptyNavigation);
+  const [navigationLoaded, setNavigationLoaded] = useState(false);
   const [pages, setPages] = useState<AdminMarketingPage[]>([]);
   const [materials, setMaterials] = useState<AdminFreeMaterialsDocument>(emptyMaterials);
   const [staffProfiles, setStaffProfiles] = useState<AdminStaffProfilesDocument>({ version: 1, groups: [] });
@@ -238,6 +240,7 @@ export function WebsiteBuilderClient() {
   const restoreSnapshot = useCallback((snapshot: BuilderSnapshot) => {
     setSettings(snapshot.settings);
     setNavigation(snapshot.navigation);
+    setNavigationLoaded(true);
     setPages(snapshot.pages);
     setMaterials(snapshot.materials);
     setStaffProfiles(snapshot.staffProfiles);
@@ -320,7 +323,13 @@ export function WebsiteBuilderClient() {
         if (["genel", "marka", "footer"].includes(selectedArea)) {
           setSettings(await fetchAdminSiteSettings());
         } else if (selectedArea === "header") {
-          setNavigation(await fetchAdminNavigationMenu("primary"));
+          setNavigationLoaded(false);
+          const response = await fetchAdminNavigationMenu("primary");
+          if (!active) {
+            return;
+          }
+          setNavigation(response);
+          setNavigationLoaded(true);
         } else if (selectedArea === "sayfalar") {
           const response = await fetchAdminMarketingPages();
           if (!active) {
@@ -808,6 +817,16 @@ export function WebsiteBuilderClient() {
         const response = action === "publish" ? await publishAdminSiteSettings(settings) : await saveAdminSiteSettings(settings);
         setSettings(response);
       } else if (selectedArea === "header") {
+        if (!navigationLoaded || areaLoading) {
+          setError("Ana menü yüklenmeden kaydedilemez.");
+          return;
+        }
+
+        if (!hasActiveNavigationItem(navigation)) {
+          setError(EMPTY_ACTIVE_NAVIGATION_MESSAGE);
+          return;
+        }
+
         setNavigation(await saveAdminNavigationMenu("primary", omitNavigationResponseFields(navigation), action));
       } else if (selectedArea === "sayfalar" && currentPage) {
         const response = await saveAdminMarketingPage(currentPage.key, omitMarketingPageResponseFields(currentPage), action);
@@ -995,6 +1014,17 @@ function omitNavigationResponseFields(menu: AdminNavigationMenu): Omit<AdminNavi
     version: menu.version,
     items: menu.items.map(omitNavigationItemResponseFields)
   };
+}
+
+function hasActiveNavigationItem(menu: AdminNavigationMenu) {
+  if (menu.isActive === false) {
+    return true;
+  }
+
+  return menu.items.some((item) =>
+    item.isActive !== false &&
+    Boolean(item.itemKey.trim() && item.label.trim() && item.href.trim())
+  );
 }
 
 function omitNavigationItemResponseFields(item: AdminNavigationItem): AdminNavigationItem {

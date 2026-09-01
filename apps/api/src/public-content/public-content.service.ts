@@ -1,7 +1,13 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { FreeMaterialItemType } from "@ega/db";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import { appEnv } from "../config/env";
 import { PublicContentRepository } from "../data-access/public-content.repository";
 import { MediaService } from "../media/media.service";
@@ -16,9 +22,31 @@ type NavigationNode = {
   children: NavigationNode[];
 };
 
+type PublicNavigationSnapshot = {
+  id: string | null;
+  key: string;
+  name: string;
+  location: string;
+  enabled: boolean;
+  version: number;
+  generatedAt: string;
+  source: "database" | "fallback" | "disabled";
+  catalogStatus: "ready" | "unavailable";
+  items: NavigationNode[];
+};
+
+type NavigationBuildDiagnostic = {
+  code: string;
+  itemKey?: string;
+};
+
 type PackageNavigationCategory = Awaited<
   ReturnType<PublicContentRepository["listPackageNavigationCategories"]>
 >[number];
+type NavigationMenuRecord = NonNullable<
+  Awaited<ReturnType<PublicContentRepository["getNavigationMenu"]>>
+>;
+type NavigationMenuItemRecord = NavigationMenuRecord["items"][number];
 
 type PublicDownloadResult =
   | {
@@ -38,6 +66,8 @@ type PublicDownloadResult =
 
 @Injectable()
 export class PublicContentService {
+  private readonly logger = new Logger(PublicContentService.name);
+
   constructor(
     private readonly publicContentRepository: PublicContentRepository,
     private readonly mediaService: MediaService
@@ -69,57 +99,68 @@ export class PublicContentService {
   }
 
   async getNavigationMenu(key = "primary") {
-    const menu = await this.publicContentRepository.getNavigationMenu(key);
+    const generatedAt = new Date().toISOString();
+    let menu: Awaited<ReturnType<PublicContentRepository["getNavigationMenu"]>>;
+
+    try {
+      menu = await this.publicContentRepository.getNavigationMenu(key);
+    } catch (error) {
+      this.logger.error(
+        `Public navigation menu query failed for key "${safeLogValue(key)}": ${getErrorMessage(error)}`
+      );
+      throw new ServiceUnavailableException("Ana menü geçici olarak yüklenemedi.");
+    }
 
     if (!menu) {
-      throw new NotFoundException(`Navigation menu not found for key "${key}".`);
+      this.logger.warn(`Public navigation menu missing for key "${safeLogValue(key)}".`);
+      return createSafeNavigationFallbackSnapshot(key, generatedAt);
     }
 
-    const nodeMap = new Map<string, NavigationNode>();
-    const roots: NavigationNode[] = [];
-
-    for (const item of menu.items) {
-      nodeMap.set(item.id, {
-        id: item.id,
-        itemKey: item.itemKey,
-        label: item.label,
-        href: item.href,
-        description: item.description,
-        target: item.target,
-        children: []
-      });
+    if (!menu.isActive) {
+      return createDisabledNavigationSnapshot(menu, generatedAt);
     }
 
-    for (const item of menu.items) {
-      const node = nodeMap.get(item.id)!;
+    const builtNavigation = buildNavigationTree(menu.items);
+    logNavigationDiagnostics(this.logger, builtNavigation.diagnostics);
+    const categoryLoad = await this.loadPackageNavigationCategories(key);
+    const items = attachCatalogPackageNavigation(builtNavigation.roots, categoryLoad.categories);
+    const validation = validateNavigationSnapshotItems(items);
 
-      if (item.parentId) {
-        const parent = nodeMap.get(item.parentId);
-
-        if (parent) {
-          parent.children.push(node);
-        }
-      } else {
-        roots.push(node);
-      }
+    if (validation) {
+      this.logger.warn(
+        `Public navigation for key "${safeLogValue(key)}" is invalid: ${validation}. Returning safe fallback.`
+      );
+      return createSafeNavigationFallbackSnapshot(key, generatedAt);
     }
-
-    const packageCategories = await this.loadPackageNavigationCategories();
 
     return {
       id: menu.id,
       key: menu.key,
       name: menu.name,
       location: menu.location,
-      items: attachCatalogPackageNavigation(roots, packageCategories)
-    };
+      enabled: true,
+      version: menu.version,
+      generatedAt,
+      source: "database",
+      catalogStatus: categoryLoad.catalogStatus,
+      items
+    } satisfies PublicNavigationSnapshot;
   }
 
-  private async loadPackageNavigationCategories() {
+  private async loadPackageNavigationCategories(key: string) {
     try {
-      return await this.publicContentRepository.listPackageNavigationCategories();
-    } catch {
-      return [] as PackageNavigationCategory[];
+      return {
+        categories: await this.publicContentRepository.listPackageNavigationCategories(),
+        catalogStatus: "ready" as const
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Package category navigation composition failed for key "${safeLogValue(key)}": ${getErrorMessage(error)}`
+      );
+      return {
+        categories: [] as PackageNavigationCategory[],
+        catalogStatus: "unavailable" as const
+      };
     }
   }
 
@@ -308,11 +349,242 @@ function normalizeJsonLinks(value: unknown) {
     .filter((item): item is { label: string; href: string } => Boolean(item));
 }
 
+const safeFallbackNavigationItems: NavigationNode[] = [
+  {
+    id: "fallback:packages",
+    itemKey: "packages",
+    label: "Paketlerimiz",
+    href: "/paketlerimiz",
+    description: null,
+    target: null,
+    children: []
+  },
+  {
+    id: "fallback:coaches",
+    itemKey: "coaches",
+    label: "Akademik Kadro",
+    href: "/akademik-kadro",
+    description: null,
+    target: null,
+    children: []
+  },
+  {
+    id: "fallback:success-stories",
+    itemKey: "success-stories",
+    label: "Başarılarımız",
+    href: "/basarilarimiz",
+    description: null,
+    target: null,
+    children: []
+  },
+  {
+    id: "fallback:free-materials",
+    itemKey: "free-materials",
+    label: "Ücretsiz Materyaller",
+    href: "/ucretsiz-materyaller",
+    description: null,
+    target: null,
+    children: []
+  },
+  {
+    id: "fallback:about",
+    itemKey: "about",
+    label: "Hakkımızda",
+    href: "/hakkimizda",
+    description: null,
+    target: null,
+    children: []
+  }
+];
+
+function createSafeNavigationFallbackSnapshot(
+  key: string,
+  generatedAt: string
+): PublicNavigationSnapshot {
+  return {
+    id: null,
+    key,
+    name: key === "primary" ? "Ana Menü" : key,
+    location: key === "primary" ? "PRIMARY" : key.toUpperCase(),
+    enabled: true,
+    version: 1,
+    generatedAt,
+    source: "fallback",
+    catalogStatus: "unavailable",
+    items: cloneNavigationNodes(safeFallbackNavigationItems)
+  };
+}
+
+function createDisabledNavigationSnapshot(
+  menu: Pick<NavigationMenuRecord, "id" | "key" | "name" | "location" | "version">,
+  generatedAt: string
+): PublicNavigationSnapshot {
+  return {
+    id: menu.id,
+    key: menu.key,
+    name: menu.name,
+    location: menu.location,
+    enabled: false,
+    version: menu.version,
+    generatedAt,
+    source: "disabled",
+    catalogStatus: "unavailable",
+    items: []
+  };
+}
+
+function buildNavigationTree(items: readonly NavigationMenuItemRecord[]) {
+  const nodeMap = new Map<string, NavigationNode>();
+  const sourceById = new Map<string, NavigationMenuItemRecord>();
+  const seenItemKeys = new Set<string>();
+  const diagnostics: NavigationBuildDiagnostic[] = [];
+
+  for (const item of items) {
+    const normalized = normalizeNavigationMenuItem(item);
+    if (!normalized) {
+      diagnostics.push({ code: "invalid-navigation-item", itemKey: item.itemKey });
+      continue;
+    }
+
+    if (seenItemKeys.has(normalized.itemKey)) {
+      diagnostics.push({ code: "duplicate-item-key", itemKey: normalized.itemKey });
+      continue;
+    }
+
+    seenItemKeys.add(normalized.itemKey);
+    nodeMap.set(item.id, normalized);
+    sourceById.set(item.id, item);
+  }
+
+  const roots: NavigationNode[] = [];
+
+  for (const [id, node] of nodeMap.entries()) {
+    const source = sourceById.get(id);
+    if (!source) {
+      continue;
+    }
+
+    if (!source.parentId) {
+      roots.push(node);
+      continue;
+    }
+
+    const parent = nodeMap.get(source.parentId);
+    if (!parent) {
+      diagnostics.push({ code: "orphan-navigation-item", itemKey: node.itemKey });
+      continue;
+    }
+
+    parent.children.push(node);
+  }
+
+  return { roots, diagnostics };
+}
+
+function normalizeNavigationMenuItem(item: NavigationMenuItemRecord): NavigationNode | null {
+  const itemKey = item.itemKey.trim();
+  const label = item.label.trim();
+  const href = item.href.trim();
+
+  if (!itemKey || !label || !isSafeContentHref(href)) {
+    return null;
+  }
+
+  return {
+    id: item.id,
+    itemKey,
+    label,
+    href,
+    description: item.description,
+    target: item.target,
+    children: []
+  };
+}
+
+function validateNavigationSnapshotItems(items: readonly NavigationNode[]) {
+  if (!items.length) {
+    return "active navigation has zero valid top-level items";
+  }
+
+  const seenItemKeys = new Set<string>();
+
+  for (const item of items) {
+    const invalid = validateNavigationNode(item, seenItemKeys, 0, false);
+    if (invalid) {
+      return invalid;
+    }
+  }
+
+  return "";
+}
+
+function validateNavigationNode(
+  node: NavigationNode,
+  seenItemKeys: Set<string>,
+  depth: number,
+  isInsidePackagesTree: boolean
+): string {
+  if (depth > 2) {
+    return "navigation depth exceeds supported maximum";
+  }
+
+  if (!node.itemKey.trim()) {
+    return "navigation item has empty itemKey";
+  }
+
+  if (seenItemKeys.has(node.itemKey)) {
+    return `duplicate itemKey "${safeLogValue(node.itemKey)}"`;
+  }
+  seenItemKeys.add(node.itemKey);
+
+  if (!node.label.trim()) {
+    return `navigation item "${safeLogValue(node.itemKey)}" has empty label`;
+  }
+
+  if (!isSafeContentHref(node.href)) {
+    return `navigation item "${safeLogValue(node.itemKey)}" has unsafe href`;
+  }
+
+  if (!Array.isArray(node.children)) {
+    return `navigation item "${safeLogValue(node.itemKey)}" has invalid children`;
+  }
+
+  if (node.itemKey.startsWith("packages-") && !isInsidePackagesTree) {
+    return `package child "${safeLogValue(node.itemKey)}" is not attached to Paketlerimiz`;
+  }
+
+  const childIsInsidePackagesTree = isInsidePackagesTree || isPackagesNavigationNode(node);
+
+  for (const child of node.children) {
+    const invalid = validateNavigationNode(child, seenItemKeys, depth + 1, childIsInsidePackagesTree);
+    if (invalid) {
+      return invalid;
+    }
+  }
+
+  return "";
+}
+
+function cloneNavigationNodes(items: readonly NavigationNode[]): NavigationNode[] {
+  return items.map((item) => ({
+    ...item,
+    children: cloneNavigationNodes(item.children)
+  }));
+}
+
+function logNavigationDiagnostics(logger: Logger, diagnostics: readonly NavigationBuildDiagnostic[]) {
+  for (const diagnostic of diagnostics) {
+    logger.warn(
+      `Public navigation diagnostic: ${diagnostic.code}${diagnostic.itemKey ? ` (${safeLogValue(diagnostic.itemKey)})` : ""}.`
+    );
+  }
+}
+
 function attachCatalogPackageNavigation(
   roots: NavigationNode[],
   categories: PackageNavigationCategory[]
 ) {
-  const packageChildren = categories.map(normalizePackageNavigationRoot);
+  const packageChildren = sortPackageNavigationCategories(categories).map(normalizePackageNavigationRoot);
 
   return roots.map((root) =>
     isPackagesNavigationNode(root)
@@ -337,10 +609,18 @@ function normalizePackageNavigationRoot(category: PackageNavigationCategory): Na
     href: rootHref,
     description: category.description,
     target: isExternalHttpsHref(rootHref) ? "_blank" : null,
-    children: category.childCategories.map((child) =>
+    children: sortPackageNavigationCategories(category.childCategories).map((child) =>
       normalizePackageNavigationChild(category, child)
     )
   };
+}
+
+function sortPackageNavigationCategories<
+  T extends { sortOrder: number; createdAt: Date }
+>(categories: readonly T[]) {
+  return [...categories].sort(
+    (left, right) => left.sortOrder - right.sortOrder || left.createdAt.getTime() - right.createdAt.getTime()
+  );
 }
 
 function normalizePackageNavigationChild(
@@ -415,6 +695,14 @@ function extractSubcategoryFilterId(category: { ctaHref: string | null; slug: st
   const params = new URLSearchParams(search);
 
   return params.get("alt");
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "unknown error";
+}
+
+function safeLogValue(value: string) {
+  return value.replace(/[^\w./:-]/g, "").slice(0, 80);
 }
 
 async function validatePublicDownloadUrl(value: string) {
