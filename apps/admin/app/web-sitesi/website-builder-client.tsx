@@ -4,6 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   clearStaffTokens,
+  archiveAdminMaterialCard,
+  archiveAdminMaterialCategory,
+  deleteAdminMaterialCard,
+  deleteAdminMaterialCategory,
   fetchAdminFreeMaterialsDocument,
   fetchAdminMarketingPages,
   fetchAdminNavigationMenu,
@@ -18,7 +22,10 @@ import {
   getAdminRequestErrorMessage,
   isStaffSessionError,
   publishAdminSiteSettings,
+  restoreAdminMaterialCard,
+  restoreAdminMaterialCategory,
   restoreAdminWebsiteRevision,
+  moveAdminMaterialCard,
   saveAdminFreeMaterialsDocument,
   saveAdminMarketingPage,
   saveAdminNavigationMenu,
@@ -154,6 +161,7 @@ export function WebsiteBuilderClient() {
   const [navigationLoaded, setNavigationLoaded] = useState(false);
   const [pages, setPages] = useState<AdminMarketingPage[]>([]);
   const [materials, setMaterials] = useState<AdminFreeMaterialsDocument>(emptyMaterials);
+  const [materialsLoaded, setMaterialsLoaded] = useState(false);
   const [staffProfiles, setStaffProfiles] = useState<AdminStaffProfilesDocument>({ version: 1, groups: [] });
   const [successStories, setSuccessStories] = useState<AdminSuccessStoriesDocument>({ version: 1, stories: [] });
   const [revisions, setRevisions] = useState<AdminWebsiteRevision[]>([]);
@@ -184,7 +192,7 @@ export function WebsiteBuilderClient() {
     materials.categories[0] ??
     null;
   const currentMaterialItem =
-    currentMaterialCategory?.items.find((item) => item.slug === selectedMaterialSlug) ??
+    currentMaterialCategory?.items.find((item) => getMaterialIdentity(item) === selectedMaterialSlug) ??
     currentMaterialCategory?.items[0] ??
     null;
 
@@ -193,7 +201,7 @@ export function WebsiteBuilderClient() {
     selectedPageKey: currentPage?.key ?? selectedPageKey,
     selectedSectionKey: currentSection?.sectionKey ?? selectedSectionKey,
     selectedMaterialKey: currentMaterialCategory?.key ?? selectedMaterialKey,
-    selectedMaterialSlug: currentMaterialItem?.slug ?? selectedMaterialSlug,
+    selectedMaterialSlug: getMaterialIdentity(currentMaterialItem) || selectedMaterialSlug,
     responsiveMode,
     leftPanelMode,
     inspectorTab,
@@ -339,13 +347,23 @@ export function WebsiteBuilderClient() {
           setSelectedPageKey((current) => current || response[0]?.key || "");
           setSelectedSectionKey((current) => current || response[0]?.sections[0]?.sectionKey || "");
         } else if (selectedArea === "ucretsiz-materyaller") {
+          setMaterialsLoaded(false);
           const response = await fetchAdminFreeMaterialsDocument();
           if (!active) {
             return;
           }
           setMaterials(response);
-          setSelectedMaterialKey((current) => current || response.categories[0]?.key || "");
-          setSelectedMaterialSlug((current) => current || response.categories[0]?.items[0]?.slug || "");
+          const nextCategory =
+            response.categories.find((category) => category.key === selectedMaterialKey) ??
+            response.categories[0] ??
+            null;
+          const nextItem =
+            nextCategory?.items.find((item) => getMaterialIdentity(item) === selectedMaterialSlug) ??
+            nextCategory?.items[0] ??
+            null;
+          setSelectedMaterialKey(nextCategory?.key ?? "");
+          setSelectedMaterialSlug(getMaterialIdentity(nextItem));
+          setMaterialsLoaded(true);
         } else if (selectedArea === "akademik-kadro") {
           setStaffProfiles(await fetchAdminStaffProfilesDocument());
         } else if (selectedArea === "basari-hikayeleri") {
@@ -464,7 +482,7 @@ export function WebsiteBuilderClient() {
     if (command.type === "select-material-category") {
       setSelectedMaterialKey(command.categoryKey);
       const category = materials.categories.find((entry) => entry.key === command.categoryKey);
-      setSelectedMaterialSlug(category?.items[0]?.slug ?? "");
+      setSelectedMaterialSlug(getMaterialIdentity(category?.items[0]));
       return;
     }
 
@@ -512,6 +530,27 @@ export function WebsiteBuilderClient() {
       }
       return next;
     });
+  }
+
+  function applyLogoToAllFields(sourceKey: keyof AdminSiteSettings) {
+    const sourceValue = settings[sourceKey];
+
+    if (typeof sourceValue !== "string" || !sourceValue.trim()) {
+      setError("Tüm logo alanlarına uygulanacak geçerli bir görsel seçin.");
+      return;
+    }
+
+    rememberMutation();
+    setSettings((current) => ({
+      ...current,
+      logoPrimaryUrl: sourceValue,
+      logoFooterUrl: sourceValue,
+      logoCompactUrl: sourceValue,
+      logoMarkUrl: sourceValue,
+      logoDarkUrl: sourceValue,
+      logoLightUrl: sourceValue
+    }));
+    setMessage("Seçili görsel uyumlu logo alanlarına kopyalandı. Yayına almak için önce taslak kaydedin, sonra yayınlayın.");
   }
 
   function updateNavigationItem(index: number, patch: Partial<AdminNavigationItem>) {
@@ -674,19 +713,24 @@ export function WebsiteBuilderClient() {
     if (!currentMaterialCategory) {
       return;
     }
+    const categoryIdentity = currentMaterialCategory.id ?? currentMaterialCategory.key;
     rememberMutation();
     setMaterials((current) => ({
       ...current,
       categories: current.categories.map((category) =>
-        category.key === currentMaterialCategory.key ? { ...category, ...patch } : category
+        (category.id ?? category.key) === categoryIdentity ? { ...category, ...patch } : category
       )
     }));
+    if (patch.key) {
+      setSelectedMaterialKey(patch.key);
+    }
   }
 
   function updateMaterialItem(patch: Partial<AdminFreeMaterialItem>) {
     if (!currentMaterialCategory || !currentMaterialItem) {
       return;
     }
+    const itemIdentity = getMaterialIdentity(currentMaterialItem);
     rememberMutation();
     setMaterials((current) => ({
       ...current,
@@ -695,12 +739,74 @@ export function WebsiteBuilderClient() {
           ? {
               ...category,
               items: category.items.map((item) =>
-                item.slug === currentMaterialItem.slug ? { ...item, ...patch } : item
+                getMaterialIdentity(item) === itemIdentity ? { ...item, ...patch } : item
               )
             }
           : category
       )
     }));
+    if (!currentMaterialItem.id && patch.slug) {
+      setSelectedMaterialSlug(patch.slug);
+    }
+  }
+
+  async function saveMaterialCategoryStatus(publishStatus: "DRAFT" | "PUBLISHED", action: "draft" | "publish") {
+    if (!currentMaterialCategory) {
+      return;
+    }
+
+    if (action === "publish" && !canPublishWebsite) {
+      setError("Web sitesini yayınlama yetkiniz bulunmuyor.");
+      return;
+    }
+
+    const categoryIdentity = currentMaterialCategory.id ?? currentMaterialCategory.key;
+    const nextMaterials = {
+      ...materials,
+      categories: materials.categories.map((category) =>
+        (category.id ?? category.key) === categoryIdentity ? { ...category, publishStatus } : category
+      )
+    };
+
+    await runMaterialMutation(
+      () => saveAdminFreeMaterialsDocument(nextMaterials, action),
+      action === "publish" ? "Kategori durumu yayınlandı." : "Kategori taslak olarak kaydedildi.",
+      currentMaterialCategory.key,
+      selectedMaterialSlug
+    );
+  }
+
+  async function saveMaterialCardStatus(publishStatus: "DRAFT" | "PUBLISHED", action: "draft" | "publish") {
+    if (!currentMaterialCategory || !currentMaterialItem) {
+      return;
+    }
+
+    if (action === "publish" && !canPublishWebsite) {
+      setError("Web sitesini yayınlama yetkiniz bulunmuyor.");
+      return;
+    }
+
+    const itemIdentity = getMaterialIdentity(currentMaterialItem);
+    const nextMaterials = {
+      ...materials,
+      categories: materials.categories.map((category) =>
+        category.key === currentMaterialCategory.key
+          ? {
+              ...category,
+              items: category.items.map((item) =>
+                getMaterialIdentity(item) === itemIdentity ? { ...item, publishStatus } : item
+              )
+            }
+          : category
+      )
+    };
+
+    await runMaterialMutation(
+      () => saveAdminFreeMaterialsDocument(nextMaterials, action),
+      action === "publish" ? "Materyal kartı durumu yayınlandı." : "Materyal kartı taslak olarak kaydedildi.",
+      currentMaterialCategory.key,
+      itemIdentity
+    );
   }
 
   function addMaterialCategory() {
@@ -798,6 +904,216 @@ export function WebsiteBuilderClient() {
     setSelectedMaterialSlug(slug);
   }
 
+  function applyMaterialDocument(
+    document: AdminFreeMaterialsDocument,
+    preferredCategoryKey = selectedMaterialKey,
+    preferredItemIdentity = selectedMaterialSlug
+  ) {
+    const nextCategory =
+      document.categories.find((category) => category.key === preferredCategoryKey) ??
+      document.categories[0] ??
+      null;
+    const nextItem =
+      nextCategory?.items.find((item) => getMaterialIdentity(item) === preferredItemIdentity) ??
+      nextCategory?.items[0] ??
+      null;
+
+    setMaterials(document);
+    setMaterialsLoaded(true);
+    setSelectedMaterialKey(nextCategory?.key ?? "");
+    setSelectedMaterialSlug(getMaterialIdentity(nextItem));
+  }
+
+  async function runMaterialMutation(
+    mutation: () => Promise<AdminFreeMaterialsDocument>,
+    successMessage: string,
+    preferredCategoryKey = selectedMaterialKey,
+    preferredItemIdentity = selectedMaterialSlug
+  ) {
+    if (!materialsLoaded || areaLoading) {
+      setError("Ücretsiz materyaller tamamen yüklenmeden işlem yapılamaz.");
+      return;
+    }
+
+    if (!canManageWebsite) {
+      setError("Ücretsiz materyal yönetimi için yetkiniz bulunmuyor.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await mutation();
+      applyMaterialDocument(response, preferredCategoryKey, preferredItemIdentity);
+      setSavedVersion(dirtyVersion);
+      setLastSavedAt(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
+      setMessage(successMessage);
+    } catch (requestError) {
+      if (isStaffSessionError(requestError)) {
+        clearStaffTokens();
+        router.replace("/giris");
+        return;
+      }
+      setError(getAdminRequestErrorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archiveMaterialCategory() {
+    if (!currentMaterialCategory) {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => archiveAdminMaterialCategory(currentMaterialCategory.key),
+      "Kategori arşivlendi.",
+      currentMaterialCategory.key,
+      selectedMaterialSlug
+    );
+  }
+
+  async function restoreMaterialCategory() {
+    if (!currentMaterialCategory) {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => restoreAdminMaterialCategory(currentMaterialCategory.key),
+      "Kategori arşivden çıkarıldı.",
+      currentMaterialCategory.key,
+      selectedMaterialSlug
+    );
+  }
+
+  async function deleteMaterialCategory() {
+    if (!currentMaterialCategory) {
+      return;
+    }
+
+    const typed = window.prompt(
+      `"${currentMaterialCategory.label}" kategorisi kalıcı olarak silinecek. Devam etmek için SİL yazın.`
+    );
+    if (typed !== "SİL") {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => deleteAdminMaterialCategory(currentMaterialCategory.key),
+      "Kategori kalıcı olarak silindi.",
+      currentMaterialCategory.key,
+      selectedMaterialSlug
+    );
+  }
+
+  async function archiveMaterialCard() {
+    if (!currentMaterialCategory || !currentMaterialItem) {
+      return;
+    }
+
+    const identity = getMaterialIdentity(currentMaterialItem);
+    if (!identity) {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => archiveAdminMaterialCard(identity),
+      "Materyal kartı arşivlendi.",
+      currentMaterialCategory.key,
+      identity
+    );
+  }
+
+  async function restoreMaterialCard() {
+    if (!currentMaterialCategory || !currentMaterialItem) {
+      return;
+    }
+
+    const identity = getMaterialIdentity(currentMaterialItem);
+    if (!identity) {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => restoreAdminMaterialCard(identity),
+      "Materyal kartı arşivden çıkarıldı.",
+      currentMaterialCategory.key,
+      identity
+    );
+  }
+
+  async function deleteMaterialCard() {
+    if (!currentMaterialCategory || !currentMaterialItem) {
+      return;
+    }
+
+    const identity = getMaterialIdentity(currentMaterialItem);
+    if (!identity) {
+      return;
+    }
+
+    const typed = window.prompt(
+      `"${currentMaterialItem.title}" kartı kalıcı olarak silinecek. Devam etmek için SİL yazın.`
+    );
+    if (typed !== "SİL") {
+      return;
+    }
+
+    await runMaterialMutation(
+      () => deleteAdminMaterialCard(identity),
+      "Materyal kartı kalıcı olarak silindi.",
+      currentMaterialCategory.key,
+      identity
+    );
+  }
+
+  async function moveMaterialCard(direction: -1 | 1) {
+    if (!currentMaterialCategory || !currentMaterialItem) {
+      return;
+    }
+
+    const identity = getMaterialIdentity(currentMaterialItem);
+    if (!identity) {
+      return;
+    }
+
+    if (!currentMaterialItem.id) {
+      const index = currentMaterialCategory.items.findIndex((item) => getMaterialIdentity(item) === identity);
+      const targetIndex = index + direction;
+      if (index < 0 || targetIndex < 0 || targetIndex >= currentMaterialCategory.items.length) {
+        return;
+      }
+
+      rememberMutation();
+      setMaterials((current) => ({
+        ...current,
+        categories: current.categories.map((category) => {
+          if (category.key !== currentMaterialCategory.key) {
+            return category;
+          }
+
+          const items = [...category.items];
+          const [item] = items.splice(index, 1);
+          items.splice(targetIndex, 0, item);
+          return {
+            ...category,
+            items: items.map((entry, entryIndex) => ({ ...entry, sortOrder: (entryIndex + 1) * 10 }))
+          };
+        })
+      }));
+      setSelectedMaterialSlug(identity);
+      return;
+    }
+
+    await runMaterialMutation(
+      () => moveAdminMaterialCard(identity, direction),
+      "Materyal kartı sıralaması güncellendi.",
+      currentMaterialCategory.key,
+      identity
+    );
+  }
+
   async function saveCurrent(action: "draft" | "publish") {
     if (action === "publish" && !canPublishWebsite) {
       setError("Web sitesini yayınlama yetkiniz bulunmuyor.");
@@ -832,7 +1148,13 @@ export function WebsiteBuilderClient() {
         const response = await saveAdminMarketingPage(currentPage.key, omitMarketingPageResponseFields(currentPage), action);
         setPages((current) => current.map((page) => (page.key === response.key ? response : page)));
       } else if (selectedArea === "ucretsiz-materyaller") {
-        setMaterials(await saveAdminFreeMaterialsDocument(materials, action));
+        if (!materialsLoaded || areaLoading) {
+          setError("Ücretsiz materyaller tamamen yüklenmeden kaydedilemez.");
+          return;
+        }
+
+        const response = await saveAdminFreeMaterialsDocument(materials, action);
+        applyMaterialDocument(response);
       } else if (selectedArea === "akademik-kadro") {
         setStaffProfiles(await saveAdminStaffProfilesDocument(staffProfiles, action));
       } else if (selectedArea === "basari-hikayeleri") {
@@ -920,6 +1242,7 @@ export function WebsiteBuilderClient() {
     () => ({
       dispatchSelection,
       updateSetting,
+      applyLogoToAllFields,
       updateNavigationItem,
       addNavigationItem,
       updatePage,
@@ -933,9 +1256,18 @@ export function WebsiteBuilderClient() {
       toggleSection,
       updateMaterialCategory,
       updateMaterialItem,
+      saveMaterialCategoryStatus,
+      saveMaterialCardStatus,
       addMaterialCategory,
       addMaterialCard,
       duplicateMaterialCard,
+      archiveMaterialCategory,
+      restoreMaterialCategory,
+      deleteMaterialCategory,
+      archiveMaterialCard,
+      restoreMaterialCard,
+      deleteMaterialCard,
+      moveMaterialCard,
       saveCurrent,
       requestPreviewToken,
       loadRevisions,
@@ -951,6 +1283,7 @@ export function WebsiteBuilderClient() {
       dirtyVersion,
       history,
       materials,
+      materialsLoaded,
       navigation,
       pages,
       selectedArea,
@@ -984,6 +1317,7 @@ export function WebsiteBuilderClient() {
         isDirty: dirtyVersion !== savedVersion,
         saving,
         areaLoading,
+        materialsLoaded,
         lastSavedAt,
         message,
         error,
@@ -1003,6 +1337,10 @@ export function WebsiteBuilderClient() {
       actions={actions}
     />
   );
+}
+
+function getMaterialIdentity(item?: AdminFreeMaterialItem | null) {
+  return item?.id || item?.slug || "";
 }
 
 function omitNavigationResponseFields(menu: AdminNavigationMenu): Omit<AdminNavigationMenu, "id" | "key"> {

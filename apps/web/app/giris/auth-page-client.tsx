@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicNavbar } from "../../components/public-navbar";
+import { usePublicSiteSettings } from "../../components/public-site-settings-provider";
 import { loginUser, registerUser, saveUserTokens } from "../../lib/auth-client";
 import { gradeOptions, studyTrackOptions } from "../../lib/student-profile-options";
 
@@ -22,6 +23,7 @@ const authHighlights = [
 
 export function AuthPageClient({ redirectHref, sessionMessage = "" }: AuthPageClientProps) {
   const router = useRouter();
+  const siteSettings = usePublicSiteSettings();
   const [mode, setMode] = useState<AuthMode>("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -104,6 +106,9 @@ export function AuthPageClient({ redirectHref, sessionMessage = "" }: AuthPageCl
       <section className="ega-auth-stage">
         <div className="ega-auth-stage__inner">
           <section className="ega-auth-showcase">
+            <div className="ega-auth-showcase__brand-logo">
+              <img src={siteSettings.logoDarkUrl} alt={siteSettings.logoAltText} />
+            </div>
             <div className="ega-auth-showcase__badge">Öğrenci Hesabı</div>
 
             <div className="ega-auth-showcase__copy">

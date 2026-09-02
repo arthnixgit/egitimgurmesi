@@ -1225,7 +1225,9 @@ body {
 }
 
 .admin-app-frame .admin-shell {
-  width: 100%;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
   margin: 0;
   padding: 24px 28px 52px;
 }
@@ -5003,7 +5005,10 @@ select.admin-input,
 }
 
 .admin-website-builder {
+  width: 100%;
+  max-width: 100vw;
   min-width: 0;
+  overflow-x: hidden;
 }
 
 .admin-website-builder__hero {
@@ -5044,18 +5049,20 @@ select.admin-input,
 
 .admin-website-builder__layout {
   display: grid;
-  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(250px, 330px);
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) 240px;
   gap: 14px;
   align-items: start;
   width: 100%;
-  max-width: 100%;
+  max-width: 100vw;
   min-width: 0;
+  overflow-x: hidden;
 }
 
 .admin-website-builder__left,
 .admin-website-builder__canvas,
 .admin-website-builder__right {
   min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--admin-color-border);
   border-radius: var(--admin-radius-card);
   background: var(--admin-color-surface);
@@ -5071,6 +5078,23 @@ select.admin-input,
   max-height: calc(100dvh - 116px);
   overflow: auto;
   padding: 16px;
+}
+
+.admin-website-builder__right {
+  justify-self: start;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-website-builder__right > *,
+.admin-brand-grid,
+.admin-brand-card__meta,
+.admin-brand-card__state,
+.admin-media-field,
+.admin-media-field__body,
+.admin-media-field__actions {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .admin-website-builder__left h2,
@@ -5944,13 +5968,100 @@ select.admin-input,
 .admin-brand-grid {
   display: grid;
   gap: 12px;
+  overflow: hidden;
+}
+
+.admin-brand-card {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid rgba(102, 117, 138, 0.22);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-brand-card__meta,
+.admin-brand-card__state {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+}
+
+.admin-brand-card__meta p,
+.admin-brand-card__state {
+  margin: 0;
+}
+
+.admin-brand-card__previews {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-brand-card__previews span {
+  display: grid;
+  place-items: center;
+  min-height: 74px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 117, 138, 0.2);
+  overflow: hidden;
+}
+
+.admin-brand-card__previews span[data-tone="light"] {
+  background: #fff;
+}
+
+.admin-brand-card__previews span[data-tone="dark"] {
+  background: #0d2340;
+}
+
+.admin-brand-card__previews img {
+  width: 100%;
+  max-width: 180px;
+  max-height: 54px;
+  object-fit: contain;
+}
+
+.admin-button--danger {
+  color: #8a1f17;
+  border-color: rgba(210, 66, 54, 0.26);
+  background: rgba(210, 66, 54, 0.08);
+}
+
+.admin-status-pill[data-status="PUBLISHED"] {
+  color: #075f67;
+  background: rgba(15, 127, 131, 0.12);
+  border: 1px solid rgba(15, 127, 131, 0.16);
+}
+
+.admin-status-pill[data-status="DRAFT"] {
+  color: #81520e;
+  background: rgba(245, 166, 35, 0.16);
+  border: 1px solid rgba(245, 166, 35, 0.24);
+}
+
+.admin-status-pill[data-status="ARCHIVED"] {
+  color: #4e5969;
+  background: rgba(102, 117, 138, 0.14);
+  border: 1px solid rgba(102, 117, 138, 0.2);
 }
 
 .admin-media-field {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 92px) minmax(0, 1fr);
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
   padding: 12px;
   border: 1px solid rgba(102, 117, 138, 0.22);
   border-radius: 10px;
@@ -6292,6 +6403,38 @@ select.admin-input,
 
   .admin-builder-toolbar__right {
     justify-content: flex-start;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1500px) {
+  .admin-website-builder__right {
+    padding: 12px;
+  }
+
+  .admin-website-builder__right .admin-brand-card {
+    padding: 10px;
+  }
+
+  .admin-website-builder__right .admin-brand-card__meta,
+  .admin-website-builder__right .admin-brand-card__previews,
+  .admin-website-builder__right .admin-brand-card__state,
+  .admin-website-builder__right .admin-media-field,
+  .admin-website-builder__right .admin-brand-card > .admin-button--compact {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .admin-website-builder__right .admin-brand-card > .admin-button--compact {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .admin-website-builder__right .admin-media-field {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-website-builder__right .admin-media-field__preview {
+    min-height: 78px;
   }
 }
 

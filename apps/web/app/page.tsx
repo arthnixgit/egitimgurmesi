@@ -6,8 +6,8 @@ import { ButtonLink, HomeShowcaseHero, SectionHeading, type HomeShowcaseSlide } 
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
 import { PublicFooter } from "../components/public-footer";
 import { PublicNavbar } from "../components/public-navbar";
+import { usePublicSiteSettings } from "../components/public-site-settings-provider";
 import { ShowcaseQuickActions } from "../components/showcase-quick-actions";
-import { fallbackSiteSettings, type PublicSiteSettings } from "../lib/contact";
 import { isEmbeddableVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 import { getPackageCatalogContent } from "../lib/public-commerce-api";
 import {
@@ -18,7 +18,6 @@ import {
 } from "../lib/package-catalog";
 import {
   getMarketingPageContent,
-  getPublicSiteSettings,
   type MarketingPageContent
 } from "../lib/public-content-api";
 
@@ -732,7 +731,7 @@ function VideoCard({ title, category, duration, teacher, summary, tone }: VideoC
 
 export default function HomePage() {
   const [homePageContent, setHomePageContent] = useState<MarketingPageContent | null>(null);
-  const [siteSettings, setSiteSettings] = useState<PublicSiteSettings>(fallbackSiteSettings);
+  const siteSettings = usePublicSiteSettings();
   const [catalogCategories, setCatalogCategories] =
     useState<readonly PackageCategory[]>(packageCategories);
   const [catalogProducts, setCatalogProducts] =
@@ -776,12 +775,6 @@ export default function HomePage() {
 
   useEffect(() => {
     let isCancelled = false;
-
-    void getPublicSiteSettings().then((settings) => {
-      if (!isCancelled) {
-        setSiteSettings(settings);
-      }
-    });
 
     void getMarketingPageContent("home").then((page) => {
       if (!isCancelled) {
@@ -955,6 +948,9 @@ export default function HomePage() {
 
       <section className="ega-section ega-container ega-cta-section" id="iletisim">
         <div className="ega-cta-panel">
+          <div className="ega-cta-panel__brand-logo">
+            <img src={siteSettings.logoLightUrl} alt={siteSettings.logoAltText} />
+          </div>
           <div className="ega-cta-panel__copy">
             <span className="ega-pill ega-pill--warm">İletişime Geçin</span>
             <h2>Karar vermeden önce soru sormak isteyen öğrenci ve veliler için doğrudan iletişim alanı.</h2>

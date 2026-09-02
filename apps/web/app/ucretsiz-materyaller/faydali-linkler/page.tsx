@@ -1,4 +1,9 @@
 import { FreeMaterialCard } from "../../../components/free-material-card";
+import {
+  FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE,
+  FREE_MATERIALS_UNAVAILABLE_MESSAGE,
+  FreeMaterialsState
+} from "../../../components/free-materials-state";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getFreeMaterialsContent } from "../../../lib/public-content-api";
 
@@ -21,7 +26,8 @@ const articleBlocks = [
 ] as const;
 
 export default async function UsefulLinksPage() {
-  const { usefulLinks } = await getFreeMaterialsContent();
+  const content = await getFreeMaterialsContent();
+  const usefulLinks = content.usefulLinks;
 
   return (
     <PublicPageLayout>
@@ -38,11 +44,17 @@ export default async function UsefulLinksPage() {
       </section>
 
       <section className="ega-section ega-container">
-        <div className="ega-exam-link-grid">
-          {usefulLinks.map((item) => (
-            <FreeMaterialCard key={item.id ?? item.title} item={item} compact />
-          ))}
-        </div>
+        {content.status === "unavailable" ? (
+          <FreeMaterialsState title="Faydalı linkler" message={FREE_MATERIALS_UNAVAILABLE_MESSAGE} />
+        ) : usefulLinks.length === 0 ? (
+          <FreeMaterialsState title="Faydalı linkler" message={FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE} />
+        ) : (
+          <div className="ega-exam-link-grid">
+            {usefulLinks.map((item) => (
+              <FreeMaterialCard key={item.id ?? item.title} item={item} compact />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="ega-section ega-container">

@@ -1,167 +1,54 @@
-import { PublicPageLayout } from "../../components/public-page-layout";
 import {
   FreeMaterialsDirectoryShowcase,
   type FreeMaterialsDirectoryCategory
 } from "../../components/free-materials-directory-showcase";
+import {
+  FREE_MATERIALS_EMPTY_MESSAGE,
+  FREE_MATERIALS_UNAVAILABLE_MESSAGE,
+  FreeMaterialsState
+} from "../../components/free-materials-state";
+import { PublicPageLayout } from "../../components/public-page-layout";
 import { getFreeMaterialsContent } from "../../lib/public-content-api";
-import type { ResourceLink } from "../../lib/free-materials";
-import { scoreCalculatorBasePath, scoreCalculatorLinks } from "../../lib/score-calculators";
-
-function getActionLabel(item: ResourceLink) {
-  return item.buttonLabel ?? (item.opensInNewTab || item.href.startsWith("http") ? "Sayfayı Aç" : "İçeriği Aç");
-}
-
-function filterDefinedLinks(items: Array<ResourceLink | null>) {
-  return items.filter((item): item is ResourceLink => item !== null);
-}
 
 export default async function FreeMaterialsPage() {
-  const { freeTools, usefulLinks, pdfDocuments, guidanceContent } = await getFreeMaterialsContent();
+  const content = await getFreeMaterialsContent();
 
-  const tytCountdownLink = freeTools.find((item) => item.countdownSlug === "tyt-kac-gun-kaldi") ?? null;
-  const aytCountdownLink = freeTools.find((item) => item.countdownSlug === "ayt-kac-gun-kaldi") ?? null;
-  const ydtCountdownLink = freeTools.find((item) => item.countdownSlug === "ydt-kac-gun-kaldi") ?? null;
-  const lgsCountdownLink = freeTools.find((item) => item.countdownSlug === "2026-lgs-kac-gun-kaldi") ?? null;
-  const yksAtlasLink = freeTools.find((item) => item.title === "YKS Atlas") ?? null;
-  const maarifSimulationLink = freeTools.find((item) => item.title.includes("Maarif")) ?? null;
-  const blogLink = guidanceContent.find((item) => item.title === "Blog") ?? guidanceContent[0] ?? null;
+  if (content.status === "unavailable") {
+    return (
+      <PublicPageLayout>
+        <section className="ega-section ega-container">
+          <FreeMaterialsState title="Ücretsiz Materyaller" message={FREE_MATERIALS_UNAVAILABLE_MESSAGE} />
+        </section>
+      </PublicPageLayout>
+    );
+  }
 
-  const yksLinks = filterDefinedLinks([tytCountdownLink, aytCountdownLink, ydtCountdownLink]);
-
-  const categoryCandidates: Array<FreeMaterialsDirectoryCategory | null> = [
-    {
-      id: "turkiye-geneli-deneme",
-      title: "Türkiye Geneli Deneme",
+  const categories = content.categories
+    .filter((category) => category.items.length > 0)
+    .map((category, index): FreeMaterialsDirectoryCategory => ({
+      id: category.key,
+      title: category.label,
       badge: "Ücretsiz",
       summary:
-        "TYT denemeni çöz, cevaplarını kontrol et, netlerini yorumla ve kazanım bazlı gelişim alanlarını gör.",
-      href: "/ucretsiz-materyaller/turkiye-geneli-deneme",
-      buttonLabel: "Deneme Sayfasını Aç",
-      links: [],
-      tone: "gold",
-      previewLabel: "Türkiye Geneli"
-    },
-    yksLinks.length > 0
-      ? {
-          id: "yks-countdown",
-          title: "YKS'ye kaç gün kaldı?",
-          badge: "Ücretsiz",
-          summary:
-            "TYT, AYT ve YDT için ayrı sayaç sayfalarına geç; her oturumu kendi resmi tarih ve saatine göre takip et.",
-          href: "/ucretsiz-materyaller/yks-kac-gun-kaldi",
-          buttonLabel: "YKS Sayaçlarını Aç",
-          links: yksLinks,
-          tone: "amber",
-          previewLabel: "YKS Sayaçları"
-        }
-      : null,
-    lgsCountdownLink
-      ? {
-          id: "lgs-countdown",
-          title: "LGS'ye kaç gün kaldı?",
-          badge: "Ücretsiz",
-          summary:
-            "LGS tarihini, sözel-sayısal oturum saatlerini ve canlı geri sayımı tek sayfadan takip et.",
-          href: lgsCountdownLink.href,
-          buttonLabel: getActionLabel(lgsCountdownLink),
-          links: [lgsCountdownLink],
-          tone: "blue",
-          previewLabel: "LGS Sayacı"
-        }
-      : null,
-    {
-      id: "score-calculator",
-      title: "Puan Hesapla",
-      badge: "Ücretsiz",
-      summary:
-        "LGS, TYT, AYT ve YDT netlerini platform içinde hesapla; tahmini puanını ve ders bazlı netlerini gör.",
-      href: scoreCalculatorBasePath,
-      buttonLabel: "Hesaplayıcıyı Aç",
-      links: scoreCalculatorLinks,
-      optionGroups: [
-        {
-          title: "YKS Puan Hesapla",
-          items: scoreCalculatorLinks.filter((item) => item.type === "YKS")
-        },
-        {
-          title: "LGS Puan Hesapla",
-          items: scoreCalculatorLinks.filter((item) => item.type === "LGS")
-        }
-      ],
-      tone: "teal",
-      previewLabel: "Puan Hesabı"
-    },
-    yksAtlasLink
-      ? {
-          id: "yks-atlas",
-          title: "YKS Atlas",
-          badge: "Ücretsiz",
-          summary:
-            "Bölüm, üniversite, kontenjan ve başarı sırası araştırmasını resmi atlas verileriyle planla.",
-          href: yksAtlasLink.href,
-          buttonLabel: getActionLabel(yksAtlasLink),
-          opensInNewTab: yksAtlasLink.opensInNewTab || yksAtlasLink.href.startsWith("http"),
-          links: [yksAtlasLink],
-          tone: "violet",
-          previewLabel: "Atlas Verisi"
-        }
-      : null,
-    maarifSimulationLink
-      ? {
-          id: "maarif-simulation",
-          title: "Maarif simülasyon",
-          badge: "Ücretsiz",
-          summary:
-            "Fizik, kimya ve fen kazanımlarını etkileşimli simülasyonlarla görselleştirerek konu tekrarını güçlendir.",
-          href: maarifSimulationLink.href,
-          buttonLabel: getActionLabel(maarifSimulationLink),
-          opensInNewTab: maarifSimulationLink.opensInNewTab || maarifSimulationLink.href.startsWith("http"),
-          links: [maarifSimulationLink],
-          tone: "green",
-          previewLabel: "Simülasyon"
-        }
-      : null,
-    blogLink
-      ? {
-          id: "blog",
-          title: "Blog",
-          badge: "Ücretsiz",
-          summary:
-            "Motivasyon, çalışma planı, deneme analizi ve sınav düzeni üzerine rehber yazıları oku.",
-          href: "/ucretsiz-materyaller/blog",
-          buttonLabel: "Blogu Aç",
-          links: [blogLink],
-          tone: "orange",
-          previewLabel: "Rehber Yazılar"
-        }
-      : null,
-    {
-      id: "useful-links",
-      title: "Faydalı linkler",
-      badge: "Ücretsiz",
-      summary: "MEB, ÖSYM, ÖSYM AİS ve YÖK Atlas gibi temel resmi kaynaklara tek merkezden ulaş.",
-      href: "/ucretsiz-materyaller/faydali-linkler",
-      buttonLabel: "Bağlantıları Aç",
-      links: usefulLinks,
-      tone: "pink",
-      previewLabel: "Resmi Bağlantılar"
-    },
-    {
-      id: "pdf-documents",
-      title: "PDF dokümanlar",
-      badge: "Ücretsiz",
-      summary: "Plan, tekrar, deneme analizi ve hedef takibi için hazırlanmış PDF içeriklerini incele.",
-      href: "/ucretsiz-materyaller/pdf-dokumanlar",
-      buttonLabel: "PDF Alanını Aç",
-      links: pdfDocuments,
-      tone: "navy",
-      previewLabel: "PDF Arşivi"
-    }
-  ];
+        category.description ??
+        `${category.items.length} yayında materyal bu başlık altında yönetiliyor.`,
+      href: routeForCategory(category.key, category.items[0]?.href ?? "/ucretsiz-materyaller"),
+      buttonLabel: "İçerikleri Aç",
+      opensInNewTab: category.items[0]?.opensInNewTab,
+      links: category.items,
+      tone: toneForCategory(category.key, index),
+      previewLabel: category.label
+    }));
 
-  const categories = categoryCandidates.filter(
-    (category): category is FreeMaterialsDirectoryCategory => category !== null
-  );
+  if (categories.length === 0) {
+    return (
+      <PublicPageLayout>
+        <section className="ega-section ega-container">
+          <FreeMaterialsState title="Ücretsiz Materyaller" message={FREE_MATERIALS_EMPTY_MESSAGE} />
+        </section>
+      </PublicPageLayout>
+    );
+  }
 
   return (
     <PublicPageLayout>
@@ -170,4 +57,40 @@ export default async function FreeMaterialsPage() {
       </section>
     </PublicPageLayout>
   );
+}
+
+function routeForCategory(key: string, fallback: string) {
+  const routes: Record<string, string> = {
+    "pdf-documents": "/ucretsiz-materyaller/pdf-dokumanlar",
+    "useful-links": "/ucretsiz-materyaller/faydali-linkler",
+    "guidance-content": "/ucretsiz-materyaller/blog"
+  };
+
+  return routes[key] ?? fallback;
+}
+
+function toneForCategory(
+  key: string,
+  index: number
+): FreeMaterialsDirectoryCategory["tone"] {
+  const tones: FreeMaterialsDirectoryCategory["tone"][] = [
+    "amber",
+    "blue",
+    "teal",
+    "violet",
+    "green",
+    "orange",
+    "pink",
+    "navy",
+    "gold"
+  ];
+  const mapped: Partial<Record<string, FreeMaterialsDirectoryCategory["tone"]>> = {
+    "free-tools": "amber",
+    "useful-links": "pink",
+    "pdf-documents": "navy",
+    "guidance-content": "orange",
+    "speed-reading": "green"
+  };
+
+  return mapped[key] ?? tones[index % tones.length];
 }

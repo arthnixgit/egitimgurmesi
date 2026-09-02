@@ -60,6 +60,7 @@ export type BuilderStatus = {
   isDirty: boolean;
   saving: boolean;
   areaLoading: boolean;
+  materialsLoaded: boolean;
   lastSavedAt: string | null;
   message: string;
   error: string;
@@ -138,6 +139,7 @@ export type SectionMutation = (sections: AdminMarketingPageSection[]) => AdminMa
 export type BuilderActions = {
   dispatchSelection: (command: BuilderCommand) => void;
   updateSetting: <K extends keyof AdminSiteSettings>(key: K, value: AdminSiteSettings[K]) => void;
+  applyLogoToAllFields: (sourceKey: keyof AdminSiteSettings) => void;
   updateNavigationItem: (index: number, patch: Partial<AdminNavigationItem>) => void;
   addNavigationItem: () => void;
   updatePage: (patch: Partial<AdminMarketingPage>) => void;
@@ -151,9 +153,18 @@ export type BuilderActions = {
   toggleSection: (sectionKey: string) => void;
   updateMaterialCategory: (patch: Partial<AdminFreeMaterialCategory>) => void;
   updateMaterialItem: (patch: Partial<AdminFreeMaterialItem>) => void;
+  saveMaterialCategoryStatus: (publishStatus: "DRAFT" | "PUBLISHED", action: SaveAction) => Promise<void>;
+  saveMaterialCardStatus: (publishStatus: "DRAFT" | "PUBLISHED", action: SaveAction) => Promise<void>;
   addMaterialCategory: () => void;
   addMaterialCard: () => void;
   duplicateMaterialCard: () => void;
+  archiveMaterialCategory: () => Promise<void>;
+  restoreMaterialCategory: () => Promise<void>;
+  deleteMaterialCategory: () => Promise<void>;
+  archiveMaterialCard: () => Promise<void>;
+  restoreMaterialCard: () => Promise<void>;
+  deleteMaterialCard: () => Promise<void>;
+  moveMaterialCard: (direction: -1 | 1) => Promise<void>;
   saveCurrent: (action: SaveAction) => Promise<void>;
   requestPreviewToken: () => Promise<void>;
   loadRevisions: () => Promise<void>;

@@ -278,6 +278,10 @@ textarea {
   flex: 0 0 auto;
 }
 
+.ega-brand__logo--compact {
+  display: none;
+}
+
 .ega-footer__logo {
   width: min(100%, 230px);
   max-height: 122px;
@@ -6531,7 +6535,7 @@ textarea {
 
 .ega-cta-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 24px;
   align-items: center;
   padding: 28px;
@@ -6539,6 +6543,33 @@ textarea {
   background:
     radial-gradient(circle at right top, rgba(255, 184, 82, 0.18), transparent 26%),
     linear-gradient(135deg, var(--ega-blue-950), var(--ega-teal-700));
+}
+
+.ega-cta-panel__brand-logo,
+.ega-auth-showcase__brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 142px;
+  height: 74px;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.ega-cta-panel__brand-logo {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ega-cta-panel__brand-logo img,
+.ega-auth-showcase__brand-logo img {
+  display: block;
+  width: 100%;
+  max-width: 112px;
+  max-height: 52px;
+  height: auto;
+  object-fit: contain;
 }
 
 .ega-cta-panel__copy h2 {
@@ -6911,6 +6942,12 @@ textarea {
     radial-gradient(circle at left center, rgba(73, 206, 190, 0.18), transparent 28%),
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 255, 0.96));
   overflow: hidden;
+}
+
+.ega-auth-showcase__brand-logo {
+  align-self: flex-start;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  background: rgba(255, 255, 255, 0.76);
 }
 
 .ega-auth-showcase__badge,
@@ -7941,6 +7978,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .ega-cta-panel__brand-logo {
+    justify-self: flex-start;
+  }
+
   .ega-product-video--card {
     height: clamp(160px, 44vw, 210px);
   }
@@ -8068,6 +8109,16 @@ textarea {
 
   .ega-brand__logo {
     width: 62px;
+  }
+
+  .ega-brand__logo--desktop {
+    display: none;
+  }
+
+  .ega-brand__logo--compact {
+    display: block;
+    aspect-ratio: 1;
+    max-height: 42px;
   }
 
   .ega-header__actions {
@@ -9456,6 +9507,19 @@ textarea {
     gap: 16px;
     padding: 20px;
     border-radius: 24px;
+  }
+
+  .ega-cta-panel__brand-logo,
+  .ega-auth-showcase__brand-logo {
+    width: 124px;
+    height: 64px;
+    border-radius: 18px;
+  }
+
+  .ega-cta-panel__brand-logo img,
+  .ega-auth-showcase__brand-logo img {
+    max-width: 98px;
+    max-height: 44px;
   }
 
   .ega-auth-showcase__copy {

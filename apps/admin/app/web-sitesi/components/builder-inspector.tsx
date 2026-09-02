@@ -89,7 +89,7 @@ export function BuilderInspector({
           selectedItem={
             data.materials.categories
               .find((category) => category.key === selection.selectedMaterialKey)
-              ?.items.find((item) => item.slug === selection.selectedMaterialSlug) ??
+              ?.items.find((item) => (item.id || item.slug || "") === selection.selectedMaterialSlug) ??
             data.materials.categories.find((category) => category.key === selection.selectedMaterialKey)?.items[0] ??
             data.materials.categories[0]?.items[0] ??
             null
@@ -147,39 +147,129 @@ function GeneralSettingsPanel({ settings, actions }: { settings: AdminSiteSettin
 
 function BrandSettingsPanel({ settings, actions }: { settings: AdminSiteSettings; actions: BuilderActions }) {
   const fields = [
-    ["logoPrimaryUrl", "Header ana logo", "Üst menüde kullanılan ana logo.", "229x121 px", "/branding/ega-logo-official.png"],
-    ["logoFooterUrl", "Footer logo", "Footer marka kolonunda kullanılan logo.", "229x121 px", "/branding/ega-logo-official.png"],
-    ["logoCompactUrl", "Kompakt/mobil logo", "Dar alanlarda kullanılan marka işareti.", "160x160 px", "/branding/ega-mark-transparent.png"],
-    ["logoDarkUrl", "Koyu zemin logo", "Koyu arka planlarda kullanılacak logo.", "229x121 px", "/branding/ega-logo-official.png"],
-    ["logoLightUrl", "Açık zemin logo", "Açık arka planlarda kullanılacak logo.", "229x121 px", "/branding/ega-logo-official.png"],
-    ["logoMarkUrl", "Logo mark", "Simgesel marka işareti.", "160x160 px", "/branding/ega-mark-transparent.png"],
-    ["faviconUrl", "Favicon", "Tarayıcı sekmesi ve kısa yol simgesi.", "32x32 px", "/icon.png"],
-    ["defaultSocialImageUrl", "Sosyal paylaşım görseli", "Paylaşımlarda kullanılan varsayılan görsel.", "1200x630 px", "/branding/ega-logo-official.png"]
+    {
+      key: "logoPrimaryUrl",
+      label: "Header ana logo",
+      description: "Web sitesinin masaüstü üst menüsünde kullanılır.",
+      usage: "Masaüstü header ve açık header bağlamları",
+      dimensions: "229x121 px",
+      fallbackUrl: "/branding/ega-logo-official.png",
+      canApplyToAll: true
+    },
+    {
+      key: "logoCompactUrl",
+      label: "Kompakt/mobil logo",
+      description: "Mobil menü ve dar başlık alanlarında kullanılır.",
+      usage: "Mobil header ve kompakt başlık alanları",
+      dimensions: "160x160 px",
+      fallbackUrl: "/branding/ega-mark-transparent.png",
+      canApplyToAll: true
+    },
+    {
+      key: "logoFooterUrl",
+      label: "Footer logo",
+      description: "Web sitesinin alt bilgi alanında kullanılır.",
+      usage: "Footer marka kolonu",
+      dimensions: "229x121 px",
+      fallbackUrl: "/branding/ega-logo-official.png",
+      canApplyToAll: true
+    },
+    {
+      key: "logoMarkUrl",
+      label: "Logo mark",
+      description: "Sadece marka işareti beklenen yüzeylerde kullanılır.",
+      usage: "Başarı vitrini avatar yedeği ve dekoratif marka izi",
+      dimensions: "160x160 px",
+      fallbackUrl: "/branding/ega-mark-transparent.png",
+      canApplyToAll: true
+    },
+    {
+      key: "logoDarkUrl",
+      label: "Açık zemin logo",
+      description: "Açık arka planlarda okunabilir koyu/renkli logo olarak kullanılır.",
+      usage: "Açık zemin marka önizlemeleri",
+      dimensions: "229x121 px",
+      fallbackUrl: "/branding/ega-logo-official.png",
+      canApplyToAll: true
+    },
+    {
+      key: "logoLightUrl",
+      label: "Koyu zemin logo",
+      description: "Koyu veya degrade arka planlarda okunabilir açık logo olarak kullanılır.",
+      usage: "Koyu zemin marka önizlemeleri",
+      dimensions: "229x121 px",
+      fallbackUrl: "/branding/ega-logo-official.png",
+      canApplyToAll: true
+    },
+    {
+      key: "faviconUrl",
+      label: "Favicon",
+      description: "Tarayıcı sekmesinde kullanılır; tarayıcı önbelleği nedeniyle değişiklik gecikmeli görünebilir.",
+      usage: "Browser favicon ve uygulama ikon metadata alanları",
+      dimensions: "32x32 px",
+      fallbackUrl: "/icon.png",
+      canApplyToAll: false
+    },
+    {
+      key: "defaultSocialImageUrl",
+      label: "Sosyal paylaşım görseli",
+      description: "Bağlantı sosyal platformlarda paylaşıldığında varsayılan önizleme görselidir.",
+      usage: "Open Graph ve Twitter varsayılan görseli",
+      dimensions: "1200x630 px",
+      fallbackUrl: "/branding/ega-logo-official.png",
+      canApplyToAll: false
+    }
   ] as const;
 
   return (
     <div className="admin-brand-grid">
-      {fields.map(([key, label, description, dimensions, fallbackUrl]) => (
-        <MediaField
-          key={key}
-          intent={{
-            kind: "BRANDING",
-            label,
-            description,
-            recommendedDimensions: dimensions,
-            fallbackUrl,
-            allowExternalUrl: true
-          }}
-          value={String(settings[key as keyof AdminSiteSettings] ?? "")}
-          altText={settings.logoAltText ?? settings.siteName}
-          onChange={(value) => actions.updateSetting(key as keyof AdminSiteSettings, value as never)}
-          onAltTextChange={(value) => actions.updateSetting("logoAltText", value)}
-        />
+      {fields.map((field) => (
+        <section key={field.key} className="admin-brand-card">
+          <div className="admin-brand-card__meta">
+            <span className="admin-builder-badge" data-tone="teal">
+              {settings.publishedAt ? "Yayında" : "Taslak"}
+            </span>
+            <p>Bu logo şu alanlarda kullanılıyor: {field.usage}.</p>
+          </div>
+          <div className="admin-brand-card__previews" aria-label={`${field.label} kullanım önizlemesi`}>
+            <span data-tone="light">
+              <img src={String(settings[field.key as keyof AdminSiteSettings] || field.fallbackUrl)} alt="" />
+            </span>
+            <span data-tone="dark">
+              <img src={String(settings[field.key as keyof AdminSiteSettings] || field.fallbackUrl)} alt="" />
+            </span>
+          </div>
+          <MediaField
+            intent={{
+              kind: "BRANDING",
+              label: field.label,
+              description: field.description,
+              recommendedDimensions: field.dimensions,
+              fallbackUrl: field.fallbackUrl,
+              allowExternalUrl: true
+            }}
+            value={String(settings[field.key as keyof AdminSiteSettings] ?? "")}
+            altText={settings.logoAltText ?? settings.siteName}
+            onChange={(value) => actions.updateSetting(field.key as keyof AdminSiteSettings, value as never)}
+            onAltTextChange={(value) => actions.updateSetting("logoAltText", value)}
+          />
+          {field.canApplyToAll ? (
+            <button
+              type="button"
+              className="admin-button--compact admin-button--ghost"
+              onClick={() => actions.applyLogoToAllFields(field.key as keyof AdminSiteSettings)}
+            >
+              Bu görseli tüm logo alanlarında kullan
+            </button>
+          ) : null}
+          <small className="admin-brand-card__state">
+            Yayınlanan görsel public sitede Publish sonrası kullanılır; yükleme veya medya seçimi tek başına canlı siteyi değiştirmez.
+          </small>
+        </section>
       ))}
     </div>
   );
 }
-
 function FooterSettingsPanel({ settings, actions }: { settings: AdminSiteSettings; actions: BuilderActions }) {
   return (
     <div className="admin-website-builder__form">

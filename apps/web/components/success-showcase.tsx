@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { SuccessStoryContent } from "../lib/public-content-api";
+import { usePublicSiteSettings } from "./public-site-settings-provider";
 
 type SuccessShowcaseProps = {
   stories: readonly SuccessStoryContent[];
@@ -18,6 +19,7 @@ function initialsFromName(name: string) {
 
 export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const siteSettings = usePublicSiteSettings();
 
   const activeStory = stories[activeIndex] ?? stories[0] ?? null;
 
@@ -150,7 +152,7 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
               {activeStory.avatarUrl ? (
                 <img src={activeStory.avatarUrl} alt={`${activeStory.studentName} görseli`} />
               ) : (
-                <img src="/branding/ega-logo-official.png" alt="Eğitim Gurmesi Akademi" />
+                <img src={siteSettings.logoMarkUrl} alt={siteSettings.logoAltText} />
               )}
               <span>{activeStory.studentName}</span>
             </div>

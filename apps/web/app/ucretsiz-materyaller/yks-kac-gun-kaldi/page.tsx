@@ -1,14 +1,18 @@
 import { ButtonLink } from "@ega/ui";
+import {
+  FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE,
+  FREE_MATERIALS_UNAVAILABLE_MESSAGE,
+  FreeMaterialsState
+} from "../../../components/free-materials-state";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import { getFreeMaterialsContent } from "../../../lib/public-content-api";
 
 export default async function YksCountdownHubPage() {
-  const { freeTools } = await getFreeMaterialsContent();
-
+  const content = await getFreeMaterialsContent();
   const pages = [
-    freeTools.find((item) => item.countdownSlug === "tyt-kac-gun-kaldi"),
-    freeTools.find((item) => item.countdownSlug === "ayt-kac-gun-kaldi"),
-    freeTools.find((item) => item.countdownSlug === "ydt-kac-gun-kaldi")
+    content.freeTools.find((item) => item.countdownSlug === "tyt-kac-gun-kaldi"),
+    content.freeTools.find((item) => item.countdownSlug === "ayt-kac-gun-kaldi"),
+    content.freeTools.find((item) => item.countdownSlug === "ydt-kac-gun-kaldi")
   ].filter(Boolean);
 
   return (
@@ -26,19 +30,25 @@ export default async function YksCountdownHubPage() {
       </section>
 
       <section className="ega-section ega-container">
-        <div className="ega-directory-grid ega-directory-grid--three">
-          {pages.map((item) =>
-            item ? (
-              <article key={item.href} className="ega-resource-card ega-resource-card--featured">
-                <h3>{item.title}</h3>
-                <p>{item.summary}</p>
-                <div className="ega-pack-card__actions">
-                  <ButtonLink href={item.href} label={item.buttonLabel ?? "Sayacı Aç"} />
-                </div>
-              </article>
-            ) : null
-          )}
-        </div>
+        {content.status === "unavailable" ? (
+          <FreeMaterialsState title="YKS sayaçları" message={FREE_MATERIALS_UNAVAILABLE_MESSAGE} />
+        ) : pages.length === 0 ? (
+          <FreeMaterialsState title="YKS sayaçları" message={FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE} />
+        ) : (
+          <div className="ega-directory-grid ega-directory-grid--three">
+            {pages.map((item) =>
+              item ? (
+                <article key={item.href} className="ega-resource-card ega-resource-card--featured">
+                  <h3>{item.title}</h3>
+                  <p>{item.summary}</p>
+                  <div className="ega-pack-card__actions">
+                    <ButtonLink href={item.href} label={item.buttonLabel ?? "Sayacı Aç"} />
+                  </div>
+                </article>
+              ) : null
+            )}
+          </div>
+        )}
       </section>
     </PublicPageLayout>
   );

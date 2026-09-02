@@ -661,6 +661,58 @@ export function saveAdminFreeMaterialsDocument(
   });
 }
 
+export function archiveAdminMaterialCategory(categoryKey: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/categories/${encodeURIComponent(categoryKey)}/archive`,
+    { method: "POST" }
+  );
+}
+
+export function restoreAdminMaterialCategory(categoryKey: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/categories/${encodeURIComponent(categoryKey)}/restore`,
+    { method: "POST" }
+  );
+}
+
+export function deleteAdminMaterialCategory(categoryKey: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/categories/${encodeURIComponent(categoryKey)}`,
+    { method: "DELETE" }
+  );
+}
+
+export function archiveAdminMaterialCard(itemIdOrSlug: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/items/${encodeURIComponent(itemIdOrSlug)}/archive`,
+    { method: "POST" }
+  );
+}
+
+export function restoreAdminMaterialCard(itemIdOrSlug: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/items/${encodeURIComponent(itemIdOrSlug)}/restore`,
+    { method: "POST" }
+  );
+}
+
+export function deleteAdminMaterialCard(itemIdOrSlug: string) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/items/${encodeURIComponent(itemIdOrSlug)}`,
+    { method: "DELETE" }
+  );
+}
+
+export function moveAdminMaterialCard(itemIdOrSlug: string, direction: -1 | 1) {
+  return requestWithStaffToken<AdminFreeMaterialsDocument>(
+    `/admin-content/free-materials/items/${encodeURIComponent(itemIdOrSlug)}/move`,
+    {
+      method: "PATCH",
+      body: { direction }
+    }
+  );
+}
+
 export function serializeSiteSettingsPayload(settings: AdminSiteSettings) {
   return {
     version: settings.version,
@@ -751,13 +803,16 @@ export function serializeSuccessStoriesPayload(document: AdminSuccessStoriesDocu
 export function serializeFreeMaterialsPayload(document: AdminFreeMaterialsDocument) {
   return {
     version: document.version,
+    completeDocument: true,
     categories: document.categories.map((category) => ({
+      id: category.id,
       key: category.key,
       label: category.label,
       description: category.description ?? null,
       sortOrder: category.sortOrder,
       publishStatus: category.publishStatus,
       items: category.items.map((item) => ({
+        id: item.id,
         slug: item.slug ?? undefined,
         title: item.title,
         itemType: item.itemType,
@@ -782,6 +837,7 @@ export function serializeFreeMaterialsPayload(document: AdminFreeMaterialsDocume
       }))
     })),
     countdownPages: document.countdownPages.map((page) => ({
+      id: page.id,
       slug: page.slug,
       eyebrow: page.eyebrow,
       title: page.title,

@@ -320,6 +320,10 @@ export class SaveSuccessStoriesDocumentDto {
 export class SaveFreeMaterialItemDto {
   @IsOptional()
   @IsString()
+  id?: string;
+
+  @IsOptional()
+  @IsString()
   slug?: string;
 
   @IsString()
@@ -404,6 +408,10 @@ export class SaveFreeMaterialItemDto {
 }
 
 export class SaveFreeMaterialCategoryDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsString()
   key!: string;
 
@@ -486,6 +494,10 @@ export class SaveCountdownArticleSectionDto {
 }
 
 export class SaveCountdownPageDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsString()
   slug!: string;
 
@@ -533,6 +545,10 @@ export class SaveFreeMaterialsDocumentDto {
   @IsInt()
   @Min(1)
   version?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  completeDocument?: boolean;
 
   @IsArray()
   @ValidateNested({ each: true })

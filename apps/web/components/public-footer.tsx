@@ -1,6 +1,6 @@
 import React from "react";
 import { FooterContactLinks } from "./footer-contact-links";
-import { normalizePublicSiteSettings, type PublicSiteSettings } from "../lib/contact";
+import { fallbackSiteSettings, normalizePublicSiteSettings, type PublicSiteSettings } from "../lib/contact";
 
 export function PublicFooter({
   settings,
@@ -21,6 +21,11 @@ export function PublicFooter({
             width={229}
             height={121}
             className="ega-footer__logo"
+            onError={(event) => {
+              if (event.currentTarget.getAttribute("src") !== fallbackSiteSettings.logoFooterUrl) {
+                event.currentTarget.src = fallbackSiteSettings.logoFooterUrl;
+              }
+            }}
           />
           <p>{normalized.footerBrandDescription}</p>
           {normalized.socialLinks.length > 0 ? (

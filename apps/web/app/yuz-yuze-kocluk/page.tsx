@@ -90,7 +90,7 @@ export default async function InPersonCoachingPage() {
               <div className="ega-coaching-hero__avatar ega-coaching-hero__avatar--right" />
 
               <Image
-                src="/branding/ega-logo-official.png"
+                src={siteSettings.logoMarkUrl}
                 alt=""
                 width={174}
                 height={174}

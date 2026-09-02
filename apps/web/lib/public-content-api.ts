@@ -3,12 +3,7 @@ import { academicStaffGroups } from "./academic-staff";
 import { resolveApiBaseUrl } from "./api-base-url";
 import type { ExamCountdownPage, ExamCountdownTarget, ResourceLink } from "./free-materials";
 import {
-  examCountdownPages,
-  freeTools as fallbackFreeTools,
-  guidanceContent as fallbackGuidanceContent,
-  pdfDocuments as fallbackPdfDocuments,
-  speedReading as fallbackSpeedReading,
-  usefulLinks as fallbackUsefulLinks
+  examCountdownPages
 } from "./free-materials";
 import type {
   PublicNavItem,
@@ -23,6 +18,7 @@ import {
 } from "./navigation";
 import {
   fallbackSiteSettings,
+  isAuthoritativePublicSiteSettingsResponse,
   normalizePublicSiteSettings,
   type PublicSiteSettings
 } from "./contact";
@@ -356,12 +352,22 @@ type CollectionPayload<T> = T[] | { value: T[] };
 type SiteSettingsResponse = Partial<PublicSiteSettings>;
 
 export type FreeMaterialsContent = {
+  status: "ready" | "unavailable";
+  categories: readonly PublicFreeMaterialCategory[];
   freeTools: readonly ResourceLink[];
   usefulLinks: readonly ResourceLink[];
   pdfDocuments: readonly ResourceLink[];
   guidanceContent: readonly ResourceLink[];
-  speedReading: ResourceLink;
+  speedReading: ResourceLink | null;
   countdownPages: readonly ExamCountdownPage[];
+};
+
+export type PublicFreeMaterialCategory = {
+  id: string;
+  key: string;
+  label: string;
+  description?: string;
+  items: readonly ResourceLink[];
 };
 
 export type MarketingPageSection = {
@@ -521,7 +527,7 @@ function normalizeStaffGroup(group: StaffProfileGroupResponse): AcademicStaffGro
 }
 
 function normalizeResourceLink(item: FreeMaterialItemResponse): ResourceLink {
-  const isDownload = item.itemType === "DOWNLOAD" || item.itemType === "PDF" || Boolean(item.downloadHref);
+  const isDownload = item.itemType === "DOWNLOAD" || Boolean(item.downloadHref);
   return {
     id: item.id,
     slug: item.slug ?? undefined,
@@ -665,10 +671,23 @@ export async function getNavigationItems() {
   return (await getNavigationSnapshot()).items;
 }
 
+export async function requestPublicSiteSettingsSnapshot(
+  options: { signal?: AbortSignal; rejectMalformed?: boolean } = {}
+) {
+  const settings = await requestJson<SiteSettingsResponse>("/public/site-settings", {
+    signal: options.signal
+  });
+
+  if (options.rejectMalformed && !isAuthoritativePublicSiteSettingsResponse(settings)) {
+    throw new Error("Malformed public site settings response.");
+  }
+
+  return normalizePublicSiteSettings(settings);
+}
+
 export async function getPublicSiteSettings() {
   try {
-    const settings = await requestJson<SiteSettingsResponse>("/public/site-settings");
-    return normalizePublicSiteSettings(settings);
+    return await requestPublicSiteSettingsSnapshot();
   } catch {
     return fallbackSiteSettings;
   }
@@ -718,6 +737,13 @@ export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
     const categoriesPayload = await requestJson<CollectionPayload<FreeMaterialCategoryResponse>>("/public/free-materials");
     const categories = unwrapCollection(categoriesPayload);
     const categoryMap = new Map(categories.map((category) => [category.key, category]));
+    const normalizedCategories = categories.map((category) => ({
+      id: category.id,
+      key: category.key,
+      label: category.label,
+      description: category.description ?? undefined,
+      items: category.items.map(normalizeResourceLink)
+    }));
 
     const freeToolItems = categoryMap.get("free-tools")?.items ?? [];
     const countdownSlugs = Array.from(
@@ -733,39 +759,27 @@ export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
     ).filter((page): page is ExamCountdownPage => Boolean(page));
 
     return {
-      freeTools: freeToolItems.length > 0 ? freeToolItems.map(normalizeResourceLink) : fallbackFreeTools,
-      usefulLinks:
-        (categoryMap.get("useful-links")?.items ?? []).length > 0
-          ? (categoryMap.get("useful-links")?.items ?? []).map(normalizeResourceLink)
-          : fallbackUsefulLinks,
-      pdfDocuments:
-        (categoryMap.get("pdf-documents")?.items ?? []).length > 0
-          ? (categoryMap.get("pdf-documents")?.items ?? []).map(normalizeResourceLink)
-          : fallbackPdfDocuments,
-      guidanceContent:
-        (categoryMap.get("guidance-content")?.items ?? []).length > 0
-          ? (categoryMap.get("guidance-content")?.items ?? []).map(normalizeResourceLink)
-          : fallbackGuidanceContent,
-      speedReading: normalizeResourceLink(categoryMap.get("speed-reading")?.items[0] ?? {
-        id: "fallback-speed-reading",
-        title: fallbackSpeedReading.title,
-        badgeLabel: fallbackSpeedReading.type,
-        summary: fallbackSpeedReading.summary,
-        href: fallbackSpeedReading.href,
-        buttonLabel: fallbackSpeedReading.buttonLabel ?? null,
-        opensInNewTab: true,
-        countdownPage: null
-      }),
-      countdownPages: countdownPages.length > 0 ? countdownPages : examCountdownPages
+      status: "ready",
+      categories: normalizedCategories,
+      freeTools: freeToolItems.map(normalizeResourceLink),
+      usefulLinks: (categoryMap.get("useful-links")?.items ?? []).map(normalizeResourceLink),
+      pdfDocuments: (categoryMap.get("pdf-documents")?.items ?? []).map(normalizeResourceLink),
+      guidanceContent: (categoryMap.get("guidance-content")?.items ?? []).map(normalizeResourceLink),
+      speedReading: categoryMap.get("speed-reading")?.items[0]
+        ? normalizeResourceLink(categoryMap.get("speed-reading")!.items[0])
+        : null,
+      countdownPages
     };
   } catch {
     return {
-      freeTools: fallbackFreeTools,
-      usefulLinks: fallbackUsefulLinks,
-      pdfDocuments: fallbackPdfDocuments,
-      guidanceContent: fallbackGuidanceContent,
-      speedReading: fallbackSpeedReading,
-      countdownPages: examCountdownPages
+      status: "unavailable",
+      categories: [],
+      freeTools: [],
+      usefulLinks: [],
+      pdfDocuments: [],
+      guidanceContent: [],
+      speedReading: null,
+      countdownPages: []
     };
   }
 }

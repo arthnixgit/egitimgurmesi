@@ -11,6 +11,7 @@ import {
   isAuthFailure,
   USER_AUTH_CHANGED_EVENT
 } from "../lib/auth-client";
+import { fallbackSiteSettings } from "../lib/contact";
 import { requestNavigationSnapshot } from "../lib/public-content-api";
 import {
   isValidNavigationSnapshot,
@@ -18,6 +19,7 @@ import {
   type PublicNavigationSnapshot
 } from "../lib/navigation";
 import { usePublicNavigationSnapshot } from "./public-navigation-provider";
+import { usePublicSiteSettings } from "./public-site-settings-provider";
 
 type NavbarAuthState =
   | { status: "checking" }
@@ -33,6 +35,7 @@ export function PublicNavbar({
   initialSnapshot?: PublicNavigationSnapshot;
 } = {}) {
   const contextSnapshot = usePublicNavigationSnapshot();
+  const siteSettings = usePublicSiteSettings();
   const authoritativeSnapshot = initialSnapshot ?? contextSnapshot;
   const pathname = usePathname();
   const [navigationSnapshot, setNavigationSnapshot] =
@@ -283,12 +286,22 @@ export function PublicNavbar({
     <header className="ega-header">
       <div className="ega-header__inner">
         <Link className="ega-brand" href="/" aria-label="Eğitim Gurmesi Akademi ana sayfa">
-          <Image
-            src="/branding/ega-logo-official.png"
-            alt="Eğitim Gurmesi Akademi"
+          <BrandLogoImage
+            src={siteSettings.logoPrimaryUrl}
+            fallbackSrc={fallbackSiteSettings.logoPrimaryUrl}
+            alt={siteSettings.logoAltText}
+            className="ega-brand__logo ega-brand__logo--desktop"
             width={152}
             height={80}
-            className="ega-brand__logo"
+            priority
+          />
+          <BrandLogoImage
+            src={siteSettings.logoCompactUrl}
+            fallbackSrc={fallbackSiteSettings.logoCompactUrl}
+            alt={siteSettings.logoAltText}
+            className="ega-brand__logo ega-brand__logo--compact"
+            width={80}
+            height={80}
             priority
           />
           <div className="ega-brand__copy">
@@ -533,6 +546,46 @@ export function PublicNavbar({
         </div>
       </div>
     </header>
+  );
+}
+
+function BrandLogoImage({
+  src,
+  fallbackSrc,
+  alt,
+  className,
+  width,
+  height,
+  priority
+}: {
+  src: string;
+  fallbackSrc: string;
+  alt: string;
+  className: string;
+  width: number;
+  height: number;
+  priority?: boolean;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState(src || fallbackSrc);
+
+  useEffect(() => {
+    setResolvedSrc(src || fallbackSrc);
+  }, [fallbackSrc, src]);
+
+  return (
+    <Image
+      src={resolvedSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      priority={priority}
+      onError={() => {
+        if (resolvedSrc !== fallbackSrc) {
+          setResolvedSrc(fallbackSrc);
+        }
+      }}
+    />
   );
 }
 

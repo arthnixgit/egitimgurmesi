@@ -27,6 +27,8 @@ export function BuilderToolbar({
   actions: BuilderActions;
 }) {
   const currentPage = pages.find((page) => page.key === selection.selectedPageKey) ?? pages[0] ?? null;
+  const materialsBlocked =
+    selection.selectedArea === "ucretsiz-materyaller" && (!status.materialsLoaded || status.areaLoading);
 
   return (
     <div className="admin-builder-toolbar" role="toolbar" aria-label="Web sitesi düzenleme araçları">
@@ -93,7 +95,7 @@ export function BuilderToolbar({
         <button
           className="admin-button--ghost"
           type="button"
-          disabled={status.saving || !canManage}
+          disabled={status.saving || !canManage || materialsBlocked}
           onClick={() => void actions.saveCurrent("draft")}
         >
           Taslağı Kaydet
@@ -104,7 +106,7 @@ export function BuilderToolbar({
         <button
           className="admin-button"
           type="button"
-          disabled={status.saving || !canPublish}
+          disabled={status.saving || !canPublish || materialsBlocked}
           onClick={() => void actions.saveCurrent("publish")}
         >
           {status.saving ? "Yayınlanıyor..." : "Yayınla"}

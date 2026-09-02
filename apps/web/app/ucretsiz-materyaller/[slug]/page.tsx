@@ -4,7 +4,7 @@ import { ExamCountdownGrid } from "../../../components/exam-countdown-grid";
 import { ExamCountdownRingSessions, ExamCountdownRings } from "../../../components/exam-countdown-rings";
 import { FreeMaterialCard } from "../../../components/free-material-card";
 import { PublicPageLayout } from "../../../components/public-page-layout";
-import { getCountdownPageBySlug, getFreeMaterialsContent } from "../../../lib/public-content-api";
+import { getCountdownPageBySlug, getFreeMaterialsContent, getPublicSiteSettings } from "../../../lib/public-content-api";
 
 const legacyCountdownRedirects: Record<string, string> = {
   "2026-yks-kac-gun-kaldi": "/ucretsiz-materyaller/yks-kac-gun-kaldi"
@@ -44,7 +44,10 @@ export default async function FreeMaterialCountdownPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const page = await getCountdownPageBySlug(slug);
+  const [page, siteSettings] = await Promise.all([
+    getCountdownPageBySlug(slug),
+    getPublicSiteSettings()
+  ]);
 
   if (!page) {
     if (legacyCountdownRedirects[slug]) {
@@ -93,7 +96,7 @@ export default async function FreeMaterialCountdownPage({
                 controls
                 playsInline
                 preload="none"
-                poster="/branding/ega-logo-official.png"
+                poster={siteSettings.logoPrimaryUrl}
               >
                 <source src="" type="video/mp4" />
                 Tarayıcınız video oynatmayı desteklemiyor.

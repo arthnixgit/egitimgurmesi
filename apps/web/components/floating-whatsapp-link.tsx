@@ -1,7 +1,9 @@
-import { getPublicSiteSettings } from "../lib/public-content-api";
+"use client";
 
-export async function FloatingWhatsAppLink() {
-  const settings = await getPublicSiteSettings();
+import { usePublicSiteSettings } from "./public-site-settings-provider";
+
+export function FloatingWhatsAppLink() {
+  const settings = usePublicSiteSettings();
 
   return (
     <a

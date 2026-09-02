@@ -8,7 +8,7 @@ export function FreeMaterialCard({
   item: ResourceLink;
   compact?: boolean;
 }) {
-  const isDownload = Boolean(item.downloadHref) || ["PDF", "DOWNLOAD"].includes(item.itemType ?? "");
+  const isDownload = Boolean(item.downloadHref) || item.itemType === "DOWNLOAD";
   const href = item.downloadHref ?? item.href;
   const label = item.buttonLabel ?? (isDownload ? "Dosyayı İndir" : "İçeriği Aç");
   const ariaLabel = item.accessibilityLabel ?? (isDownload ? `${item.title} dosyasını indir` : label);

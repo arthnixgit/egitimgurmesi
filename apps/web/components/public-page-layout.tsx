@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { PublicFooter } from "./public-footer";
 import { PublicNavbar } from "./public-navbar";
-import { fallbackSiteSettings, normalizePublicSiteSettings, type PublicSiteSettings } from "../lib/contact";
-import { getPublicSiteSettings } from "../lib/public-content-api";
+import { normalizePublicSiteSettings, type PublicSiteSettings } from "../lib/contact";
+import { usePublicSiteSettings } from "./public-site-settings-provider";
 
 type PublicPageLayoutProps = {
   children: ReactNode;
@@ -13,30 +13,8 @@ type PublicPageLayoutProps = {
 };
 
 export function PublicPageLayout({ children, contactHref, settings: initialSettings }: PublicPageLayoutProps) {
-  const [settings, setSettings] = useState<PublicSiteSettings>(
-    normalizePublicSiteSettings(initialSettings ?? fallbackSiteSettings)
-  );
-
-  useEffect(() => {
-    let active = true;
-
-    if (initialSettings) {
-      setSettings(normalizePublicSiteSettings(initialSettings));
-      return () => {
-        active = false;
-      };
-    }
-
-    void getPublicSiteSettings().then((nextSettings) => {
-      if (active) {
-        setSettings(nextSettings);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [initialSettings]);
+  const contextSettings = usePublicSiteSettings();
+  const settings = normalizePublicSiteSettings(initialSettings ?? contextSettings);
 
   const resolvedContactHref = contactHref ?? settings.whatsappHref;
 

@@ -21,7 +21,13 @@ export type PublicSiteSettings = {
   supportPhone?: string | null;
   supportWhatsappNumber: string;
   logoPrimaryUrl: string;
+  logoCompactUrl: string;
+  logoMarkUrl: string;
   logoFooterUrl: string;
+  logoDarkUrl: string;
+  logoLightUrl: string;
+  faviconUrl: string;
+  defaultSocialImageUrl: string;
   logoAltText: string;
   displayPhone: string;
   canonicalPhone: string;
@@ -46,7 +52,13 @@ export const fallbackSiteSettings: PublicSiteSettings = {
   supportPhone: CONTACT_DISPLAY_PHONE,
   supportWhatsappNumber: CONTACT_WHATSAPP_NUMBER,
   logoPrimaryUrl: "/branding/ega-logo-official.png",
+  logoCompactUrl: "/branding/ega-mark-transparent.png",
+  logoMarkUrl: "/branding/ega-mark-transparent.png",
   logoFooterUrl: "/branding/ega-logo-official.png",
+  logoDarkUrl: "/branding/ega-logo-official.png",
+  logoLightUrl: "/branding/ega-logo-official.png",
+  faviconUrl: "/icon.png",
+  defaultSocialImageUrl: "/branding/ega-logo-official.png",
   logoAltText: "Eğitim Gurmesi Akademi",
   displayPhone: CONTACT_DISPLAY_PHONE,
   canonicalPhone: CONTACT_CANONICAL_PHONE,
@@ -84,14 +96,27 @@ export function normalizePublicSiteSettings(input: Partial<PublicSiteSettings> |
   return {
     ...fallbackSiteSettings,
     ...input,
+    siteName: input?.siteName || fallbackSiteSettings.siteName,
+    siteTitle: input?.siteTitle || fallbackSiteSettings.siteTitle,
+    supportEmail: input?.supportEmail ?? fallbackSiteSettings.supportEmail,
+    supportPhone: input?.supportPhone ?? fallbackSiteSettings.supportPhone,
     supportWhatsappNumber: whatsappNumber,
     displayPhone: input?.displayPhone || CONTACT_DISPLAY_PHONE,
     canonicalPhone,
     telHref: `tel:${canonicalPhone}`,
     whatsappMessage,
     whatsappHref: buildWhatsAppHref(whatsappMessage, whatsappNumber),
-    logoPrimaryUrl: input?.logoPrimaryUrl || fallbackSiteSettings.logoPrimaryUrl,
-    logoFooterUrl: input?.logoFooterUrl || input?.logoPrimaryUrl || fallbackSiteSettings.logoFooterUrl,
+    logoPrimaryUrl: normalizePublicAssetUrl(input?.logoPrimaryUrl, fallbackSiteSettings.logoPrimaryUrl),
+    logoCompactUrl: normalizePublicAssetUrl(input?.logoCompactUrl, fallbackSiteSettings.logoCompactUrl),
+    logoMarkUrl: normalizePublicAssetUrl(input?.logoMarkUrl, fallbackSiteSettings.logoMarkUrl),
+    logoFooterUrl: normalizePublicAssetUrl(input?.logoFooterUrl, fallbackSiteSettings.logoFooterUrl),
+    logoDarkUrl: normalizePublicAssetUrl(input?.logoDarkUrl, fallbackSiteSettings.logoDarkUrl),
+    logoLightUrl: normalizePublicAssetUrl(input?.logoLightUrl, fallbackSiteSettings.logoLightUrl),
+    faviconUrl: normalizePublicAssetUrl(input?.faviconUrl, fallbackSiteSettings.faviconUrl),
+    defaultSocialImageUrl: normalizePublicAssetUrl(
+      input?.defaultSocialImageUrl,
+      fallbackSiteSettings.defaultSocialImageUrl
+    ),
     logoAltText: input?.logoAltText || fallbackSiteSettings.logoAltText,
     address: input?.address || CONTACT_ADDRESS,
     footerBrandDescription:
@@ -99,7 +124,9 @@ export function normalizePublicSiteSettings(input: Partial<PublicSiteSettings> |
     footerQuickLinks: normalizeFooterQuickLinks(input?.footerQuickLinks),
     footerContactTitle: input?.footerContactTitle || fallbackSiteSettings.footerContactTitle,
     socialLinks: input?.socialLinks ?? fallbackSiteSettings.socialLinks,
-    copyrightText: input?.copyrightText || fallbackSiteSettings.copyrightText
+    copyrightText: input?.copyrightText || fallbackSiteSettings.copyrightText,
+    defaultSeoTitle: input?.defaultSeoTitle || fallbackSiteSettings.defaultSeoTitle,
+    defaultSeoDescription: input?.defaultSeoDescription || fallbackSiteSettings.defaultSeoDescription
   };
 }
 
@@ -121,4 +148,102 @@ function normalizeFooterQuickLinks(value: PublicSiteSettings["footerQuickLinks"]
   }
 
   return [...links.values()];
+}
+
+export function normalizePublicAssetUrl(value: string | null | undefined, fallback: string) {
+  const trimmed = value?.trim();
+
+  if (!trimmed || !isSafePublicAssetUrl(trimmed)) {
+    return fallback;
+  }
+
+  return trimmed;
+}
+
+export function isSafePublicAssetUrl(value: string) {
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return !/[\u0000-\u001f]/.test(value);
+  }
+
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export function isValidPublicSiteSettingsSnapshot(value: unknown): value is PublicSiteSettings {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const settings = value as Partial<Record<keyof PublicSiteSettings, unknown>>;
+  const requiredStringFields: Array<keyof PublicSiteSettings> = [
+    "siteName",
+    "siteTitle",
+    "supportWhatsappNumber",
+    "logoPrimaryUrl",
+    "logoCompactUrl",
+    "logoMarkUrl",
+    "logoFooterUrl",
+    "logoDarkUrl",
+    "logoLightUrl",
+    "faviconUrl",
+    "defaultSocialImageUrl",
+    "logoAltText",
+    "displayPhone",
+    "canonicalPhone",
+    "telHref",
+    "whatsappMessage",
+    "whatsappHref",
+    "address",
+    "footerBrandDescription",
+    "footerContactTitle",
+    "copyrightText"
+  ];
+
+  return requiredStringFields.every((field) => typeof settings[field] === "string");
+}
+
+export function isAuthoritativePublicSiteSettingsResponse(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const settings = value as Partial<Record<keyof PublicSiteSettings, unknown>>;
+  const requiredStringFields: Array<keyof PublicSiteSettings> = [
+    "siteName",
+    "siteTitle",
+    "supportWhatsappNumber",
+    "logoAltText",
+    "displayPhone",
+    "canonicalPhone",
+    "telHref",
+    "whatsappMessage",
+    "whatsappHref",
+    "address",
+    "footerBrandDescription",
+    "footerContactTitle",
+    "copyrightText"
+  ];
+  const assetFields: Array<keyof PublicSiteSettings> = [
+    "logoPrimaryUrl",
+    "logoCompactUrl",
+    "logoMarkUrl",
+    "logoFooterUrl",
+    "logoDarkUrl",
+    "logoLightUrl",
+    "faviconUrl",
+    "defaultSocialImageUrl"
+  ];
+
+  if (!requiredStringFields.every((field) => typeof settings[field] === "string" && settings[field].trim().length > 0)) {
+    return false;
+  }
+
+  if (!assetFields.every((field) => typeof settings[field] === "string" && isSafePublicAssetUrl(settings[field]))) {
+    return false;
+  }
+
+  return Array.isArray(settings.footerQuickLinks) && Array.isArray(settings.socialLinks);
 }

@@ -88,7 +88,8 @@ describe("AdminContentService site settings lifecycle", () => {
     assert.equal(result.displayPhone, "+90 531 855 38 27");
     assert.equal(result.canonicalPhone, "+905318553827");
     assert.equal(result.supportWhatsappNumber, "905318553827");
-    assert.deepEqual(result.revalidateRoutes, ["/"]);
+    assert.ok(result.revalidateRoutes.includes("/"));
+    assert.ok(result.revalidateRoutes.includes("/ucretsiz-materyaller"));
     assert.deepEqual((result as { revalidateTags?: string[] }).revalidateTags, ["site-settings", "public-layout"]);
     assert.equal(harness.state.siteSettingUpserts.length, 1);
     assert.equal(harness.state.revisions[0].action, "website.site-settings.publish");
@@ -109,6 +110,17 @@ describe("AdminContentService site settings lifecycle", () => {
 });
 
 describe("AdminContentService free-material validation", () => {
+  it("rejects incomplete free-material documents before saving", async () => {
+    const { service } = createFreeMaterialsHarness();
+    const payload = freeMaterialsPayload();
+    delete (payload as { completeDocument?: boolean }).completeDocument;
+
+    await assertBadRequest(
+      () => service.saveFreeMaterialsDocument(payload, branchAdminAuth, "draft"),
+      "Ücretsiz materyaller tamamen yüklenmeden kaydedilemez."
+    );
+  });
+
   it("allows incomplete downloadable material as a draft", async () => {
     const harness = createFreeMaterialsHarness();
 
@@ -138,6 +150,38 @@ describe("AdminContentService free-material validation", () => {
     await assertBadRequest(
       () => service.saveFreeMaterialsDocument(payload, branchAdminAuth, "draft"),
       "Bağlantı yalnızca site içi rota veya güvenli HTTPS adresi olabilir."
+    );
+  });
+
+  it("blocks permanent category delete while cards remain", async () => {
+    const service = new AdminContentService({
+      $transaction: async <T>(callback: (client: unknown) => Promise<T>) =>
+        callback({
+          freeMaterialCategory: {
+            findUnique: async () => freeMaterialCategoryRecord()
+          }
+        })
+    } as never);
+
+    await assertBadRequest(
+      () => service.deleteMaterialCategory("pdf-documents", branchAdminAuth),
+      "Bu kategoriye bağlı materyal kartları bulunuyor. Önce kartları taşıyın, arşivleyin veya silin."
+    );
+  });
+
+  it("keeps system-tool cards from permanent delete", async () => {
+    const service = new AdminContentService({
+      $transaction: async <T>(callback: (client: unknown) => Promise<T>) =>
+        callback({
+          freeMaterialItem: {
+            findFirst: async () => freeMaterialItemRecord({ itemType: FreeMaterialItemType.TOOL })
+          }
+        })
+    } as never);
+
+    await assertBadRequest(
+      () => service.deleteMaterialCard("tool_1", branchAdminAuth),
+      "Sistem aracı kartları kalıcı olarak silinemez; arşivleyerek public görünürlüğünü kapatın."
     );
   });
 });
@@ -394,6 +438,7 @@ function freeMaterialsPayload(
 ): SaveFreeMaterialsDocumentDto {
   return {
     version: 1,
+    completeDocument: true,
     categories: [
       {
         key: "pdf-documents",
@@ -428,6 +473,67 @@ function freeMaterialsPayload(
       }
     ],
     countdownPages: []
+  };
+}
+
+function freeMaterialCategoryRecord() {
+  const now = new Date("2026-09-02T09:00:00.000Z");
+  return {
+    id: "cat_1",
+    key: "pdf-documents",
+    label: "PDF Dokümanlar",
+    description: "Dokümanlar",
+    sortOrder: 10,
+    publishStatus: ContentStatus.PUBLISHED,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    items: [freeMaterialItemRecord()]
+  };
+}
+
+function freeMaterialItemRecord(overrides: Partial<Record<string, unknown>> = {}) {
+  const now = new Date("2026-09-02T09:00:00.000Z");
+  return {
+    id: "item_1",
+    categoryId: "cat_1",
+    slug: "tyt-plan",
+    title: "TYT Plan",
+    itemType: FreeMaterialItemType.PDF,
+    badgeLabel: "PDF",
+    summary: "Plan",
+    href: "/ucretsiz-materyaller/tyt-kac-gun-kaldi",
+    buttonLabel: "Aç",
+    iconKey: "pdf",
+    tone: "blue",
+    coverImageUrl: null,
+    downloadUrl: null,
+    mediaAssetId: null,
+    displayFilename: null,
+    mimeType: null,
+    fileSizeBytes: null,
+    accessibilityLabel: null,
+    opensInNewTab: false,
+    sortOrder: 10,
+    isFeatured: false,
+    publishStatus: ContentStatus.PUBLISHED,
+    version: 1,
+    countdownPageId: null,
+    createdAt: now,
+    updatedAt: now,
+    category: {
+      id: "cat_1",
+      key: "pdf-documents",
+      label: "PDF Dokümanlar",
+      description: "Dokümanlar",
+      sortOrder: 10,
+      publishStatus: ContentStatus.PUBLISHED,
+      version: 1,
+      createdAt: now,
+      updatedAt: now
+    },
+    countdownPage: null,
+    ...overrides
   };
 }
 

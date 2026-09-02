@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Put,
@@ -155,6 +157,70 @@ export class AdminContentController {
     @Query("action") action?: string
   ) {
     return this.adminContentService.saveFreeMaterialsDocument(payload, auth, parseWebsiteAction(action));
+  }
+
+  @Post("free-materials/categories/:categoryKey/archive")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  archiveMaterialCategory(
+    @Param("categoryKey") categoryKey: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.archiveMaterialCategory(categoryKey, auth);
+  }
+
+  @Post("free-materials/categories/:categoryKey/restore")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  restoreMaterialCategory(
+    @Param("categoryKey") categoryKey: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.restoreMaterialCategory(categoryKey, auth);
+  }
+
+  @Delete("free-materials/categories/:categoryKey")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  deleteMaterialCategory(
+    @Param("categoryKey") categoryKey: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.deleteMaterialCategory(categoryKey, auth);
+  }
+
+  @Post("free-materials/items/:itemIdOrSlug/archive")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  archiveMaterialCard(
+    @Param("itemIdOrSlug") itemIdOrSlug: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.archiveMaterialCard(itemIdOrSlug, auth);
+  }
+
+  @Post("free-materials/items/:itemIdOrSlug/restore")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  restoreMaterialCard(
+    @Param("itemIdOrSlug") itemIdOrSlug: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.restoreMaterialCard(itemIdOrSlug, auth);
+  }
+
+  @Delete("free-materials/items/:itemIdOrSlug")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  deleteMaterialCard(
+    @Param("itemIdOrSlug") itemIdOrSlug: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.deleteMaterialCard(itemIdOrSlug, auth);
+  }
+
+  @Patch("free-materials/items/:itemIdOrSlug/move")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  moveMaterialCard(
+    @Param("itemIdOrSlug") itemIdOrSlug: string,
+    @Body() payload: { direction?: -1 | 1 },
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.moveMaterialCard(itemIdOrSlug, payload.direction === -1 ? -1 : 1, auth);
   }
 }
 

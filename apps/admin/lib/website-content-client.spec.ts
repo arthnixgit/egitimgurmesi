@@ -3,8 +3,15 @@ import { afterEach, describe, it } from "node:test";
 import { deleteAdminProduct } from "./commerce-client";
 import {
   AdminApiError,
+  archiveAdminMaterialCard,
+  archiveAdminMaterialCategory,
+  deleteAdminMaterialCard,
+  deleteAdminMaterialCategory,
   isStaffSessionError,
+  moveAdminMaterialCard,
   requestFormWithStaffToken,
+  restoreAdminMaterialCard,
+  restoreAdminMaterialCategory,
   serializeFreeMaterialsPayload,
   serializeSiteSettingsPayload,
   serializeStaffProfilesPayload,
@@ -40,7 +47,7 @@ describe("Admin website content client payloads", () => {
     ]);
   });
 
-  it("strips structured website document response IDs from write payloads", () => {
+  it("keeps material record IDs while stripping response-only fields from other documents", () => {
     const staffPayload = serializeStaffProfilesPayload(staffProfilesResponse());
     const storyPayload = serializeSuccessStoriesPayload(successStoriesResponse());
     const materialsPayload = serializeFreeMaterialsPayload(freeMaterialsResponse());
@@ -48,24 +55,55 @@ describe("Admin website content client payloads", () => {
     assert.equal("id" in staffPayload.groups[0], false);
     assert.equal("id" in staffPayload.groups[0].profiles[0], false);
     assert.equal("id" in storyPayload.stories[0], false);
-    assert.equal("id" in materialsPayload.categories[0], false);
-    assert.equal("id" in materialsPayload.categories[0].items[0], false);
+    assert.equal(materialsPayload.completeDocument, true);
+    assert.equal(materialsPayload.categories[0].id, "cat_1");
+    assert.equal(materialsPayload.categories[0].items[0].id, "item_1");
     assert.equal("version" in materialsPayload.categories[0].items[0], false);
-    assert.equal("id" in materialsPayload.countdownPages[0], false);
+    assert.equal(materialsPayload.countdownPages[0].id, "countdown_1");
     assert.equal("id" in materialsPayload.countdownPages[0].targets[0], false);
     assert.equal(materialsPayload.categories[0].items[0].downloadUrl, "https://cdn.example.com/plan.pdf");
   });
 
+  it("sends free-material lifecycle actions as explicit route mutations", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    installStaffStorage();
+    (globalThis as { fetch?: typeof fetch }).fetch = async (input, init) => {
+      requests.push({ url: String(input), init });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => freeMaterialsResponse()
+      } as Response;
+    };
+
+    await archiveAdminMaterialCategory("pdf-documents");
+    await restoreAdminMaterialCategory("pdf-documents");
+    await deleteAdminMaterialCategory("pdf-documents");
+    await archiveAdminMaterialCard("item_1");
+    await restoreAdminMaterialCard("item_1");
+    await deleteAdminMaterialCard("item_1");
+    await moveAdminMaterialCard("item_1", -1);
+
+    assert.deepEqual(
+      requests.map((request) => [request.init?.method, request.url]),
+      [
+        ["POST", "http://localhost:4000/v1/admin-content/free-materials/categories/pdf-documents/archive"],
+        ["POST", "http://localhost:4000/v1/admin-content/free-materials/categories/pdf-documents/restore"],
+        ["DELETE", "http://localhost:4000/v1/admin-content/free-materials/categories/pdf-documents"],
+        ["POST", "http://localhost:4000/v1/admin-content/free-materials/items/item_1/archive"],
+        ["POST", "http://localhost:4000/v1/admin-content/free-materials/items/item_1/restore"],
+        ["DELETE", "http://localhost:4000/v1/admin-content/free-materials/items/item_1"],
+        ["PATCH", "http://localhost:4000/v1/admin-content/free-materials/items/item_1/move"]
+      ]
+    );
+    assert.equal(requests[2].init?.body, undefined);
+    assert.equal(requests[5].init?.body, undefined);
+    assert.equal(requests[6].init?.body, JSON.stringify({ direction: -1 }));
+  });
+
   it("sends package delete as a route-only DELETE without product metadata body", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
-    (globalThis as { localStorage?: Storage }).localStorage = {
-      getItem: (key: string) => (key.includes("access") ? "access-token" : null),
-      setItem: () => undefined,
-      removeItem: () => undefined,
-      clear: () => undefined,
-      key: () => null,
-      length: 1
-    } as Storage;
+    installStaffStorage();
     (globalThis as { fetch?: typeof fetch }).fetch = async (input, init) => {
       requests.push({ url: String(input), init });
       return {
@@ -116,6 +154,17 @@ describe("Admin website content client payloads", () => {
     assert.deepEqual(removedKeys, []);
   });
 });
+
+function installStaffStorage() {
+  (globalThis as { localStorage?: Storage }).localStorage = {
+    getItem: (key: string) => (key.includes("access") ? "access-token" : "refresh-token"),
+    setItem: () => undefined,
+    removeItem: () => undefined,
+    clear: () => undefined,
+    key: () => null,
+    length: 2
+  } as Storage;
+}
 
 function siteSettingsResponse(): AdminSiteSettings {
   return {

@@ -112,7 +112,11 @@ function renderCanvasContent(data: {
         <p>{data.currentMaterialCategory?.description}</p>
         <div className="admin-website-builder__material-grid">
           {(data.currentMaterialCategory?.items ?? []).map((item) => (
-            <MaterialPreviewCard key={item.slug ?? item.title} item={item} active={item.slug === data.currentMaterialItem?.slug} />
+            <MaterialPreviewCard
+              key={item.id ?? item.slug ?? item.title}
+              item={item}
+              active={(item.id || item.slug || "") === (data.currentMaterialItem?.id || data.currentMaterialItem?.slug || "")}
+            />
           ))}
         </div>
       </div>

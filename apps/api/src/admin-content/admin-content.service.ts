@@ -31,6 +31,28 @@ const WHATSAPP_FORMAT_MESSAGE =
 const DOWNLOAD_URL_MESSAGE = "İndirilebilir materyal bağlantısı güvenli bir HTTPS adresi olmalıdır.";
 const UNSAFE_URL_MESSAGE = "Bağlantı yalnızca site içi rota veya güvenli HTTPS adresi olabilir.";
 const EMPTY_ACTIVE_NAVIGATION_MESSAGE = "Ana menüde en az bir aktif öğe bulunmalıdır.";
+const INCOMPLETE_FREE_MATERIALS_DOCUMENT_MESSAGE =
+  "Ücretsiz materyaller tamamen yüklenmeden kaydedilemez.";
+const CATEGORY_DELETE_BLOCKED_MESSAGE =
+  "Bu kategoriye bağlı materyal kartları bulunuyor. Önce kartları taşıyın, arşivleyin veya silin.";
+const PROTECTED_FREE_MATERIAL_ITEM_TYPES = new Set<FreeMaterialItemType>([
+  FreeMaterialItemType.COUNTDOWN,
+  FreeMaterialItemType.CALCULATOR,
+  FreeMaterialItemType.SIMULATION,
+  FreeMaterialItemType.SYSTEM_TOOL,
+  FreeMaterialItemType.TOOL
+]);
+const PUBLIC_LAYOUT_REVALIDATION_ROUTES = [
+  "/",
+  "/paketlerimiz",
+  "/hakkimizda",
+  "/akademik-kadro",
+  "/basarilarimiz",
+  "/ucretsiz-materyaller",
+  "/ucretsiz-materyaller/pdf-dokumanlar",
+  "/giris",
+  "/yuz-yuze-kocluk"
+] as const;
 const REQUIRED_QUICK_LINKS = [
   { label: "Paketlerimiz", href: "/paketlerimiz" },
   { label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" },
@@ -108,6 +130,17 @@ const freeMaterialCategoriesInclude = {
     }
   }
 } satisfies Prisma.FreeMaterialCategoryInclude;
+
+const freeMaterialItemMutationInclude = {
+  category: true,
+  countdownPage: {
+    select: {
+      slug: true,
+      title: true,
+      updatedLabel: true
+    }
+  }
+} satisfies Prisma.FreeMaterialItemInclude;
 
 const countdownPagesInclude = {
   targets: {
@@ -244,7 +277,7 @@ export class AdminContentService {
         summary: "Global web sitesi ayarları yayınlandı.",
         beforeData: before ? normalizeSiteSettings(before) : null,
         afterData: normalized,
-        metadata: revalidationMetadata(["/"], ["site-settings", "public-layout"])
+        metadata: revalidationMetadata([...PUBLIC_LAYOUT_REVALIDATION_ROUTES], ["site-settings", "public-layout"])
       });
 
       return record;
@@ -252,7 +285,7 @@ export class AdminContentService {
 
     return {
       ...normalizeSiteSettings(saved),
-      revalidateRoutes: ["/"],
+      revalidateRoutes: [...PUBLIC_LAYOUT_REVALIDATION_ROUTES],
       revalidateTags: ["site-settings", "public-layout"]
     };
   }
@@ -331,10 +364,14 @@ export class AdminContentService {
 
     if (revision.entityType === "FreeMaterialsDocument") {
       return this.saveFreeMaterialsDocument(
-        data as unknown as SaveFreeMaterialsDocumentDto,
+        { ...data, completeDocument: true } as unknown as SaveFreeMaterialsDocumentDto,
         auth,
         "publish"
       );
+    }
+
+    if (revision.entityType === "FreeMaterialItem") {
+      return this.restoreMaterialCardFromRevision(data, auth);
     }
 
     throw new BadRequestException("Bu revizyon otomatik geri yükleme için desteklenmiyor.");
@@ -1006,6 +1043,10 @@ export class AdminContentService {
   ) {
     requireWebsiteAction(auth, action);
 
+    if (!payload.completeDocument) {
+      throw new BadRequestException(INCOMPLETE_FREE_MATERIALS_DOCUMENT_MESSAGE);
+    }
+
     const [beforeCategories, beforeCountdownPages] = await Promise.all([
       this.prisma.freeMaterialCategory.findMany({
         include: freeMaterialCategoriesInclude,
@@ -1049,51 +1090,45 @@ export class AdminContentService {
 
     const document = await this.prisma.$transaction(async (tx) => {
       const countdownIdBySlug = new Map<string, string>();
-      const activeCountdownSlugs: string[] = [];
 
       for (const countdownPage of payload.countdownPages) {
         const record = await upsertCountdownPage(tx, countdownPage);
         countdownIdBySlug.set(record.slug, record.id);
-        activeCountdownSlugs.push(record.slug);
       }
-
-      await tx.countdownPage.updateMany({
-        where: {
-          slug: {
-            notIn: activeCountdownSlugs.length > 0 ? activeCountdownSlugs : ["__none__"]
-          }
-        },
-        data: {
-          publishStatus: ContentStatus.ARCHIVED
-        }
-      });
-
-      const activeCategoryKeys: string[] = [];
-      const activeItemSlugs: string[] = [];
 
       for (let categoryIndex = 0; categoryIndex < payload.categories.length; categoryIndex += 1) {
         const category = payload.categories[categoryIndex];
         const key = sanitizeSlug(category.key);
-        activeCategoryKeys.push(key);
-        const categoryRecord = await tx.freeMaterialCategory.upsert({
-          where: { key },
-          update: {
-            label: sanitizePlainText(category.label),
-            description: sanitizeNullableText(category.description),
-            sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
-            publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED,
-            version: {
-              increment: 1
-            }
-          },
-          create: {
-            key,
-            label: sanitizePlainText(category.label),
-            description: sanitizeNullableText(category.description),
-            sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
-            publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED
-          }
-        });
+        const categoryData = {
+          label: sanitizePlainText(category.label),
+          description: sanitizeNullableText(category.description),
+          sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
+          publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED
+        };
+        const categoryRecord = category.id
+          ? await tx.freeMaterialCategory.update({
+              where: { id: category.id },
+              data: {
+                key,
+                ...categoryData,
+                version: {
+                  increment: 1
+                }
+              }
+            })
+          : await tx.freeMaterialCategory.upsert({
+              where: { key },
+              update: {
+                ...categoryData,
+                version: {
+                  increment: 1
+                }
+              },
+              create: {
+                key,
+                ...categoryData
+              }
+            });
 
         for (let itemIndex = 0; itemIndex < category.items.length; itemIndex += 1) {
           const normalizedItem = normalizeFreeMaterialItemInput(
@@ -1102,38 +1137,8 @@ export class AdminContentService {
             itemIndex,
             true
           );
-          activeItemSlugs.push(normalizedItem.slug);
-          await tx.freeMaterialItem.upsert({
-            where: { slug: normalizedItem.slug },
-            update: {
-              categoryId: categoryRecord.id,
-              title: normalizedItem.title,
-              itemType: normalizedItem.itemType,
-              badgeLabel: normalizedItem.badgeLabel,
-              summary: normalizedItem.summary,
-              href: normalizedItem.href,
-              buttonLabel: normalizedItem.buttonLabel,
-              iconKey: normalizedItem.iconKey,
-              tone: normalizedItem.tone,
-              coverImageUrl: normalizedItem.coverImageUrl,
-              downloadUrl: normalizedItem.downloadUrl,
-              mediaAssetId: normalizedItem.mediaAssetId,
-              displayFilename: normalizedItem.displayFilename,
-              mimeType: normalizedItem.mimeType,
-              fileSizeBytes: normalizedItem.fileSizeBytes,
-              accessibilityLabel: normalizedItem.accessibilityLabel,
-              opensInNewTab: normalizedItem.opensInNewTab,
-              sortOrder: normalizedItem.sortOrder,
-              isFeatured: normalizedItem.isFeatured,
-              publishStatus: normalizedItem.publishStatus,
-              countdownPageId: normalizedItem.countdownPageSlug
-                ? countdownIdBySlug.get(normalizedItem.countdownPageSlug)
-                : null,
-              version: {
-                increment: 1
-              }
-            },
-            create: {
+          const itemPayload = category.items[itemIndex];
+          const itemData = {
               categoryId: categoryRecord.id,
               slug: normalizedItem.slug,
               title: normalizedItem.title,
@@ -1156,33 +1161,34 @@ export class AdminContentService {
               isFeatured: normalizedItem.isFeatured,
               publishStatus: normalizedItem.publishStatus,
               countdownPageId: normalizedItem.countdownPageSlug
-                ? countdownIdBySlug.get(normalizedItem.countdownPageSlug)
+                ? countdownIdBySlug.get(normalizedItem.countdownPageSlug) ?? null
                 : null
-            }
-          });
+          };
+
+          if (itemPayload.id) {
+            await tx.freeMaterialItem.update({
+              where: { id: itemPayload.id },
+              data: {
+                ...itemData,
+                version: {
+                  increment: 1
+                }
+              }
+            });
+          } else {
+            await tx.freeMaterialItem.upsert({
+              where: { slug: normalizedItem.slug },
+              update: {
+                ...itemData,
+                version: {
+                  increment: 1
+                }
+              },
+              create: itemData
+            });
+          }
         }
       }
-
-      await tx.freeMaterialCategory.updateMany({
-        where: {
-          key: {
-            notIn: activeCategoryKeys.length > 0 ? activeCategoryKeys : ["__none__"]
-          }
-        },
-        data: {
-          publishStatus: ContentStatus.ARCHIVED
-        }
-      });
-      await tx.freeMaterialItem.updateMany({
-        where: {
-          slug: {
-            notIn: activeItemSlugs.length > 0 ? activeItemSlugs : ["__none__"]
-          }
-        },
-        data: {
-          publishStatus: ContentStatus.ARCHIVED
-        }
-      });
 
       const [categories, countdownPages] = await Promise.all([
         tx.freeMaterialCategory.findMany({
@@ -1212,7 +1218,7 @@ export class AdminContentService {
         beforeData: before,
         afterData: normalized,
         metadata: revalidationMetadata(
-          ["/ucretsiz-materyaller", "/ucretsiz-materyaller/pdf-dokumanlar"],
+          freeMaterialRevalidationRoutes(),
           ["free-materials"]
         )
       });
@@ -1222,10 +1228,485 @@ export class AdminContentService {
 
     return {
       ...document,
-      revalidateRoutes: ["/ucretsiz-materyaller", "/ucretsiz-materyaller/pdf-dokumanlar"],
+      revalidateRoutes: freeMaterialRevalidationRoutes(),
       revalidateTags: ["free-materials"]
     };
   }
+
+  archiveMaterialCategory(categoryKey: string, auth: AuthenticatedRequestContext) {
+    return this.changeMaterialCategoryStatus(categoryKey, ContentStatus.ARCHIVED, auth, "archive");
+  }
+
+  restoreMaterialCategory(categoryKey: string, auth: AuthenticatedRequestContext) {
+    return this.changeMaterialCategoryStatus(categoryKey, ContentStatus.PUBLISHED, auth, "restore");
+  }
+
+  async deleteMaterialCategory(categoryKey: string, auth: AuthenticatedRequestContext) {
+    requireWebsiteManage(auth);
+    const key = sanitizeSlug(categoryKey);
+
+    await this.prisma.$transaction(async (tx) => {
+      const category = await tx.freeMaterialCategory.findUnique({
+        where: { key },
+        include: freeMaterialCategoriesInclude
+      });
+
+      if (!category) {
+        throw new NotFoundException("Materyal kategorisi bulunamadı.");
+      }
+
+      if (category.items.length > 0) {
+        throw new BadRequestException(CATEGORY_DELETE_BLOCKED_MESSAGE);
+      }
+
+      const beforeData = normalizeFreeMaterialCategoryForRevision(category);
+      await tx.freeMaterialCategory.delete({ where: { id: category.id } });
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialCategory",
+        entityKey: key,
+        action: "website.free-materials.category.delete",
+        version: category.version + 1,
+        summary: "Ücretsiz materyal kategorisi kalıcı olarak silindi.",
+        beforeData,
+        afterData: { deleted: true, category: beforeData }
+      });
+      await recordAuditLog(tx, auth, {
+        action: "website.free-materials.category.delete",
+        entityType: "FreeMaterialCategory",
+        entityId: category.id,
+        summary: "Ücretsiz materyal kategorisi kalıcı olarak silindi.",
+        beforeData,
+        afterData: { deleted: true, category: beforeData },
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+
+  archiveMaterialCard(itemIdOrSlug: string, auth: AuthenticatedRequestContext) {
+    return this.changeMaterialCardStatus(itemIdOrSlug, ContentStatus.ARCHIVED, auth, "archive");
+  }
+
+  restoreMaterialCard(itemIdOrSlug: string, auth: AuthenticatedRequestContext) {
+    return this.changeMaterialCardStatus(itemIdOrSlug, ContentStatus.PUBLISHED, auth, "restore");
+  }
+
+  async deleteMaterialCard(itemIdOrSlug: string, auth: AuthenticatedRequestContext) {
+    requireWebsiteManage(auth);
+
+    await this.prisma.$transaction(async (tx) => {
+      const item = await findFreeMaterialItemForMutation(tx, itemIdOrSlug);
+
+      if (!item) {
+        throw new NotFoundException("Materyal kartı bulunamadı.");
+      }
+
+      if (PROTECTED_FREE_MATERIAL_ITEM_TYPES.has(item.itemType)) {
+        throw new BadRequestException("Sistem aracı kartları kalıcı olarak silinemez; arşivleyerek public görünürlüğünü kapatın.");
+      }
+
+      const beforeData = normalizeFreeMaterialItemForRevision(item);
+      await tx.freeMaterialItem.delete({ where: { id: item.id } });
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialItem",
+        entityKey: item.slug ?? item.id,
+        action: "website.free-materials.item.delete",
+        version: item.version + 1,
+        summary: "Ücretsiz materyal kartı kalıcı olarak silindi.",
+        beforeData,
+        afterData: { deleted: true, item: beforeData }
+      });
+      await recordAuditLog(tx, auth, {
+        action: "website.free-materials.item.delete",
+        entityType: "FreeMaterialItem",
+        entityId: item.id,
+        summary: "Ücretsiz materyal kartı kalıcı olarak silindi.",
+        beforeData,
+        afterData: { deleted: true, item: beforeData },
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+
+  async moveMaterialCard(itemIdOrSlug: string, direction: -1 | 1, auth: AuthenticatedRequestContext) {
+    requireWebsiteManage(auth);
+
+    await this.prisma.$transaction(async (tx) => {
+      const item = await findFreeMaterialItemForMutation(tx, itemIdOrSlug);
+
+      if (!item) {
+        throw new NotFoundException("Materyal kartı bulunamadı.");
+      }
+
+      const siblings = await tx.freeMaterialItem.findMany({
+        where: { categoryId: item.categoryId },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      });
+      const currentIndex = siblings.findIndex((entry) => entry.id === item.id);
+      const target = siblings[currentIndex + direction];
+
+      if (!target) {
+        return;
+      }
+
+      const beforeData = {
+        item: normalizeFreeMaterialItemForRevision(item),
+        target: normalizeFreeMaterialItemForRevision({ ...target, category: item.category, countdownPage: null })
+      };
+
+      await tx.freeMaterialItem.update({
+        where: { id: item.id },
+        data: { sortOrder: target.sortOrder, version: { increment: 1 } }
+      });
+      await tx.freeMaterialItem.update({
+        where: { id: target.id },
+        data: { sortOrder: item.sortOrder, version: { increment: 1 } }
+      });
+
+      const updated = await findFreeMaterialItemForMutation(tx, item.id);
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialItem",
+        entityKey: item.slug ?? item.id,
+        action: "website.free-materials.item.move",
+        version: item.version + 1,
+        summary: "Ücretsiz materyal kartı sıralandı.",
+        beforeData,
+        afterData: updated ? normalizeFreeMaterialItemForRevision(updated) : beforeData.item
+      });
+      await recordAuditLog(tx, auth, {
+        action: "website.free-materials.item.move",
+        entityType: "FreeMaterialItem",
+        entityId: item.id,
+        summary: "Ücretsiz materyal kartı sıralandı.",
+        beforeData,
+        afterData: updated ? normalizeFreeMaterialItemForRevision(updated) : beforeData.item,
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+
+  private async restoreMaterialCardFromRevision(
+    data: Record<string, unknown>,
+    auth: AuthenticatedRequestContext
+  ) {
+    const nestedItemData = asRecord(data.item);
+    const itemData = Object.keys(nestedItemData).length > 0 ? nestedItemData : data;
+    const categoryKey = typeof itemData.categoryKey === "string" ? sanitizeSlug(itemData.categoryKey) : "";
+
+    if (!categoryKey) {
+      throw new BadRequestException("Materyal kartı revizyonunda kategori bilgisi bulunamadı.");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const category = await tx.freeMaterialCategory.findUnique({ where: { key: categoryKey } });
+
+      if (!category) {
+        throw new NotFoundException("Materyal kategorisi bulunamadı.");
+      }
+
+      const normalizedItem = normalizeFreeMaterialItemInput(
+        {
+          slug: typeof itemData.slug === "string" ? itemData.slug : undefined,
+          title: typeof itemData.title === "string" ? itemData.title : "Geri yüklenen materyal",
+          itemType: normalizeFreeMaterialItemType(itemData.itemType),
+          badgeLabel: nullableRevisionString(itemData.badgeLabel) ?? undefined,
+          summary: nullableRevisionString(itemData.summary) ?? undefined,
+          href: nullableRevisionString(itemData.href) ?? undefined,
+          buttonLabel: nullableRevisionString(itemData.buttonLabel) ?? undefined,
+          iconKey: nullableRevisionString(itemData.iconKey) ?? undefined,
+          tone: nullableRevisionString(itemData.tone) ?? undefined,
+          coverImageUrl: nullableRevisionString(itemData.coverImageUrl) ?? undefined,
+          downloadUrl: nullableRevisionString(itemData.downloadUrl) ?? undefined,
+          mediaAssetId: nullableRevisionString(itemData.mediaAssetId) ?? undefined,
+          displayFilename: nullableRevisionString(itemData.displayFilename) ?? undefined,
+          mimeType: nullableRevisionString(itemData.mimeType) ?? undefined,
+          fileSizeBytes: typeof itemData.fileSizeBytes === "number" ? itemData.fileSizeBytes : undefined,
+          accessibilityLabel: nullableRevisionString(itemData.accessibilityLabel) ?? undefined,
+          opensInNewTab: typeof itemData.opensInNewTab === "boolean" ? itemData.opensInNewTab : false,
+          sortOrder: typeof itemData.sortOrder === "number" ? itemData.sortOrder : undefined,
+          isFeatured: typeof itemData.isFeatured === "boolean" ? itemData.isFeatured : false,
+          publishStatus: normalizeContentStatus(itemData.publishStatus, ContentStatus.PUBLISHED),
+          countdownPageSlug: nullableRevisionString(itemData.countdownPageSlug) ?? undefined
+        },
+        categoryKey,
+        0,
+        false
+      );
+      const countdownPage = normalizedItem.countdownPageSlug
+        ? await tx.countdownPage.findUnique({ where: { slug: normalizedItem.countdownPageSlug } })
+        : null;
+
+      const restored = await tx.freeMaterialItem.upsert({
+        where: { slug: normalizedItem.slug },
+        update: {
+          categoryId: category.id,
+          title: normalizedItem.title,
+          itemType: normalizedItem.itemType,
+          badgeLabel: normalizedItem.badgeLabel,
+          summary: normalizedItem.summary,
+          href: normalizedItem.href,
+          buttonLabel: normalizedItem.buttonLabel,
+          iconKey: normalizedItem.iconKey,
+          tone: normalizedItem.tone,
+          coverImageUrl: normalizedItem.coverImageUrl,
+          downloadUrl: normalizedItem.downloadUrl,
+          mediaAssetId: normalizedItem.mediaAssetId,
+          displayFilename: normalizedItem.displayFilename,
+          mimeType: normalizedItem.mimeType,
+          fileSizeBytes: normalizedItem.fileSizeBytes,
+          accessibilityLabel: normalizedItem.accessibilityLabel,
+          opensInNewTab: normalizedItem.opensInNewTab,
+          sortOrder: normalizedItem.sortOrder,
+          isFeatured: normalizedItem.isFeatured,
+          publishStatus: normalizedItem.publishStatus,
+          countdownPageId: countdownPage?.id ?? null,
+          version: { increment: 1 }
+        },
+        create: {
+          categoryId: category.id,
+          slug: normalizedItem.slug,
+          title: normalizedItem.title,
+          itemType: normalizedItem.itemType,
+          badgeLabel: normalizedItem.badgeLabel,
+          summary: normalizedItem.summary,
+          href: normalizedItem.href,
+          buttonLabel: normalizedItem.buttonLabel,
+          iconKey: normalizedItem.iconKey,
+          tone: normalizedItem.tone,
+          coverImageUrl: normalizedItem.coverImageUrl,
+          downloadUrl: normalizedItem.downloadUrl,
+          mediaAssetId: normalizedItem.mediaAssetId,
+          displayFilename: normalizedItem.displayFilename,
+          mimeType: normalizedItem.mimeType,
+          fileSizeBytes: normalizedItem.fileSizeBytes,
+          accessibilityLabel: normalizedItem.accessibilityLabel,
+          opensInNewTab: normalizedItem.opensInNewTab,
+          sortOrder: normalizedItem.sortOrder,
+          isFeatured: normalizedItem.isFeatured,
+          publishStatus: normalizedItem.publishStatus,
+          countdownPageId: countdownPage?.id ?? null
+        }
+      });
+
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialItem",
+        entityKey: restored.slug ?? restored.id,
+        action: "website.free-materials.item.restore-revision",
+        version: restored.version,
+        summary: "Ücretsiz materyal kartı revizyondan geri yüklendi.",
+        beforeData: null,
+        afterData: { ...normalizedItem, id: restored.id, categoryKey }
+      });
+      await recordAuditLog(tx, auth, {
+        action: "website.free-materials.item.restore-revision",
+        entityType: "FreeMaterialItem",
+        entityId: restored.id,
+        summary: "Ücretsiz materyal kartı revizyondan geri yüklendi.",
+        beforeData: null,
+        afterData: { ...normalizedItem, id: restored.id, categoryKey },
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+
+  private async changeMaterialCategoryStatus(
+    categoryKey: string,
+    publishStatus: ContentStatus,
+    auth: AuthenticatedRequestContext,
+    actionName: "archive" | "restore"
+  ) {
+    requireWebsiteManage(auth);
+    const key = sanitizeSlug(categoryKey);
+
+    await this.prisma.$transaction(async (tx) => {
+      const before = await tx.freeMaterialCategory.findUnique({
+        where: { key },
+        include: freeMaterialCategoriesInclude
+      });
+
+      if (!before) {
+        throw new NotFoundException("Materyal kategorisi bulunamadı.");
+      }
+
+      const beforeData = normalizeFreeMaterialCategoryForRevision(before);
+      const updated = await tx.freeMaterialCategory.update({
+        where: { id: before.id },
+        data: {
+          publishStatus,
+          version: { increment: 1 }
+        },
+        include: freeMaterialCategoriesInclude
+      });
+      const afterData = normalizeFreeMaterialCategoryForRevision(updated);
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialCategory",
+        entityKey: key,
+        action: `website.free-materials.category.${actionName}`,
+        version: updated.version,
+        summary: actionName === "archive"
+          ? "Ücretsiz materyal kategorisi arşivlendi."
+          : "Ücretsiz materyal kategorisi arşivden çıkarıldı.",
+        beforeData,
+        afterData
+      });
+      await recordAuditLog(tx, auth, {
+        action: `website.free-materials.category.${actionName}`,
+        entityType: "FreeMaterialCategory",
+        entityId: updated.id,
+        summary: actionName === "archive"
+          ? "Ücretsiz materyal kategorisi arşivlendi."
+          : "Ücretsiz materyal kategorisi arşivden çıkarıldı.",
+        beforeData,
+        afterData,
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+
+  private async changeMaterialCardStatus(
+    itemIdOrSlug: string,
+    publishStatus: ContentStatus,
+    auth: AuthenticatedRequestContext,
+    actionName: "archive" | "restore"
+  ) {
+    requireWebsiteManage(auth);
+
+    await this.prisma.$transaction(async (tx) => {
+      const before = await findFreeMaterialItemForMutation(tx, itemIdOrSlug);
+
+      if (!before) {
+        throw new NotFoundException("Materyal kartı bulunamadı.");
+      }
+
+      const beforeData = normalizeFreeMaterialItemForRevision(before);
+      const updated = await tx.freeMaterialItem.update({
+        where: { id: before.id },
+        data: {
+          publishStatus,
+          version: { increment: 1 }
+        },
+        include: freeMaterialItemMutationInclude
+      });
+      const afterData = normalizeFreeMaterialItemForRevision(updated);
+      await recordWebsiteRevision(tx, auth, {
+        entityType: "FreeMaterialItem",
+        entityKey: updated.slug ?? updated.id,
+        action: `website.free-materials.item.${actionName}`,
+        version: updated.version,
+        summary: actionName === "archive"
+          ? "Ücretsiz materyal kartı arşivlendi."
+          : "Ücretsiz materyal kartı arşivden çıkarıldı.",
+        beforeData,
+        afterData
+      });
+      await recordAuditLog(tx, auth, {
+        action: `website.free-materials.item.${actionName}`,
+        entityType: "FreeMaterialItem",
+        entityId: updated.id,
+        summary: actionName === "archive"
+          ? "Ücretsiz materyal kartı arşivlendi."
+          : "Ücretsiz materyal kartı arşivden çıkarıldı.",
+        beforeData,
+        afterData,
+        metadata: revalidationMetadata(freeMaterialRevalidationRoutes(), ["free-materials"])
+      });
+    });
+
+    return withFreeMaterialRevalidation(await this.getFreeMaterialsDocument(auth));
+  }
+}
+
+function freeMaterialRevalidationRoutes() {
+  return [
+    "/ucretsiz-materyaller",
+    "/ucretsiz-materyaller/pdf-dokumanlar",
+    "/ucretsiz-materyaller/faydali-linkler",
+    "/ucretsiz-materyaller/blog",
+    "/ucretsiz-materyaller/yks-kac-gun-kaldi",
+    "/ucretsiz-materyaller/yks-atlas",
+    "/ucretsiz-materyaller/turkiye-geneli-deneme",
+    "/ucretsiz-materyaller/puan-hesapla",
+    "/ucretsiz-materyaller/puan-hesaplama",
+    "/ucretsiz-materyaller/maarif-simulasyonlari"
+  ];
+}
+
+function withFreeMaterialRevalidation<T extends object>(document: T) {
+  return {
+    ...document,
+    revalidateRoutes: freeMaterialRevalidationRoutes(),
+    revalidateTags: ["free-materials"]
+  };
+}
+
+function normalizeFreeMaterialCategoryForRevision(category: FreeMaterialCategoryWithItems) {
+  return normalizeFreeMaterialsDocument([category], []).categories[0];
+}
+
+async function findFreeMaterialItemForMutation(tx: TransactionClient, itemIdOrSlug: string) {
+  return tx.freeMaterialItem.findFirst({
+    where: {
+      OR: [{ id: itemIdOrSlug }, { slug: itemIdOrSlug }]
+    },
+    include: freeMaterialItemMutationInclude
+  });
+}
+
+function normalizeFreeMaterialItemForRevision(
+  item: NonNullable<Awaited<ReturnType<typeof findFreeMaterialItemForMutation>>>
+) {
+  return {
+    id: item.id,
+    categoryId: item.categoryId,
+    categoryKey: item.category.key,
+    slug: item.slug ?? sanitizeSlug(`${item.category.key}-${item.title}`),
+    title: item.title,
+    itemType: item.itemType,
+    badgeLabel: item.badgeLabel,
+    summary: item.summary,
+    href: item.href,
+    buttonLabel: item.buttonLabel,
+    iconKey: item.iconKey,
+    tone: item.tone,
+    coverImageUrl: item.coverImageUrl,
+    downloadUrl: item.downloadUrl,
+    mediaAssetId: item.mediaAssetId,
+    displayFilename: item.displayFilename,
+    mimeType: item.mimeType,
+    fileSizeBytes: item.fileSizeBytes,
+    accessibilityLabel: item.accessibilityLabel,
+    opensInNewTab: item.opensInNewTab,
+    sortOrder: item.sortOrder,
+    isFeatured: item.isFeatured,
+    publishStatus: item.publishStatus,
+    version: item.version,
+    countdownPageSlug: item.countdownPage?.slug ?? null
+  };
+}
+
+function nullableRevisionString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function normalizeFreeMaterialItemType(value: unknown) {
+  return Object.values(FreeMaterialItemType).includes(value as FreeMaterialItemType)
+    ? (value as FreeMaterialItemType)
+    : FreeMaterialItemType.INTERNAL_PAGE;
+}
+
+function normalizeContentStatus(value: unknown, fallback: ContentStatus) {
+  return Object.values(ContentStatus).includes(value as ContentStatus)
+    ? (value as ContentStatus)
+    : fallback;
 }
 
 async function upsertNavigationItems(
@@ -1372,13 +1853,12 @@ function normalizeSiteSettings(record: SiteSettingRecord | null) {
     supportWhatsappNumber: whatsappNumber,
     logoPrimaryUrl: source.logoPrimaryUrl ?? defaultSiteSettings.logoPrimaryUrl,
     logoMarkUrl: source.logoMarkUrl ?? defaultSiteSettings.logoMarkUrl,
-    logoFooterUrl: source.logoFooterUrl ?? source.logoPrimaryUrl ?? defaultSiteSettings.logoFooterUrl,
-    logoCompactUrl: source.logoCompactUrl ?? source.logoMarkUrl ?? defaultSiteSettings.logoCompactUrl,
-    logoDarkUrl: source.logoDarkUrl ?? source.logoPrimaryUrl ?? defaultSiteSettings.logoDarkUrl,
-    logoLightUrl: source.logoLightUrl ?? source.logoPrimaryUrl ?? defaultSiteSettings.logoLightUrl,
+    logoFooterUrl: source.logoFooterUrl ?? defaultSiteSettings.logoFooterUrl,
+    logoCompactUrl: source.logoCompactUrl ?? defaultSiteSettings.logoCompactUrl,
+    logoDarkUrl: source.logoDarkUrl ?? defaultSiteSettings.logoDarkUrl,
+    logoLightUrl: source.logoLightUrl ?? defaultSiteSettings.logoLightUrl,
     faviconUrl: source.faviconUrl ?? defaultSiteSettings.faviconUrl,
-    defaultSocialImageUrl:
-      source.defaultSocialImageUrl ?? source.logoPrimaryUrl ?? defaultSiteSettings.defaultSocialImageUrl,
+    defaultSocialImageUrl: source.defaultSocialImageUrl ?? defaultSiteSettings.defaultSocialImageUrl,
     logoAltText: source.logoAltText ?? defaultSiteSettings.logoAltText,
     displayPhone: source.displayPhone ?? defaultSiteSettings.displayPhone,
     canonicalPhone,
@@ -1768,7 +2248,7 @@ function normalizeFreeMaterialsDocument(
       version: category.version,
       items: category.items.map((item) => ({
         id: item.id,
-        slug: item.slug,
+        slug: item.slug ?? sanitizeSlug(`${category.key}-${item.title}`),
         title: item.title,
         itemType: item.itemType,
         badgeLabel: item.badgeLabel,
@@ -1897,13 +2377,19 @@ function normalizeFreeMaterialItemInput(
   const title = sanitizePlainText(item.title);
   const slug = sanitizeSlug(item.slug || `${categoryKey}-${title}`);
   const itemType = item.itemType;
-  const isDownload = itemType === FreeMaterialItemType.PDF || itemType === FreeMaterialItemType.DOWNLOAD;
-  const href = isDownload ? null : item.href ? normalizeRequiredContentHref(item.href) : null;
   const downloadUrl = item.downloadUrl ? normalizeDownloadUrl(item.downloadUrl) : null;
   const mediaAssetId = sanitizeNullableText(item.mediaAssetId);
+  const isDownload =
+    itemType === FreeMaterialItemType.DOWNLOAD ||
+    (itemType === FreeMaterialItemType.PDF && Boolean(downloadUrl || mediaAssetId));
+  const href = isDownload ? null : item.href ? normalizeRequiredContentHref(item.href) : null;
 
-  if (requirePublishReady && isDownload && !downloadUrl && !mediaAssetId) {
+  if (requirePublishReady && itemType === FreeMaterialItemType.DOWNLOAD && !downloadUrl && !mediaAssetId) {
     throw new BadRequestException("İndirilebilir materyal için dosya veya güvenli bağlantı seçmelisiniz.");
+  }
+
+  if (requirePublishReady && !isDownload && !href) {
+    throw new BadRequestException("Materyal kartı için güvenli bir hedef bağlantı veya dosya seçmelisiniz.");
   }
 
   return {

@@ -261,10 +261,78 @@ Sipariş veya kayıt geçmişi olan paket silinemez; arşivleme önerilir.
 
 ## Migration ve Backfill
 
-Bu çalışma additive Prisma migration içerir. Var olan public içerik silinmez;
-site ayarları güvenli fallback değerleriyle ve düzeltilmiş telefon/WhatsApp
-formatıyla backfill edilir. Production'da yalnızca `migrate deploy`
-çalıştırılmalıdır.
+Bu çalışma şema değişikliği içermez. Eklenen migration yalnızca data-only
+legacy materyal uzlaştırmasıdır ve dört eski PDF kartını yönetilebilir
+`FreeMaterialItem` kayıtlarına dönüştürür:
+
+- `TYT Çalışma Planı PDF` -> `tyt-calisma-plani-pdf`
+- `AYT Tekrar Çizelgesi PDF` -> `ayt-tekrar-cizelgesi-pdf`
+- `Deneme Analiz Formu PDF` -> `deneme-analiz-formu-pdf`
+- `Hedef Takip Sayfası PDF` -> `hedef-takip-sayfasi-pdf`
+
+Migration idempotenttir. Aynı slug veya aynı kategoride aynı başlık zaten varsa
+ikinci kayıt oluşturmaz; slug'ı boş olan eski kaydı bulursa yalnızca slug verir.
+Arşivlenmiş veya kullanıcı tarafından eklenmiş kayıtlar silinmez. Production'da
+yalnızca `migrate deploy` çalıştırılmalıdır.
+
+## Logo Yayın Mimarisi
+
+Public site ayarları tek yetkili snapshot olarak root layout içinde server-side
+yüklenir. İlk HTML ve ilk client render aynı `PublicSiteSettingsProvider`
+değerini kullanır. Header, footer, WhatsApp/kontakt kontrolleri ve sayfa içi
+global marka yüzeyleri ayrı ayrı API çağrısı yapmaz. Client refresh gerekirse son
+geçerli snapshot korunur; bozuk, eksik veya stale cevap geçerli logoyu boşaltmaz.
+
+Logo alanlarının tüketicileri:
+
+- `logoPrimaryUrl`: masaüstü public header ve normal açık header bağlamları.
+- `logoCompactUrl`: mobil/dar public header logosu.
+- `logoFooterUrl`: yalnızca ortak public footer marka logosu.
+- `logoMarkUrl`: standalone marka işareti kullanılan başarı/koçluk gibi mark yüzeyleri.
+- `logoDarkUrl`: açık yüzeylerde kullanılacak koyu logo varyantı.
+- `logoLightUrl`: koyu veya gradient yüzeylerde kullanılacak açık logo varyantı.
+- `faviconUrl`: favicon ve desteklenen application/apple icon metadata.
+- `defaultSocialImageUrl`: Open Graph ve Twitter varsayılan paylaşım görseli.
+- `logoAltText`: anlamlı logo görsellerinin erişilebilir alternatif metni.
+
+Medya yüklemek canlı siteyi değiştirmez. Yaşam döngüsü: görsel yükle/seç, Admin
+draft state güncellenir, değişiklik kirli olur, Taslağı Kaydet ile revizyon
+saklanır, Önizleme taslakla yapılır, Yayınla ile public ayar versiyonu artar ve
+layout/metadata revalidation metadata'sı döner. Admin'deki **Bu görseli tüm logo
+alanlarında kullan** aksiyonu yalnızca açık tıklamayla uyumlu logo alanlarına
+kopyalar; favicon veya sosyal paylaşım görselini sessizce değiştirmez.
+
+Favicon değişiklikleri yayınlandıktan ve revalidation tamamlandıktan sonra bile
+tarayıcı sekmesi önbelleği nedeniyle gecikmeli görünebilir. Yeni gizli pencere,
+hard refresh veya doğrudan favicon URL kontrolü gerçek yayın durumunu doğrulamak
+için daha güvenilirdir.
+
+## Ücretsiz Materyal Kaynağı
+
+Ücretsiz materyallerde veritabanı kayıtları tek yetkili kaynaktır. Public API 200
+döndüyse boş kategori veya sıfır kategori bilinçli boş durum sayılır; web eski
+hardcoded kartları geri koymaz. Public boş durum metinleri:
+
+- Kategoride yayınlı kart yok: `Bu kategoride şu anda yayında materyal bulunmuyor.`
+- Hiç yayınlı materyal yok: `Ücretsiz materyaller hazırlanıyor. Yeni içerikler yakında burada yayınlanacak.`
+- API geçici olarak yüklenemiyor: `Ücretsiz materyaller şu anda yüklenemiyor. Lütfen kısa süre sonra tekrar deneyin.`
+
+Admin read, yetkili editörler için yayında, taslak ve arşivlenmiş kategori/kartları
+döndürür. Public endpoint yalnızca aktif/yayında kayıtları döndürür. Ana dizin,
+PDF dokümanları, faydalı linkler, blog ve sayaç sayfaları aynı yönetilen kayıtları
+kullanır; kart arşivlenir veya silinirse tüm public konumlardan çıkar, geri
+yüklenirse kategori/sıra düzenine göre geri döner.
+
+Arşivleme birincil kaldırma yöntemidir. Kalıcı silme yalnızca açık `SİL` onayıyla
+ve hedef kart/kategori kimliği üzerinden yapılır. Kartı olan kategori silinemez;
+önce kartlar taşınmalı, arşivlenmeli veya silinmelidir. Sistem/dinamik araç
+kartları arşivlenerek gizlenebilir, ancak sayaç, puan hesaplama veya simülasyon
+route/logic dosyaları generic kart silme işlemiyle yok edilmez.
+
+Her create/update/publish/archive/restore/delete aksiyonu `WebsiteContentRevision`
+kaydına önce/sonra durumuyla yazılır. Silinen kart, revizyon içeriği teknik olarak
+yeterliyse revizyondan geri yüklenebilir; restore yeni bir aksiyon olarak yazılır
+ama restore işlemini sonsuz revizyon döngüsüne sokmaz.
 
 ## Deployment
 

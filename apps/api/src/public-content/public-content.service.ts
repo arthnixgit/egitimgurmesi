@@ -193,8 +193,9 @@ export class PublicContentService {
       sortOrder: category.sortOrder,
       items: category.items.map((item) => {
         const isDownload =
-          item.itemType === FreeMaterialItemType.PDF ||
-          item.itemType === FreeMaterialItemType.DOWNLOAD;
+          (item.itemType === FreeMaterialItemType.PDF ||
+            item.itemType === FreeMaterialItemType.DOWNLOAD) &&
+          Boolean(item.downloadUrl || item.mediaAssetId);
         const downloadHref = isDownload ? `/v1/public/free-materials/${item.id}/download` : null;
 
         return {
