@@ -352,6 +352,29 @@ type CollectionPayload<T> = T[] | { value: T[] };
 
 type SiteSettingsResponse = Partial<PublicSiteSettings>;
 
+export class PublicContentRequestError extends Error {
+  constructor(
+    message: string,
+    readonly path: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "PublicContentRequestError";
+  }
+}
+
+export class PublicContentValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PublicContentValidationError";
+  }
+}
+
+export type CountdownPageLoadResult =
+  | { status: "ready"; source: "api" | "fallback"; page: ExamCountdownPage }
+  | { status: "not-found"; source: "api"; page: null }
+  | { status: "unavailable"; source: "api"; page: null };
+
 export type FreeMaterialsContent = {
   status: "ready" | "unavailable";
   categories: readonly PublicFreeMaterialCategory[];
@@ -418,10 +441,31 @@ async function requestJson<T>(path: string, init: Pick<RequestInit, "signal"> = 
   });
 
   if (!response.ok) {
-    throw new Error(`Public content request failed for "${path}" with status ${response.status}.`);
+    throw new PublicContentRequestError(
+      `Public content request failed for "${path}" with status ${response.status}.`,
+      path,
+      response.status
+    );
   }
 
   return (await response.json()) as T;
+}
+
+function isExpectedPublicContentError(error: unknown) {
+  return (
+    error instanceof PublicContentRequestError ||
+    error instanceof PublicContentValidationError ||
+    error instanceof TypeError ||
+    error instanceof SyntaxError
+  );
+}
+
+function shouldUsePublicContentFallback(error: unknown) {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError") {
+    return false;
+  }
+
+  return isExpectedPublicContentError(error);
 }
 
 function unwrapCollection<T>(payload: CollectionPayload<T>): T[] {
@@ -501,7 +545,7 @@ function normalizeNavigationSnapshotResponse(menu: NavigationMenuResponse): Publ
 
   const invalidReason = validateNavigationItems(snapshot.items);
   if (invalidReason) {
-    throw new Error(`Invalid public navigation snapshot: ${invalidReason}.`);
+    throw new PublicContentValidationError(`Invalid public navigation snapshot: ${invalidReason}.`);
   }
 
   return snapshot;
@@ -676,6 +720,10 @@ export async function getNavigationSnapshot(options: { signal?: AbortSignal } = 
   try {
     return await requestNavigationSnapshot(options);
   } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     if (process.env.NODE_ENV !== "production") {
       console.warn("Public navigation request failed; using safe fallback.", error);
     }
@@ -707,7 +755,11 @@ export async function requestPublicSiteSettingsSnapshot(
 export async function getPublicSiteSettings() {
   try {
     return await requestPublicSiteSettingsSnapshot();
-  } catch {
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     return fallbackSiteSettings;
   }
 }
@@ -717,7 +769,11 @@ export async function getAcademicStaffGroups() {
     const groups = await requestJson<CollectionPayload<StaffProfileGroupResponse>>("/public/academic-staff");
     const normalized = unwrapCollection(groups).map(normalizeStaffGroup);
     return normalized.some((group) => group.members.length > 0) ? normalized : academicStaffGroups;
-  } catch {
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     return academicStaffGroups;
   }
 }
@@ -726,7 +782,11 @@ export async function getMarketingPageContent(slug: string) {
   try {
     const page = await requestJson<MarketingPageResponse>(`/public/pages/${encodeURIComponent(slug)}`);
     return normalizeMarketingPage(page);
-  } catch {
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     const fallback = getFallbackMarketingPage(slug);
     return fallback ? normalizeMarketingPage(fallback as unknown as MarketingPageResponse) : null;
   }
@@ -737,18 +797,47 @@ export async function getSuccessStories() {
     const stories = await requestJson<CollectionPayload<SuccessStoryResponse>>("/public/success-stories");
     const normalized = unwrapCollection(stories).map(normalizeSuccessStory);
     return normalized.length > 0 ? normalized : fallbackSuccessStories.map(normalizeSuccessStory);
-  } catch {
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     return fallbackSuccessStories.map(normalizeSuccessStory);
   }
 }
 
-export async function getCountdownPageBySlug(slug: string) {
+export async function getCountdownPageBySlugResult(slug: string): Promise<CountdownPageLoadResult> {
   try {
     const page = await requestJson<CountdownPageResponse>(`/public/countdown-pages/${encodeURIComponent(slug)}`);
-    return normalizeCountdownPage(page);
-  } catch {
-    return fallbackCountdownPage(slug);
+    return {
+      status: "ready",
+      source: "api",
+      page: normalizeCountdownPage(page)
+    };
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
+    if (error instanceof PublicContentRequestError && error.status === 404) {
+      const fallback = fallbackCountdownPage(slug);
+
+      return fallback
+        ? { status: "ready", source: "fallback", page: fallback }
+        : { status: "not-found", source: "api", page: null };
+    }
+
+    return {
+      status: "unavailable",
+      source: "api",
+      page: null
+    };
   }
+}
+
+export async function getCountdownPageBySlug(slug: string) {
+  const result = await getCountdownPageBySlugResult(slug);
+  return result.status === "ready" ? result.page : null;
 }
 
 export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
@@ -789,7 +878,11 @@ export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
         : null,
       countdownPages
     };
-  } catch {
+  } catch (error) {
+    if (!shouldUsePublicContentFallback(error)) {
+      throw error;
+    }
+
     return {
       status: "unavailable",
       categories: [],

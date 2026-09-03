@@ -13,14 +13,34 @@ const webBaseUrl = normalizeBaseUrl(args.get("web-base-url") ?? process.env.WEB_
 const apiBaseUrl = normalizeBaseUrl(args.get("api-base-url") ?? process.env.API_BASE_URL ?? "http://localhost:4000/v1");
 const apiPath = args.get("api-path") ?? "/public/free-materials";
 const materialApiUrl = joinApiUrl(apiBaseUrl, apiPath);
-
-const categories = await requestJson(materialApiUrl);
-const items = unwrapCollection(categories).flatMap((category) =>
-  unwrapCollection(category.items).map((item) => ({ category, item }))
-);
+const knownCountdownSlugs = [
+  "tyt-kac-gun-kaldi",
+  "ayt-kac-gun-kaldi",
+  "ydt-kac-gun-kaldi",
+  "2026-lgs-kac-gun-kaldi"
+];
 
 const results = [];
 let failures = 0;
+let items = [];
+
+try {
+  const categories = await requestJson(materialApiUrl);
+  items = unwrapCollection(categories).flatMap((category) =>
+    unwrapCollection(category.items).map((item) => ({ category, item }))
+  );
+} catch (error) {
+  failures += 1;
+  results.push({
+    id: "public-api",
+    slug: "",
+    categoryKey: "",
+    type: "PUBLIC_API",
+    destination: materialApiUrl,
+    mode: "API",
+    status: error instanceof Error ? error.message : "PUBLIC_API_FAILED"
+  });
+}
 
 for (const { category, item } of items) {
   const destination = resolveCrawlerDestination(item);
@@ -64,6 +84,30 @@ for (const { category, item } of items) {
   results.push(result);
 }
 
+for (const slug of knownCountdownSlugs) {
+  const href = `/ucretsiz-materyaller/${slug}`;
+  const result = {
+    id: `bundled:${slug}`,
+    slug,
+    categoryKey: "bundled-countdown",
+    type: "COUNTDOWN",
+    destination: href,
+    mode: "KNOWN_COUNTDOWN",
+    status: "SKIPPED",
+    finalUrl: ""
+  };
+
+  const response = await fetch(joinWebUrl(webBaseUrl, href), { method: "GET", redirect: "follow" });
+  result.status = String(response.status);
+  result.finalUrl = response.url;
+
+  if (response.status === 404 || response.status === 500 || response.status === 502 || response.status >= 503) {
+    failures += 1;
+  }
+
+  results.push(result);
+}
+
 console.table(results);
 console.log(JSON.stringify({
   publicApi: materialApiUrl,
@@ -72,6 +116,7 @@ console.log(JSON.stringify({
   items: results.length,
   internalDestinations: results.filter((item) => item.mode === "INTERNAL").length,
   downloadDestinations: results.filter((item) => item.mode === "DOWNLOAD").length,
+  knownCountdownRoutes: results.filter((item) => item.mode === "KNOWN_COUNTDOWN").length,
   failures
 }, null, 2));
 

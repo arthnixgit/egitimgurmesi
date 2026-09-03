@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { getFreeMaterialsContent, requestPublicSiteSettingsSnapshot } from "./public-content-api";
+import {
+  getCountdownPageBySlugResult,
+  getFreeMaterialsContent,
+  requestPublicSiteSettingsSnapshot
+} from "./public-content-api";
 
 describe("public free-material content API", () => {
   afterEach(() => {
@@ -92,6 +96,76 @@ describe("public free-material content API", () => {
   });
 });
 
+describe("public countdown content API", () => {
+  afterEach(() => {
+    delete (globalThis as { fetch?: typeof fetch }).fetch;
+  });
+
+  it("uses API countdown content when the API returns a published page", async () => {
+    mockCountdownResponse(200, {
+      id: "countdown_ayt",
+      slug: "ayt-kac-gun-kaldi",
+      eyebrow: "API AYT",
+      title: "API AYT sayacı",
+      description: "API tarafından dönen açıklama.",
+      updatedLabel: "API güncel",
+      videoTitle: "API video",
+      videoNote: "API not",
+      targets: [
+        {
+          id: "target_1",
+          label: "AYT",
+          targetAt: "2026-06-21T10:15:00+03:00",
+          dateLabel: "21 Haziran 2026",
+          note: "API hedefi"
+        }
+      ],
+      officialLinks: [],
+      articleSections: []
+    });
+
+    const result = await getCountdownPageBySlugResult("ayt-kac-gun-kaldi");
+
+    assert.equal(result.status, "ready");
+    assert.equal(result.source, "api");
+    assert.equal(result.page.title, "API AYT sayacı");
+  });
+
+  it("uses bundled fallback content only for known countdown slugs after an API 404", async () => {
+    mockCountdownResponse(404, { message: "not found" });
+
+    const result = await getCountdownPageBySlugResult("ayt-kac-gun-kaldi");
+
+    assert.equal(result.status, "ready");
+    assert.equal(result.source, "fallback");
+    assert.match(result.page.title, /AYT/);
+  });
+
+  it("keeps unknown countdown slugs as not-found after an API 404", async () => {
+    mockCountdownResponse(404, { message: "not found" });
+
+    const result = await getCountdownPageBySlugResult("bilinmeyen-materyal");
+
+    assert.deepEqual(result, {
+      status: "not-found",
+      source: "api",
+      page: null
+    });
+  });
+
+  it("does not hide API unavailability behind bundled countdown fallback content", async () => {
+    mockCountdownResponse(500, { message: "failed" });
+
+    const result = await getCountdownPageBySlugResult("ayt-kac-gun-kaldi");
+
+    assert.deepEqual(result, {
+      status: "unavailable",
+      source: "api",
+      page: null
+    });
+  });
+});
+
 describe("public site-settings API", () => {
   afterEach(() => {
     delete (globalThis as { fetch?: typeof fetch }).fetch;
@@ -138,6 +212,17 @@ function mockPublicSiteSettingsResponse(payload: Record<string, unknown>) {
     return {
       ok: true,
       status: 200,
+      json: async () => payload
+    } as Response;
+  };
+}
+
+function mockCountdownResponse(status: number, payload: unknown) {
+  (globalThis as { fetch?: typeof fetch }).fetch = async (input) => {
+    assert.match(String(input), /\/public\/countdown-pages\//);
+    return {
+      ok: status >= 200 && status < 300,
+      status,
       json: async () => payload
     } as Response;
   };

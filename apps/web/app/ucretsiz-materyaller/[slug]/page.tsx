@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 import { ExamCountdownGrid } from "../../../components/exam-countdown-grid";
 import { ExamCountdownRingSessions, ExamCountdownRings } from "../../../components/exam-countdown-rings";
 import { FreeMaterialCard } from "../../../components/free-material-card";
@@ -9,7 +10,10 @@ import {
 } from "../../../components/free-materials-state";
 import { PublicPageLayout } from "../../../components/public-page-layout";
 import type { ExamArticleSection, ExamCountdownPage, ExamCountdownTarget, ResourceLink } from "../../../lib/free-materials";
-import { getCountdownPageBySlug, getFreeMaterialsContent } from "../../../lib/public-content-api";
+import { getCountdownPageBySlugResult, getFreeMaterialsContent } from "../../../lib/public-content-api";
+
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 const legacyCountdownRedirects: Record<string, string> = {
   "2026-yks-kac-gun-kaldi": "/ucretsiz-materyaller/yks-kac-gun-kaldi"
@@ -17,17 +21,8 @@ const legacyCountdownRedirects: Record<string, string> = {
 
 const MATERIAL_UNAVAILABLE_MESSAGE = "Bu materyal şu anda açılamıyor. İçerik bağlantısı kontrol ediliyor.";
 
-export async function generateStaticParams() {
-  const content = await getFreeMaterialsContent();
-  const countdownSlugs = content.countdownPages.map((page) => page.slug);
-  const managedSlugs = content.categories.flatMap((category) =>
-    category.items
-      .map((item) => item.slug ?? slugFromHref(item.href))
-      .filter((slug): slug is string => Boolean(slug))
-  );
-
-  return Array.from(new Set([...countdownSlugs, ...managedSlugs])).map((slug) => ({ slug }));
-}
+const loadFreeMaterialsContent = cache(() => getFreeMaterialsContent());
+const loadCountdownPageBySlug = cache((slug: string) => getCountdownPageBySlugResult(slug));
 
 export async function generateMetadata({
   params
@@ -35,7 +30,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const content = await getFreeMaterialsContent();
+  const content = await loadFreeMaterialsContent();
   const managedItem = findManagedMaterial(slug, content.categories.flatMap((category) => category.items));
 
   if (managedItem) {
@@ -45,17 +40,17 @@ export async function generateMetadata({
     };
   }
 
-  const page = await getCountdownPageBySlug(slug);
+  const pageResult = await loadCountdownPageBySlug(slug);
 
-  if (!page) {
+  if (pageResult.status !== "ready") {
     return {
       title: "Ücretsiz Materyal Bulunamadı"
     };
   }
 
   return {
-    title: page.title,
-    description: page.description
+    title: pageResult.page.title,
+    description: pageResult.page.description
   };
 }
 
@@ -70,7 +65,7 @@ export default async function FreeMaterialDynamicPage({
     redirect(legacyCountdownRedirects[slug]);
   }
 
-  const content = await getFreeMaterialsContent();
+  const content = await loadFreeMaterialsContent();
   const managedItem = findManagedMaterial(slug, content.categories.flatMap((category) => category.items));
 
   if (managedItem) {
@@ -80,8 +75,16 @@ export default async function FreeMaterialDynamicPage({
 
     if (isCountdownItem(managedItem)) {
       const countdownSlug = managedItem.countdownSlug ?? slugFromHref(managedItem.href) ?? slug;
-      const countdownPage = await getCountdownPageBySlug(countdownSlug);
-      return countdownPage ? renderCountdownPage(countdownPage) : renderUnavailable(managedItem.title);
+      const countdownPageResult = await loadCountdownPageBySlug(countdownSlug);
+
+      if (countdownPageResult.status === "ready") {
+        return renderCountdownPage(countdownPageResult.page);
+      }
+
+      return renderUnavailable(
+        managedItem.title,
+        countdownPageResult.status === "unavailable" ? FREE_MATERIALS_UNAVAILABLE_MESSAGE : MATERIAL_UNAVAILABLE_MESSAGE
+      );
     }
 
     if (managedItem.href && managedItem.href !== `/ucretsiz-materyaller/${slug}`) {
@@ -91,9 +94,13 @@ export default async function FreeMaterialDynamicPage({
     return renderUnavailable(managedItem.title);
   }
 
-  const page = await getCountdownPageBySlug(slug);
+  const pageResult = await loadCountdownPageBySlug(slug);
 
-  if (!page) {
+  if (pageResult.status !== "ready") {
+    if (pageResult.status === "unavailable") {
+      return renderUnavailable("Ücretsiz materyal", FREE_MATERIALS_UNAVAILABLE_MESSAGE);
+    }
+
     if (content.status === "unavailable") {
       return renderUnavailable("Ücretsiz materyal", FREE_MATERIALS_UNAVAILABLE_MESSAGE);
     }
@@ -101,7 +108,7 @@ export default async function FreeMaterialDynamicPage({
     notFound();
   }
 
-  return renderCountdownPage(page);
+  return renderCountdownPage(pageResult.page);
 }
 
 function renderCountdownPage(page: ExamCountdownPage) {

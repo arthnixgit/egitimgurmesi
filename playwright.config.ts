@@ -103,6 +103,14 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         baseURL: WEB_BASE_URL
       }
+    },
+    {
+      name: "public-free-material-countdown-production",
+      testMatch: /.*public\.free-material-countdown-production\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: WEB_BASE_URL
+      }
     }
   ]
 });
