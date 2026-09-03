@@ -9,6 +9,11 @@ import {
 } from "@nestjs/common";
 import { appEnv } from "../config/env";
 import { PrismaService } from "../database/prisma.service";
+import {
+  isDownloadMaterialType,
+  resolveFreeMaterialDestination,
+  type MaterialDestinationItem
+} from "../free-materials/material-destination";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
 import {
   SaveCountdownPageDto,
@@ -1060,6 +1065,7 @@ export class AdminContentService {
     const before = normalizeFreeMaterialsDocument(beforeCategories, beforeCountdownPages);
     assertCurrentVersion(payload.version, before.version);
     const draft = normalizeFreeMaterialsPayload(payload, before.version, action === "publish");
+    const payloadCountdownSlugs = new Set(payload.countdownPages.filter((page) => (page.publishStatus ?? ContentStatus.PUBLISHED) === ContentStatus.PUBLISHED).map((page) => sanitizeSlug(page.slug)));
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
@@ -1135,7 +1141,10 @@ export class AdminContentService {
             category.items[itemIndex],
             key,
             itemIndex,
-            true
+            {
+              requirePublishReady: true,
+              countdownSlugs: payloadCountdownSlugs
+            }
           );
           const itemPayload = category.items[itemIndex];
           const itemData = {
@@ -1409,8 +1418,7 @@ export class AdminContentService {
         throw new NotFoundException("Materyal kategorisi bulunamadı.");
       }
 
-      const normalizedItem = normalizeFreeMaterialItemInput(
-        {
+      const normalizedItem = normalizeFreeMaterialItemInput({
           slug: typeof itemData.slug === "string" ? itemData.slug : undefined,
           title: typeof itemData.title === "string" ? itemData.title : "Geri yüklenen materyal",
           itemType: normalizeFreeMaterialItemType(itemData.itemType),
@@ -1435,7 +1443,9 @@ export class AdminContentService {
         },
         categoryKey,
         0,
-        false
+        {
+          requirePublishReady: false
+        }
       );
       const countdownPage = normalizedItem.countdownPageSlug
         ? await tx.countdownPage.findUnique({ where: { slug: normalizedItem.countdownPageSlug } })
@@ -2315,6 +2325,8 @@ function normalizeFreeMaterialsPayload(
   version: number,
   requirePublishReady: boolean
 ) {
+  const countdownSlugs = new Set(payload.countdownPages.filter((page) => (page.publishStatus ?? ContentStatus.PUBLISHED) === ContentStatus.PUBLISHED).map((page) => sanitizeSlug(page.slug)));
+
   return {
     version,
     categories: payload.categories.map((category, categoryIndex) => {
@@ -2327,7 +2339,7 @@ function normalizeFreeMaterialsPayload(
         sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
         publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED,
         items: category.items.map((item, itemIndex) =>
-          normalizeFreeMaterialItemInput(item, key, itemIndex, requirePublishReady)
+          normalizeFreeMaterialItemInput(item, key, itemIndex, { requirePublishReady, countdownSlugs })
         )
       };
     }),
@@ -2372,24 +2384,36 @@ function normalizeFreeMaterialItemInput(
   item: SaveFreeMaterialItemDto,
   categoryKey: string,
   itemIndex: number,
-  requirePublishReady: boolean
+  options: { requirePublishReady: boolean; countdownSlugs?: Set<string> }
 ) {
   const title = sanitizePlainText(item.title);
   const slug = sanitizeSlug(item.slug || `${categoryKey}-${title}`);
   const itemType = item.itemType;
   const downloadUrl = item.downloadUrl ? normalizeDownloadUrl(item.downloadUrl) : null;
   const mediaAssetId = sanitizeNullableText(item.mediaAssetId);
-  const isDownload =
-    itemType === FreeMaterialItemType.DOWNLOAD ||
-    (itemType === FreeMaterialItemType.PDF && Boolean(downloadUrl || mediaAssetId));
+  const isDownload = isDownloadMaterialType(itemType);
   const href = isDownload ? null : item.href ? normalizeRequiredContentHref(item.href) : null;
+  const requestedCountdownSlug = item.countdownPageSlug ? sanitizeSlug(item.countdownPageSlug) : null;
+  const destination = resolveFreeMaterialDestination(
+    {
+      id: slug,
+      slug,
+      title,
+      itemType,
+      href,
+      downloadUrl,
+      mediaAssetId,
+      countdownPageSlug: requestedCountdownSlug,
+      opensInNewTab: item.opensInNewTab ?? false
+    } satisfies MaterialDestinationItem,
+    {
+      countdownSlugs: options.countdownSlugs,
+      allowAnySafeInternalRoute: !options.requirePublishReady
+    }
+  );
 
-  if (requirePublishReady && itemType === FreeMaterialItemType.DOWNLOAD && !downloadUrl && !mediaAssetId) {
-    throw new BadRequestException("İndirilebilir materyal için dosya veya güvenli bağlantı seçmelisiniz.");
-  }
-
-  if (requirePublishReady && !isDownload && !href) {
-    throw new BadRequestException("Materyal kartı için güvenli bir hedef bağlantı veya dosya seçmelisiniz.");
+  if (options.requirePublishReady && !destination.ok) {
+    throw new BadRequestException(destination.message);
   }
 
   return {
@@ -2412,14 +2436,13 @@ function normalizeFreeMaterialItemInput(
     accessibilityLabel:
       sanitizeNullableText(item.accessibilityLabel) ??
       (isDownload ? `${title} dosyasını indir` : sanitizeNullableText(item.buttonLabel) ?? "İçeriği Aç"),
-    opensInNewTab: item.opensInNewTab ?? false,
+    opensInNewTab: isDownload ? false : item.opensInNewTab ?? false,
     sortOrder: item.sortOrder ?? (itemIndex + 1) * 10,
     isFeatured: item.isFeatured ?? false,
     publishStatus: item.publishStatus ?? ContentStatus.PUBLISHED,
-    countdownPageSlug: item.countdownPageSlug ? sanitizeSlug(item.countdownPageSlug) : null
+    countdownPageSlug: destination.countdownSlug ?? requestedCountdownSlug
   };
 }
-
 function toNullableJsonInput(
   value?: Record<string, unknown> | null
 ): Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue | undefined {

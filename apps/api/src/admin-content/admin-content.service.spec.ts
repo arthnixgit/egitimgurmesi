@@ -135,10 +135,48 @@ describe("AdminContentService free-material validation", () => {
 
     await assertBadRequest(
       () => service.saveFreeMaterialsDocument(freeMaterialsPayload(), branchAdminAuth, "publish"),
-      "İndirilebilir materyal için dosya veya güvenli bağlantı seçmelisiniz."
+      "Bu materyali yayınlamak için indirilebilir bir dosya eklemelisiniz."
     );
   });
 
+  it("blocks publishing PDF material without a real file even when href points at a countdown route", async () => {
+    const { service } = createFreeMaterialsHarness();
+
+    await assertBadRequest(
+      () =>
+        service.saveFreeMaterialsDocument(
+          freeMaterialsPayload({
+            itemType: FreeMaterialItemType.PDF,
+            href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
+            downloadUrl: undefined,
+            mediaAssetId: undefined
+          }),
+          branchAdminAuth,
+          "publish"
+        ),
+      "Bu materyali yayınlamak için indirilebilir bir dosya eklemelisiniz."
+    );
+  });
+
+  it("blocks publishing countdown material without a valid countdown page", async () => {
+    const { service } = createFreeMaterialsHarness();
+
+    await assertBadRequest(
+      () =>
+        service.saveFreeMaterialsDocument(
+          freeMaterialsPayload({
+            itemType: FreeMaterialItemType.COUNTDOWN,
+            href: undefined,
+            countdownPageSlug: undefined,
+            downloadUrl: undefined,
+            mediaAssetId: undefined
+          }),
+          branchAdminAuth,
+          "publish"
+        ),
+      "Bu materyali yayınlamak için geçerli bir geri sayım sayfası seçmelisiniz."
+    );
+  });
   it("rejects unsafe free-material external URLs while keeping draft validation strict", async () => {
     const { service } = createFreeMaterialsHarness();
     const payload = freeMaterialsPayload({

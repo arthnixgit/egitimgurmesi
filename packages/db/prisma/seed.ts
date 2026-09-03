@@ -4,6 +4,7 @@ import { packageCategories, packageProducts } from "../../../apps/web/lib/packag
 
 const prisma = new PrismaClient();
 const PUBLISHED = "PUBLISHED" as const;
+const DRAFT = "DRAFT" as const;
 const PRIMARY = "PRIMARY" as const;
 
 const primaryNavigationItems = [
@@ -423,10 +424,10 @@ const freeMaterialItems = [
   { categoryKey: "useful-links", title: "ÖSYM", itemType: "LINK", badgeLabel: "Resmi Kaynak", summary: "Sınav takvimi ve resmi duyurular için temel kaynak.", href: "https://www.osym.gov.tr/", buttonLabel: "Resmi Sayfaya Git", sortOrder: 20, opensInNewTab: true },
   { categoryKey: "useful-links", title: "ÖSYM AİS", itemType: "LINK", badgeLabel: "Aday İşlemleri", summary: "Başvuru, sonuç ve belge işlemleri için giriş alanı.", href: "https://ais.osym.gov.tr/", buttonLabel: "Sisteme Git", sortOrder: 30, opensInNewTab: true },
   { categoryKey: "useful-links", title: "YÖK Atlas", itemType: "LINK", badgeLabel: "Tercih Aracı", summary: "Program ve üniversite araştırması için resmi atlas verisi.", href: "https://yokatlas.yok.gov.tr/", buttonLabel: "Atlası Aç", sortOrder: 40, opensInNewTab: true },
-  { categoryKey: "pdf-documents", title: "TYT Çalışma Planı PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Haftalık bloklar ve tekrar zamanlarını planlamak için TYT çalışma şablonu.", href: "/ucretsiz-materyaller/tyt-kac-gun-kaldi", buttonLabel: "İçeriği İncele", sortOrder: 10 },
-  { categoryKey: "pdf-documents", title: "AYT Tekrar Çizelgesi PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "AYT konu tekrarlarını haftalara ayıran sade çizelge.", href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi", buttonLabel: "İçeriği İncele", sortOrder: 20 },
-  { categoryKey: "pdf-documents", title: "Deneme Analiz Formu PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Net, süre ve eksik konu değerlendirmesi için analiz formu.", href: "/ucretsiz-materyaller/ydt-kac-gun-kaldi", buttonLabel: "İçeriği İncele", sortOrder: 30 },
-  { categoryKey: "pdf-documents", title: "Hedef Takip Sayfası PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Aylık hedefleri ve tamamlanan görevleri işlemek için takip sayfası.", href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi", buttonLabel: "İçeriği İncele", sortOrder: 40 },
+  { categoryKey: "pdf-documents", title: "TYT Çalışma Planı PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Haftalık bloklar ve tekrar zamanlarını planlamak için TYT çalışma şablonu.", href: null, buttonLabel: "Dosya eklenince indir", sortOrder: 10, publishStatus: DRAFT },
+  { categoryKey: "pdf-documents", title: "AYT Tekrar Çizelgesi PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "AYT konu tekrarlarını haftalara ayıran sade çizelge.", href: null, buttonLabel: "Dosya eklenince indir", sortOrder: 20, publishStatus: DRAFT },
+  { categoryKey: "pdf-documents", title: "Deneme Analiz Formu PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Net, süre ve eksik konu değerlendirmesi için analiz formu.", href: null, buttonLabel: "Dosya eklenince indir", sortOrder: 30, publishStatus: DRAFT },
+  { categoryKey: "pdf-documents", title: "Hedef Takip Sayfası PDF", itemType: "PDF", badgeLabel: "PDF Döküman", summary: "Aylık hedefleri ve tamamlanan görevleri işlemek için takip sayfası.", href: null, buttonLabel: "Dosya eklenince indir", sortOrder: 40, publishStatus: DRAFT },
   { categoryKey: "guidance-content", title: "Blog", itemType: "GUIDANCE", badgeLabel: "Rehberlik İçeriği", summary: "Sınav dönemi, motivasyon ve çalışma düzeni odaklı yazı alanı.", href: "/ucretsiz-materyaller/tyt-kac-gun-kaldi", buttonLabel: "Yazıyı Aç", sortOrder: 10 },
   { categoryKey: "guidance-content", title: "Ücretsiz Araçlarımız", itemType: "GUIDANCE", badgeLabel: "Rehberlik İçeriği", summary: "Araçların nasıl kullanılacağına dair yönlendirici alan.", href: "/ucretsiz-materyaller", buttonLabel: "Alanı Aç", sortOrder: 20 },
   { categoryKey: "guidance-content", title: "Ücretsiz Kamplar", itemType: "GUIDANCE", badgeLabel: "Rehberlik İçeriği", summary: "Sömestr, yaz ve tekrar dönemleri için kamp düzenlerini tanıtan içerikler.", href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi", buttonLabel: "İçeriği Aç", sortOrder: 30 },
@@ -615,7 +616,7 @@ async function seedMarketingPages() {
         excerpt: page.excerpt,
         description: page.description,
         pageType: page.pageType,
-        publishStatus: PUBLISHED,
+        publishStatus: item.publishStatus ?? PUBLISHED,
         seoTitle: page.seoTitle,
         seoDescription: page.seoDescription
       },
@@ -626,7 +627,7 @@ async function seedMarketingPages() {
         excerpt: page.excerpt,
         description: page.description,
         pageType: page.pageType,
-        publishStatus: PUBLISHED,
+        publishStatus: item.publishStatus ?? PUBLISHED,
         seoTitle: page.seoTitle,
         seoDescription: page.seoDescription
       }
@@ -832,7 +833,7 @@ async function seedFreeMaterials() {
       opensInNewTab: item.opensInNewTab ?? false,
       sortOrder: item.sortOrder,
       isFeatured: item.isFeatured ?? false,
-      publishStatus: PUBLISHED,
+      publishStatus: item.publishStatus ?? PUBLISHED,
       countdownPageId: item.countdownSlug ? countdownIdBySlug.get(item.countdownSlug)! : undefined
     }))
   });
@@ -1090,7 +1091,7 @@ async function seedCatalog() {
           ].join("\n"),
         type: mapSeedProductType(product.provider),
         provider: mapSeedProvider(product.provider),
-        publishStatus: PUBLISHED,
+        publishStatus: item.publishStatus ?? PUBLISHED,
         isFeatured: productIndex < 6,
         sortOrder: (productIndex + 1) * 10,
         accentColor: product.tone,
@@ -1364,7 +1365,7 @@ async function seedLmsShell() {
         title: blueprint.course.title,
         shortDescription: blueprint.course.shortDescription,
         description: blueprint.course.description,
-        publishStatus: PUBLISHED,
+        publishStatus: item.publishStatus ?? PUBLISHED,
         estimatedDurationMinutes: blueprint.course.estimatedDurationMinutes
       }
     });
@@ -1411,7 +1412,7 @@ async function seedLmsShell() {
             description: lessonBlueprint.description,
             lessonType: lessonBlueprint.lessonType,
             sortOrder: (lessonIndex + 1) * 10,
-            publishStatus: PUBLISHED,
+            publishStatus: item.publishStatus ?? PUBLISHED,
             durationSeconds: lessonBlueprint.durationSeconds,
             isPreview: lessonIndex === 0,
             videoAssetId: videoAsset?.id

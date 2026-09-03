@@ -6,6 +6,7 @@ export type ResourceLink = {
   summary: string;
   href: string;
   itemType?: string;
+  destinationMode?: string;
   downloadHref?: string;
   iconKey?: string;
   tone?: string;

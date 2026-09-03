@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { ButtonLink } from "@ega/ui";
+import { FreeMaterialCard } from "./free-material-card";
+import {
+  FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE,
+  FreeMaterialsState
+} from "./free-materials-state";
 import type { ResourceLink } from "../lib/free-materials";
 
 export type FreeMaterialsDirectoryCategoryTone =
@@ -41,183 +45,111 @@ export function FreeMaterialsDirectoryShowcase({
   categories
 }: FreeMaterialsDirectoryShowcaseProps) {
   const [activeId, setActiveId] = useState(categories[0]?.id ?? "");
-  const [isPaused, setIsPaused] = useState(false);
-
   const orderedIds = useMemo(() => categories.map((category) => category.id), [categories]);
 
   useEffect(() => {
-    if (!orderedIds.length) {
-      return;
-    }
-
-    setActiveId((current) => (orderedIds.includes(current) ? current : orderedIds[0]));
+    setActiveId((current) => (orderedIds.includes(current) ? current : orderedIds[0] ?? ""));
   }, [orderedIds]);
 
-  useEffect(() => {
-    if (isPaused || orderedIds.length < 2) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActiveId((current) => {
-        const currentIndex = orderedIds.indexOf(current);
-        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-        return orderedIds[(safeIndex + 1) % orderedIds.length];
-      });
-    }, 4200);
-
-    return () => window.clearInterval(intervalId);
-  }, [isPaused, orderedIds]);
-
-  const activeCategory =
-    categories.find((category) => category.id === activeId) ?? categories[0] ?? null;
-  const leftColumn = categories.slice(0, 5);
-  const rightColumn = categories.slice(5);
+  const activeCategory = categories.find((category) => category.id === activeId) ?? categories[0] ?? null;
 
   if (!activeCategory) {
     return null;
   }
 
+  const activeIndex = Math.max(orderedIds.indexOf(activeCategory.id), 0);
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!orderedIds.length) {
+      return;
+    }
+
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? orderedIds.length - 1
+          : event.key === "ArrowRight"
+            ? (index + 1) % orderedIds.length
+            : (index - 1 + orderedIds.length) % orderedIds.length;
+    setActiveId(orderedIds[nextIndex]);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`free-material-tab-${orderedIds[nextIndex]}`)?.focus();
+    });
+  }
+
   return (
     <section className="ega-free-directory-surface ega-container">
       <div className="ega-free-directory-head">
+        <span className="ega-eyebrow">Kaynak merkezi</span>
         <h1>Ücretsiz Materyaller</h1>
+        <p>Yayındaki kategorileri seç, kartları karşılaştır ve ihtiyacın olan materyale doğrudan ulaş.</p>
       </div>
 
-      <div
-        className="ega-free-directory-board"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        <DirectoryColumn
-          categories={leftColumn}
-          activeId={activeCategory.id}
-          onSelect={setActiveId}
-        />
-
-        <article
-          className="ega-free-directory-preview"
-          data-tone={activeCategory.tone}
-        >
-          <div className="ega-free-directory-preview__top">
-            <span className="ega-free-directory-preview__badge">{activeCategory.badge}</span>
-            <span className="ega-free-directory-preview__counter">
-              {String(orderedIds.indexOf(activeCategory.id) + 1).padStart(2, "0")} /{" "}
-              {String(categories.length).padStart(2, "0")}
-            </span>
-          </div>
-
-          <div className="ega-free-directory-preview__stage">
-            <div className="ega-free-directory-preview__media">
-              <div className="ega-free-directory-preview__media-shell">
-                <span>{activeCategory.previewLabel ?? "İçerik Alanı"}</span>
-                <strong>{activeCategory.title}</strong>
-              </div>
-            </div>
-
-            <div className="ega-free-directory-preview__copy">
-              <h2>{activeCategory.title}</h2>
-              <p>{activeCategory.summary}</p>
-
-              <div className="ega-free-directory-preview__meta">
-                <span>
-                  {activeCategory.links.length > 0
-                    ? `${activeCategory.links.length} bağlantı`
-                    : "Tanıtım sayfası"}
-                </span>
-                <small>
-                  Kartı tıklayarak ilgili sayfaya geçebilir, içerik detayını ayrı ekranda
-                  inceleyebilirsin.
-                </small>
-              </div>
-
-              {activeCategory.optionGroups?.length ? (
-                <div className="ega-free-directory-options" aria-label={`${activeCategory.title} seçenekleri`}>
-                  {activeCategory.optionGroups.map((group) => (
-                    <div key={group.title} className="ega-free-directory-options__group">
-                      <strong>{group.title}</strong>
-                      <div>
-                        {group.items.map((item) => (
-                          <Link
-                            key={item.href}
-                            href={item.href}
-                            target={item.opensInNewTab ? "_blank" : "_self"}
-                            rel={item.opensInNewTab ? "noreferrer" : undefined}
-                          >
-                            {item.title}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="ega-free-directory-preview__action">
-                <ButtonLink
-                  href={activeCategory.href}
-                  label={activeCategory.buttonLabel ?? "İçeriği Aç"}
-                  target={activeCategory.opensInNewTab ? "_blank" : "_self"}
-                  rel={activeCategory.opensInNewTab ? "noreferrer" : undefined}
-                />
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <DirectoryColumn
-          categories={rightColumn}
-          activeId={activeCategory.id}
-          onSelect={setActiveId}
-        />
-      </div>
-    </section>
-  );
-}
-
-function DirectoryColumn({
-  categories,
-  activeId,
-  onSelect
-}: {
-  categories: readonly FreeMaterialsDirectoryCategory[];
-  activeId: string;
-  onSelect: (categoryId: string) => void;
-}) {
-  return (
-    <div className="ega-free-directory-column">
-      {categories.map((category) =>
-        category.optionGroups?.length ? (
+      <div className="ega-free-directory-tabs" role="tablist" aria-label="Ücretsiz materyal kategorileri">
+        {categories.map((category, index) => (
           <button
+            id={`free-material-tab-${category.id}`}
             key={category.id}
             type="button"
+            role="tab"
+            aria-selected={activeCategory.id === category.id}
+            aria-controls={`free-material-panel-${category.id}`}
             className="ega-free-directory-category"
-            data-active={activeId === category.id}
+            data-active={activeCategory.id === category.id}
             data-tone={category.tone}
-            onClick={() => onSelect(category.id)}
-            onMouseEnter={() => onSelect(category.id)}
-            onFocus={() => onSelect(category.id)}
+            onClick={() => setActiveId(category.id)}
+            onKeyDown={(event) => handleTabKeyDown(event, index)}
           >
             <strong>{category.title}</strong>
-            <span>{category.badge}</span>
+            <span>{category.links.length} materyal</span>
           </button>
-        ) : (
+        ))}
+      </div>
+
+      <article
+        id={`free-material-panel-${activeCategory.id}`}
+        className="ega-free-directory-panel"
+        role="tabpanel"
+        aria-labelledby={`free-material-tab-${activeCategory.id}`}
+        data-tone={activeCategory.tone}
+        data-count={activeCategory.links.length}
+      >
+        <div className="ega-free-directory-panel__head">
+          <div>
+            <span className="ega-free-directory-preview__badge">{activeCategory.badge}</span>
+            <h2>{activeCategory.title}</h2>
+            <p>{activeCategory.summary}</p>
+          </div>
           <Link
-            key={category.id}
-            className="ega-free-directory-category"
-            data-active={activeId === category.id}
-            data-tone={category.tone}
-            href={category.href}
-            target={category.opensInNewTab ? "_blank" : "_self"}
-            rel={category.opensInNewTab ? "noreferrer" : undefined}
-            onMouseEnter={() => onSelect(category.id)}
-            onFocus={() => onSelect(category.id)}
+            className="ega-button ega-button--ghost"
+            href={activeCategory.href}
+            target={activeCategory.opensInNewTab ? "_blank" : undefined}
+            rel={activeCategory.opensInNewTab ? "noreferrer" : undefined}
           >
-            <strong>{category.title}</strong>
-            <span>{category.badge}</span>
+            {activeCategory.buttonLabel ?? "Kategoriye Git"}
           </Link>
-        )
-      )}
-    </div>
+        </div>
+
+        {activeCategory.links.length === 0 ? (
+          <FreeMaterialsState title={activeCategory.title} message={FREE_MATERIALS_EMPTY_CATEGORY_MESSAGE} />
+        ) : (
+          <div className="ega-free-material-grid" data-count={activeCategory.links.length}>
+            {activeCategory.links.map((item) => (
+              <FreeMaterialCard key={item.id ?? item.slug ?? item.href ?? item.title} item={item} />
+            ))}
+          </div>
+        )}
+
+        <p className="ega-free-directory-panel__meta" aria-live="polite">
+          {activeIndex + 1} / {categories.length} kategori gösteriliyor.
+        </p>
+      </article>
+    </section>
   );
 }

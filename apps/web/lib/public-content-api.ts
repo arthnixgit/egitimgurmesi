@@ -245,6 +245,7 @@ type FreeMaterialItemResponse = {
   slug?: string | null;
   title: string;
   itemType?: string;
+  destinationMode?: string;
   badgeLabel: string | null;
   summary: string;
   href: string;
@@ -526,16 +527,28 @@ function normalizeStaffGroup(group: StaffProfileGroupResponse): AcademicStaffGro
   };
 }
 
-function normalizeResourceLink(item: FreeMaterialItemResponse): ResourceLink {
-  const isDownload = item.itemType === "DOWNLOAD" || Boolean(item.downloadHref);
+function normalizeResourceLink(item: FreeMaterialItemResponse): ResourceLink | null {
+  const isDownload = item.destinationMode === "DOWNLOAD" || Boolean(item.downloadHref);
+  const itemType = String(item.itemType ?? "").toUpperCase();
+  const isDownloadType = itemType === "PDF" || itemType === "DOWNLOAD";
+
+  if (isDownloadType && !item.downloadHref) {
+    return null;
+  }
+
+  if (!isDownload && !item.href) {
+    return null;
+  }
+
   return {
     id: item.id,
     slug: item.slug ?? undefined,
     title: item.title,
     type: item.badgeLabel ?? "İçerik",
     summary: item.summary,
-    href: item.downloadHref ?? item.href,
+    href: item.href,
     itemType: item.itemType,
+    destinationMode: item.destinationMode,
     downloadHref: item.downloadHref ?? undefined,
     iconKey: item.iconKey ?? undefined,
     tone: item.tone ?? undefined,
@@ -549,6 +562,12 @@ function normalizeResourceLink(item: FreeMaterialItemResponse): ResourceLink {
     countdownSlug: item.countdownPage?.slug,
     opensInNewTab: isDownload ? false : item.opensInNewTab
   };
+}
+
+function normalizeResourceLinks(items: readonly FreeMaterialItemResponse[]): ResourceLink[] {
+  return items
+    .map(normalizeResourceLink)
+    .filter((item): item is ResourceLink => Boolean(item));
 }
 
 function normalizeCountdownTarget(target: CountdownTargetResponse): ExamCountdownTarget {
@@ -742,7 +761,7 @@ export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
       key: category.key,
       label: category.label,
       description: category.description ?? undefined,
-      items: category.items.map(normalizeResourceLink)
+      items: normalizeResourceLinks(category.items)
     }));
 
     const freeToolItems = categoryMap.get("free-tools")?.items ?? [];
@@ -761,10 +780,10 @@ export async function getFreeMaterialsContent(): Promise<FreeMaterialsContent> {
     return {
       status: "ready",
       categories: normalizedCategories,
-      freeTools: freeToolItems.map(normalizeResourceLink),
-      usefulLinks: (categoryMap.get("useful-links")?.items ?? []).map(normalizeResourceLink),
-      pdfDocuments: (categoryMap.get("pdf-documents")?.items ?? []).map(normalizeResourceLink),
-      guidanceContent: (categoryMap.get("guidance-content")?.items ?? []).map(normalizeResourceLink),
+      freeTools: normalizeResourceLinks(freeToolItems),
+      usefulLinks: normalizeResourceLinks(categoryMap.get("useful-links")?.items ?? []),
+      pdfDocuments: normalizeResourceLinks(categoryMap.get("pdf-documents")?.items ?? []),
+      guidanceContent: normalizeResourceLinks(categoryMap.get("guidance-content")?.items ?? []),
       speedReading: categoryMap.get("speed-reading")?.items[0]
         ? normalizeResourceLink(categoryMap.get("speed-reading")!.items[0])
         : null,

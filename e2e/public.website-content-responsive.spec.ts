@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import http, { type Server } from "node:http";
 
-const publicViewports = [1440, 1024, 390];
+const publicViewports = [1920, 1440, 1280, 1024, 768, 390];
 let publicApiServer: Server | null = null;
 let publicSiteSettingsState = createPublicSiteSettings();
 let publicFreeMaterialsState = createPublicFreeMaterials();
@@ -501,6 +501,9 @@ test("public free-material routes show availability state on API failure", async
 test("managed free-material cards disappear, restore, and stay deleted without fallback resurrection", async ({ page }) => {
   await openPublicRoute(page, "/ucretsiz-materyaller/pdf-dokumanlar", 1440);
   await expect(page.getByText("TYT Çalışma Planı PDF")).toBeVisible();
+  await expect(page.getByText("AYT Tekrar Çizelgesi PDF")).toHaveCount(0);
+  await expect(page.getByText("Deneme Analiz Formu PDF")).toHaveCount(0);
+  await expect(page.getByText("Hedef Takip Sayfası PDF")).toHaveCount(0);
 
   publicFreeMaterialsState = createPublicFreeMaterials({
     excludeSlugs: ["tyt-calisma-plani-pdf"]
@@ -531,6 +534,73 @@ test("managed free-material cards disappear, restore, and stay deleted without f
     path: "test-results/public-website/free-material-deleted-card-absent.png",
     fullPage: true
   });
+});
+
+test("public free-material destination routes avoid generic 500 pages", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (/empty string.*src attribute|500.*Internal Server Error/i.test(text)) {
+      consoleErrors.push(text);
+    }
+  });
+
+  for (const routePath of [
+    "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
+    "/ucretsiz-materyaller/tyt-kac-gun-kaldi",
+    "/ucretsiz-materyaller/ydt-kac-gun-kaldi",
+    "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi"
+  ]) {
+    await openPublicRoute(page, routePath, 1440);
+    await expect(page.getByText("Internal Server Error")).toHaveCount(0);
+    await assertNoHorizontalOverflow(page);
+  }
+
+  expect(consoleErrors).toEqual([]);
+  await page.screenshot({
+    path: "test-results/public-website/free-material-countdown-route.png",
+    fullPage: true
+  });
+});
+
+test("free-material directory adapts across category and card counts", async ({ page }) => {
+  const scenarios = [
+    { categories: 0, cards: [0], width: 1920, screenshot: "free-material-counts-zero.png" },
+    { categories: 1, cards: [1], width: 1920, screenshot: "free-material-counts-one-category.png" },
+    { categories: 2, cards: [1, 2], width: 1440, screenshot: "free-material-counts-two-categories.png" },
+    { categories: 4, cards: [0, 1, 4, 12], width: 1280, screenshot: "free-material-counts-four-categories.png" },
+    { categories: 9, cards: [1, 2, 4, 12, 1, 2, 4, 1, 0], width: 1024, screenshot: "free-material-counts-nine-categories.png" },
+    { categories: 20, cards: Array.from({ length: 20 }, (_, index) => index % 5), width: 390, screenshot: "free-material-counts-twenty-mobile.png" }
+  ];
+
+  for (const scenario of scenarios) {
+    publicFreeMaterialsState = createPublicFreeMaterialsMatrix(scenario.categories, scenario.cards);
+    await openPublicRoute(page, "/ucretsiz-materyaller", scenario.width);
+    await assertNoHorizontalOverflow(page);
+
+    if (scenario.categories === 0) {
+      await expect(
+        page.getByText("Ücretsiz materyaller hazırlanıyor. Yeni içerikler yakında burada yayınlanacak.")
+      ).toBeVisible();
+    } else {
+      await expect(page.locator(".ega-free-directory-category")).toHaveCount(scenario.categories);
+      if ((scenario.cards[0] ?? 0) === 0) {
+        await expect(page.getByText("Bu kategoride şu anda yayında materyal bulunmuyor.")).toBeVisible();
+        const nextPopulatedIndex = scenario.cards.findIndex((count) => count > 0);
+        if (nextPopulatedIndex > 0) {
+          await page.locator(".ega-free-directory-category").nth(nextPopulatedIndex).click();
+          await expect(page.locator(".ega-free-link-card").first()).toBeVisible();
+        }
+      } else {
+        await expect(page.locator(".ega-free-link-card").first()).toBeVisible();
+      }
+    }
+
+    await page.screenshot({
+      path: `test-results/public-website/${scenario.screenshot}`,
+      fullPage: true
+    });
+  }
 });
 
 test("public free-material download endpoint remains available for managed download cards", async ({ page }) => {
@@ -868,6 +938,7 @@ function createPublicFreeMaterials(options: { excludeSlugs?: string[] } = {}) {
       summary: "Haftalık bloklar ve tekrar zamanlarını planlamak için TYT çalışma şablonu.",
       href: "/v1/public/free-materials/item_1/download",
       downloadHref: "/v1/public/free-materials/item_1/download",
+      destinationMode: "DOWNLOAD",
       buttonLabel: "Dosyayı İndir",
       iconKey: "pdf",
       tone: "navy",
@@ -876,66 +947,6 @@ function createPublicFreeMaterials(options: { excludeSlugs?: string[] } = {}) {
       mimeType: "application/pdf",
       fileSizeBytes: 4096,
       accessibilityLabel: "TYT Çalışma Planı PDF dosyasını indir",
-      opensInNewTab: false,
-      countdownPage: null
-    },
-    {
-      id: "item_2",
-      slug: "ayt-tekrar-cizelgesi-pdf",
-      title: "AYT Tekrar Çizelgesi PDF",
-      itemType: "PDF",
-      badgeLabel: "PDF Doküman",
-      summary: "AYT konu tekrarlarını haftalara ayıran sade çizelge.",
-      href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
-      downloadHref: null,
-      buttonLabel: "İçeriği İncele",
-      iconKey: "pdf",
-      tone: "navy",
-      coverImageUrl: null,
-      displayFilename: null,
-      mimeType: null,
-      fileSizeBytes: null,
-      accessibilityLabel: null,
-      opensInNewTab: false,
-      countdownPage: null
-    },
-    {
-      id: "item_3",
-      slug: "deneme-analiz-formu-pdf",
-      title: "Deneme Analiz Formu PDF",
-      itemType: "PDF",
-      badgeLabel: "PDF Doküman",
-      summary: "Net, süre ve eksik konu değerlendirmesi için analiz formu.",
-      href: "/ucretsiz-materyaller/ydt-kac-gun-kaldi",
-      downloadHref: null,
-      buttonLabel: "İçeriği İncele",
-      iconKey: "pdf",
-      tone: "navy",
-      coverImageUrl: null,
-      displayFilename: null,
-      mimeType: null,
-      fileSizeBytes: null,
-      accessibilityLabel: null,
-      opensInNewTab: false,
-      countdownPage: null
-    },
-    {
-      id: "item_4",
-      slug: "hedef-takip-sayfasi-pdf",
-      title: "Hedef Takip Sayfası PDF",
-      itemType: "PDF",
-      badgeLabel: "PDF Doküman",
-      summary: "Aylık hedefleri ve tamamlanan görevleri işlemek için takip sayfası.",
-      href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
-      downloadHref: null,
-      buttonLabel: "İçeriği İncele",
-      iconKey: "pdf",
-      tone: "navy",
-      coverImageUrl: null,
-      displayFilename: null,
-      mimeType: null,
-      fileSizeBytes: null,
-      accessibilityLabel: null,
       opensInNewTab: false,
       countdownPage: null
     }
@@ -950,6 +961,45 @@ function createPublicFreeMaterials(options: { excludeSlugs?: string[] } = {}) {
       items
     }
   ];
+}
+
+function createPublicFreeMaterialsMatrix(categoryCount: number, cardCounts: number[]) {
+  return Array.from({ length: categoryCount }, (_, categoryIndex) => {
+    const itemCount = cardCounts[categoryIndex] ?? 0;
+    return {
+      id: `cat_${categoryIndex + 1}`,
+      key: categoryIndex === 0 ? "pdf-documents" : `category-${categoryIndex + 1}`,
+      label: categoryIndex === 0 ? "PDF Dokümanlar" : `Kategori ${categoryIndex + 1}`,
+      description: "Uyarlanabilir dizin testi.",
+      items: Array.from({ length: itemCount }, (_, itemIndex) => ({
+        id: `matrix_${categoryIndex + 1}_${itemIndex + 1}`,
+        slug: `materyal-${categoryIndex + 1}-${itemIndex + 1}`,
+        title:
+          itemIndex === 0
+            ? "Uzun başlıklı ücretsiz materyal kartı satır kırılması testi"
+            : `Materyal ${categoryIndex + 1}.${itemIndex + 1}`,
+        itemType: itemIndex % 3 === 0 ? "INTERNAL_PAGE" : itemIndex % 3 === 1 ? "EXTERNAL_LINK" : "COUNTDOWN",
+        badgeLabel: itemIndex % 3 === 2 ? "Sayaç" : "Rehber",
+        summary:
+          itemIndex === 0
+            ? "Uzun açıklama metni kartların satır yüksekliğini, CTA hizasını ve mobil taşmayı test eder."
+            : "Kısa özet.",
+        href: itemIndex % 3 === 1 ? "https://example.com/materyal" : "/ucretsiz-materyaller",
+        downloadHref: null,
+        destinationMode: itemIndex % 3 === 1 ? "EXTERNAL_LINK" : "INTERNAL_PAGE",
+        buttonLabel: itemIndex % 3 === 1 ? "Dış Bağlantı" : "Aç",
+        iconKey: itemIndex % 3 === 2 ? "timer" : "link",
+        tone: itemIndex % 2 === 0 ? "teal" : "navy",
+        coverImageUrl: null,
+        displayFilename: itemIndex === 0 ? "uzun-dosya-adi-ornek-materyal.pdf" : null,
+        mimeType: null,
+        fileSizeBytes: null,
+        accessibilityLabel: `Materyal ${categoryIndex + 1}.${itemIndex + 1} aç`,
+        opensInNewTab: itemIndex % 3 === 1,
+        countdownPage: null
+      }))
+    };
+  });
 }
 
 async function refreshPublicSiteSettingsAndWait(page: Page, expectOk = true) {

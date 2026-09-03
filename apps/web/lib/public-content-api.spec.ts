@@ -52,7 +52,7 @@ describe("public free-material content API", () => {
     assert.equal(content.pdfDocuments.length, 0);
   });
 
-  it("treats PDF wrapper cards without a download action as normal managed links", async () => {
+  it("drops PDF records without a resolved download action from public content", async () => {
     mockPublicFreeMaterialsResponse([
       {
         id: "cat_pdf",
@@ -85,11 +85,10 @@ describe("public free-material content API", () => {
     ]);
 
     const content = await getFreeMaterialsContent();
-    const item = content.pdfDocuments[0];
 
-    assert.equal(item.href, "/ucretsiz-materyaller/tyt-kac-gun-kaldi");
-    assert.equal(item.downloadHref, undefined);
-    assert.equal(item.opensInNewTab, false);
+    assert.equal(content.categories[0]?.items.length, 0);
+    assert.equal(content.pdfDocuments.length, 0);
+    assert.doesNotMatch(JSON.stringify(content), /tyt-kac-gun-kaldi/);
   });
 });
 

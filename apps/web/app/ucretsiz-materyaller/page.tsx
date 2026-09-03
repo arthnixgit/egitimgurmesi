@@ -24,7 +24,6 @@ export default async function FreeMaterialsPage() {
   }
 
   const categories = content.categories
-    .filter((category) => category.items.length > 0)
     .map((category, index): FreeMaterialsDirectoryCategory => ({
       id: category.key,
       title: category.label,
@@ -34,7 +33,7 @@ export default async function FreeMaterialsPage() {
         `${category.items.length} yayında materyal bu başlık altında yönetiliyor.`,
       href: routeForCategory(category.key, category.items[0]?.href ?? "/ucretsiz-materyaller"),
       buttonLabel: "İçerikleri Aç",
-      opensInNewTab: category.items[0]?.opensInNewTab,
+      opensInNewTab: false,
       links: category.items,
       tone: toneForCategory(category.key, index),
       previewLabel: category.label

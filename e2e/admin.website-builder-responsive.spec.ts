@@ -97,7 +97,7 @@ test("website editor branding, media picker, canvas, slider and material preview
   await openWebsiteBuilder(page, "/web-sitesi?alan=ucretsiz-materyaller", 1440);
   await expect(page.getByRole("button", { name: "Yeni Kategori" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Yeni Kart" })).toBeVisible();
-  await expect(page.locator(".admin-website-builder__download-card").first()).toContainText("TYT Çalışma Planı PDF");
+  await expect(page.locator(".admin-free-material-card-row").first()).toContainText("TYT Çalışma Planı PDF");
   await page.screenshot({ path: "test-results/admin-website-builder/free-material-editor.png" });
   await page.screenshot({ path: "test-results/admin-website-builder/download-card-preview.png" });
 
@@ -111,18 +111,19 @@ test("website editor manages free-material archive, restore and safe delete life
   await expect(page.getByText("AYT Tekrar Çizelgesi PDF").first()).toBeVisible();
   await expect(page.getByText("Deneme Analiz Formu PDF").first()).toBeVisible();
   await expect(page.getByText("Hedef Takip Sayfası PDF").first()).toBeVisible();
+  await expect(page.locator(".admin-readiness-pill", { hasText: "Dosya Eksik" }).first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: "test-results/admin-website-builder/four-managed-material-cards.png",
-    fullPage: true
+    path: "test-results/admin-website-builder/four-managed-material-cards.png"
   });
 
   await page.getByTestId("material-card-archive").click();
   await expect.poll(() => materialMutationRequestCount).toBe(1);
   await page.getByTestId("material-filter-archived").click();
   await expect(page.getByText("TYT Çalışma Planı PDF").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: "test-results/admin-website-builder/archived-material-filter.png",
-    fullPage: true
+    path: "test-results/admin-website-builder/archived-material-filter.png"
   });
 
   await page.getByTestId("material-card-restore").click();
@@ -131,7 +132,7 @@ test("website editor manages free-material archive, restore and safe delete life
   await expect(page.getByText("TYT Çalışma Planı PDF").first()).toBeVisible();
 
   await page.getByTestId("material-filter-all").click();
-  await page.locator(".admin-free-material-editor select").nth(1).selectOption("item_temp");
+  await page.locator('[data-testid="material-card-row"][data-material-id="item_temp"] button').click();
   await expect(page.getByText("Geçici Silinebilir Kart").first()).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept("SİL"));
   await page.getByTestId("material-card-delete").click();
@@ -141,9 +142,9 @@ test("website editor manages free-material archive, restore and safe delete life
   await openWebsiteBuilder(page, "/web-sitesi?alan=ucretsiz-materyaller", 1440);
   await expect(page.getByText("Geçici Silinebilir Kart")).toHaveCount(0);
   await assertNoHorizontalOverflow(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
-    path: "test-results/admin-website-builder/deleted-material-card-absent.png",
-    fullPage: true
+    path: "test-results/admin-website-builder/deleted-material-card-absent.png"
   });
 });
 
@@ -649,8 +650,8 @@ function createAdminFreeMaterials() {
             itemType: "PDF",
             badgeLabel: "PDF Doküman",
             summary: "AYT konu tekrarlarını haftalara ayıran sade çizelge.",
-            href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
-            buttonLabel: "İçeriği İncele",
+            href: null,
+            buttonLabel: "Dosya eklenince indir",
             iconKey: "pdf",
             tone: "navy",
             coverImageUrl: null,
@@ -663,7 +664,7 @@ function createAdminFreeMaterials() {
             opensInNewTab: false,
             sortOrder: 20,
             isFeatured: false,
-            publishStatus: "PUBLISHED",
+            publishStatus: "DRAFT",
             countdownPageSlug: null
           },
           {
@@ -673,8 +674,8 @@ function createAdminFreeMaterials() {
             itemType: "PDF",
             badgeLabel: "PDF Doküman",
             summary: "Net, süre ve eksik konu değerlendirmesi için analiz formu.",
-            href: "/ucretsiz-materyaller/ydt-kac-gun-kaldi",
-            buttonLabel: "İçeriği İncele",
+            href: null,
+            buttonLabel: "Dosya eklenince indir",
             iconKey: "pdf",
             tone: "navy",
             coverImageUrl: null,
@@ -687,7 +688,7 @@ function createAdminFreeMaterials() {
             opensInNewTab: false,
             sortOrder: 30,
             isFeatured: false,
-            publishStatus: "PUBLISHED",
+            publishStatus: "DRAFT",
             countdownPageSlug: null
           },
           {
@@ -697,8 +698,8 @@ function createAdminFreeMaterials() {
             itemType: "PDF",
             badgeLabel: "PDF Doküman",
             summary: "Aylık hedefleri ve tamamlanan görevleri işlemek için takip sayfası.",
-            href: "/ucretsiz-materyaller/2026-lgs-kac-gun-kaldi",
-            buttonLabel: "İçeriği İncele",
+            href: null,
+            buttonLabel: "Dosya eklenince indir",
             iconKey: "pdf",
             tone: "navy",
             coverImageUrl: null,
@@ -711,7 +712,7 @@ function createAdminFreeMaterials() {
             opensInNewTab: false,
             sortOrder: 40,
             isFeatured: false,
-            publishStatus: "PUBLISHED",
+            publishStatus: "DRAFT",
             countdownPageSlug: null
           },
           {

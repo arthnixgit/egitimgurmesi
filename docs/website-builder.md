@@ -159,6 +159,17 @@ zorunlu tutar, `javascript:`, `data:`, `file:`, localhost, özel IP ve iç ağ
 hedeflerini reddeder, dosya adını temizler ve `Content-Disposition: attachment`
 başlığı döner.
 
+Route crawler read-only doğrulama için kullanılabilir:
+
+```bash
+node scripts/free-material-route-crawler.mjs --web-base-url http://localhost:3000 --api-base-url http://localhost:4000/v1
+node scripts/free-material-route-crawler.mjs --web-base-url https://egitimgurmesi.com --api-base-url https://api.egitimgurmesi.com/v1
+```
+
+Crawler public free-material API'deki her yayınlı kartı çözer, iç rotaları ve
+indirme hedeflerini test eder, HTTP 500 veya dosyasız yayınlı download bulursa
+non-zero çıkar.
+
 ## Geliştirici Mimarisi
 
 Admin içerik API'si `admin-content` modülünde tutulur. Read işlemleri
@@ -261,19 +272,21 @@ Sipariş veya kayıt geçmişi olan paket silinemez; arşivleme önerilir.
 
 ## Migration ve Backfill
 
-Bu çalışma şema değişikliği içermez. Eklenen migration yalnızca data-only
-legacy materyal uzlaştırmasıdır ve dört eski PDF kartını yönetilebilir
-`FreeMaterialItem` kayıtlarına dönüştürür:
+Bu çalışma şema değişikliği içermez. İlk data-only legacy materyal uzlaştırması
+dört eski PDF kartını yönetilebilir `FreeMaterialItem` kayıtlarına dönüştürür:
 
 - `TYT Çalışma Planı PDF` -> `tyt-calisma-plani-pdf`
 - `AYT Tekrar Çizelgesi PDF` -> `ayt-tekrar-cizelgesi-pdf`
 - `Deneme Analiz Formu PDF` -> `deneme-analiz-formu-pdf`
 - `Hedef Takip Sayfası PDF` -> `hedef-takip-sayfasi-pdf`
 
-Migration idempotenttir. Aynı slug veya aynı kategoride aynı başlık zaten varsa
-ikinci kayıt oluşturmaz; slug'ı boş olan eski kaydı bulursa yalnızca slug verir.
-Arşivlenmiş veya kullanıcı tarafından eklenmiş kayıtlar silinmez. Production'da
-yalnızca `migrate deploy` çalıştırılmalıdır.
+Ardından eklenen `20260903120000_repair_legacy_free_material_pdf_destinations`
+data-only migration'ı, bu dört karttan dosya bağlantısı bulunmayan ve hâlâ
+yayında olan `PDF` kayıtlarını güvenli taslağa çeker. Kayıtlar silinmez, custom
+içerik değişmez, arşivlenmiş içerik yeniden aktif edilmez ve sahte PDF dosyası
+üretilmez. Dosyası bulunan kayıt yayın durumunu koruyabilir; dosyası olmayan PDF
+kartı Admin'de `Dosya Eksik` olarak kalır ve dosya eklenmeden yayınlanamaz.
+Production'da yalnızca `migrate deploy` çalıştırılmalıdır.
 
 ## Logo Yayın Mimarisi
 
@@ -322,6 +335,21 @@ döndürür. Public endpoint yalnızca aktif/yayında kayıtları döndürür. A
 PDF dokümanları, faydalı linkler, blog ve sayaç sayfaları aynı yönetilen kayıtları
 kullanır; kart arşivlenir veya silinirse tüm public konumlardan çıkar, geri
 yüklenirse kategori/sıra düzenine göre geri döner.
+
+Kart hedefleri merkezi `apps/api/src/free-materials/material-destination.ts`
+resolver'ı ile çözülür. `PDF` ve `DOWNLOAD` için geçerli bir `MediaAsset` veya
+güvenli HTTPS `downloadUrl` gerekir ve public hedef her zaman aynı-origin indirme
+endpoint'idir. `COUNTDOWN` için geçerli sayaç sayfası, `INTERNAL_PAGE` için kayıtlı
+site içi rota, `EXTERNAL_LINK` için HTTPS URL gerekir. Public kart artık
+`downloadHref ?? href` gibi gevşek seçim yapmaz; `destinationMode` ve doğrulanmış
+hedef kullanılır. Geçersiz yayınlı kayıt public API'de atlanır ve server logunda
+item ID, slug, tür, rota ve hata kategorisiyle izlenir.
+
+`/ucretsiz-materyaller/[slug]` rotası önce yönetilen materyali, sonra kayıtlı
+sayaç sayfasını çözer. PDF kart sayaç sayfası gibi render edilmez; bilinmeyen slug
+404'e, geçici API arızası kontrollü kullanılabilirlik durumuna gider. Route-level
+`error.tsx` ve `not-found.tsx` kullanıcıya Türkçe güvenli mesaj gösterir, stack
+trace yalnızca server logunda kalır.
 
 Arşivleme birincil kaldırma yöntemidir. Kalıcı silme yalnızca açık `SİL` onayıyla
 ve hedef kart/kategori kimliği üzerinden yapılır. Kartı olan kategori silinemez;

@@ -1,6 +1,5 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { FreeMaterialItemType } from "@ega/db";
 import {
   BadRequestException,
   Injectable,
@@ -11,6 +10,10 @@ import {
 import { appEnv } from "../config/env";
 import { PublicContentRepository } from "../data-access/public-content.repository";
 import { MediaService } from "../media/media.service";
+import {
+  resolveFreeMaterialDestination,
+  type MaterialDestinationItem
+} from "../free-materials/material-destination";
 
 type NavigationNode = {
   id: string;
@@ -184,6 +187,11 @@ export class PublicContentService {
 
   async listFreeMaterials() {
     const categories = await this.publicContentRepository.listFreeMaterialCategories();
+    const publishedCountdownSlugs = new Set(
+      categories
+        .flatMap((category) => category.items.map((item) => item.countdownPage?.slug))
+        .filter((slug): slug is string => Boolean(slug))
+    );
 
     return categories.map((category) => ({
       id: category.id,
@@ -191,37 +199,56 @@ export class PublicContentService {
       label: category.label,
       description: category.description,
       sortOrder: category.sortOrder,
-      items: category.items.map((item) => {
-        const isDownload =
-          (item.itemType === FreeMaterialItemType.PDF ||
-            item.itemType === FreeMaterialItemType.DOWNLOAD) &&
-          Boolean(item.downloadUrl || item.mediaAssetId);
-        const downloadHref = isDownload ? `/v1/public/free-materials/${item.id}/download` : null;
+      items: category.items.flatMap((item) => {
+        const destination = resolveFreeMaterialDestination(item as MaterialDestinationItem, {
+          downloadHref: `/v1/public/free-materials/${item.id}/download`,
+          countdownSlugs: publishedCountdownSlugs,
+          allowAnySafeInternalRoute: false
+        });
 
-        return {
-          id: item.id,
-          slug: item.slug,
-          title: item.title,
-          itemType: item.itemType,
-          badgeLabel: item.badgeLabel,
-          summary: item.summary,
-          href: downloadHref ?? item.href,
-          downloadHref,
-          buttonLabel: item.buttonLabel,
-          iconKey: item.iconKey,
-          tone: item.tone,
-          coverImageUrl: item.coverImageUrl,
-          displayFilename: item.displayFilename,
-          mimeType: item.mimeType,
-          fileSizeBytes: item.fileSizeBytes,
-          accessibilityLabel:
-            item.accessibilityLabel ??
-            (isDownload ? `${item.title} dosyasını indir` : item.buttonLabel ?? "İçeriği Aç"),
-          opensInNewTab: isDownload ? false : item.opensInNewTab,
-          sortOrder: item.sortOrder,
-          isFeatured: item.isFeatured,
-          countdownPage: item.countdownPage
-        };
+        if (!destination.ok) {
+          this.logger.warn(
+            JSON.stringify({
+              event: "invalid_published_free_material_destination",
+              itemId: item.id,
+              slug: item.slug,
+              itemType: item.itemType,
+              route: item.href,
+              errorCategory: destination.code
+            })
+          );
+          return [];
+        }
+
+        const isDownload = destination.mode === "DOWNLOAD";
+
+        return [
+          {
+            id: item.id,
+            slug: item.slug,
+            title: item.title,
+            itemType: item.itemType,
+            destinationMode: destination.mode,
+            badgeLabel: item.badgeLabel,
+            summary: item.summary,
+            href: destination.href,
+            downloadHref: destination.downloadHref,
+            buttonLabel: item.buttonLabel,
+            iconKey: item.iconKey,
+            tone: item.tone,
+            coverImageUrl: item.coverImageUrl,
+            displayFilename: item.displayFilename,
+            mimeType: item.mimeType,
+            fileSizeBytes: item.fileSizeBytes,
+            accessibilityLabel:
+              item.accessibilityLabel ??
+              (isDownload ? `${item.title} dosyas\u0131n\u0131 indir` : item.buttonLabel ?? "\u0130\u00e7eri\u011fi A\u00e7"),
+            opensInNewTab: destination.opensInNewTab,
+            sortOrder: item.sortOrder,
+            isFeatured: item.isFeatured,
+            countdownPage: item.countdownPage
+          }
+        ];
       })
     }));
   }
@@ -241,6 +268,21 @@ export class PublicContentService {
 
     if (!item) {
       throw new NotFoundException("İndirilebilir materyal bulunamadı.");
+    }
+
+    const destination = resolveFreeMaterialDestination(item as MaterialDestinationItem, {
+      downloadHref: `/v1/public/free-materials/${item.id}/download`,
+      allowAnySafeInternalRoute: false
+    });
+
+    if (!destination.ok || destination.mode !== "DOWNLOAD") {
+      this.logger.warn(
+        `Invalid public download request for item "${safeLogValue(item.id)}" (${safeLogValue(item.slug ?? "")}): ${destination.ok ? "wrong_mode" : destination.code}.`
+      );
+      if (!destination.ok && destination.code === "INVALID_DOWNLOAD_URL") {
+        throw new BadRequestException(destination.message);
+      }
+      throw new NotFoundException("İndirilebilir materyal dosyası tanımlı değil.");
     }
 
     if (item.mediaAssetId) {
@@ -289,46 +331,52 @@ async function fetchRemoteDownload(
   sourceUrl: string,
   fallback: { filename: string; contentType?: string | null; sizeBytes?: number | null }
 ): Promise<PublicDownloadResult> {
-    const url = await validatePublicDownloadUrl(sourceUrl);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+  const url = await validatePublicDownloadUrl(sourceUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
 
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        redirect: "error"
-      });
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: "error"
+    });
 
-      if (!response.ok) {
-        throw new BadRequestException("İndirilebilir materyal kaynağına ulaşılamadı.");
-      }
-
-      const contentLength = Number(response.headers.get("content-length") ?? fallback.sizeBytes ?? "0");
-      const maxBytes = appEnv.mediaMaxUploadBytes();
-
-      if (contentLength > maxBytes) {
-        throw new BadRequestException("İndirilebilir materyal izin verilen dosya boyutunu aşıyor.");
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-
-      if (buffer.byteLength > maxBytes) {
-        throw new BadRequestException("İndirilebilir materyal izin verilen dosya boyutunu aşıyor.");
-      }
-
-      return {
-        kind: "buffer",
-        data: buffer,
-        filename: sanitizeDownloadFilename(
-          fallback.filename || filenameFromUrl(url) || "materyal",
-          response.headers.get("content-type") || fallback.contentType
-        ),
-        contentType: response.headers.get("content-type") || fallback.contentType || "application/octet-stream",
-        contentLength: buffer.byteLength
-      };
-    } finally {
-      clearTimeout(timeout);
+    if (!response.ok) {
+      throw new BadRequestException("İndirilebilir materyal kaynağına ulaşılamadı.");
     }
+
+    const contentLength = Number(response.headers.get("content-length") ?? fallback.sizeBytes ?? "0");
+    const maxBytes = appEnv.mediaMaxUploadBytes();
+
+    if (contentLength > maxBytes) {
+      throw new BadRequestException("İndirilebilir materyal izin verilen dosya boyutunu aşıyor.");
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (buffer.byteLength > maxBytes) {
+      throw new BadRequestException("İndirilebilir materyal izin verilen dosya boyutunu aşıyor.");
+    }
+
+    return {
+      kind: "buffer",
+      data: buffer,
+      filename: sanitizeDownloadFilename(
+        fallback.filename || filenameFromUrl(url) || "materyal",
+        response.headers.get("content-type") || fallback.contentType
+      ),
+      contentType: response.headers.get("content-type") || fallback.contentType || "application/octet-stream",
+      contentLength: buffer.byteLength
+    };
+  } catch (error) {
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+
+    throw new ServiceUnavailableException("İndirilebilir materyal şu anda yüklenemiyor.");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function normalizeJsonLinks(value: unknown) {

@@ -19,6 +19,7 @@ import type {
 import { BuilderCanvas } from "./builder-canvas";
 import { BuilderInspector } from "./builder-inspector";
 import { BuilderLeftPanel } from "./builder-left-panel";
+import { FreeMaterialEditor } from "./free-material-editor";
 import { BuilderToolbar } from "./builder-toolbar";
 
 export function WebsiteBuilderShell({
@@ -93,34 +94,46 @@ export function WebsiteBuilderShell({
       {status.message ? <div className="admin-alert admin-alert--success" role="status">{status.message}</div> : null}
       {status.previewTokenStatus ? <div className="admin-alert" role="status">{status.previewTokenStatus}</div> : null}
 
-      <section className="admin-website-builder__layout" data-mode={selection.responsiveMode}>
-        <BuilderLeftPanel areas={areas} pages={data.pages} selection={selection} actions={actions} />
-        <BuilderCanvas
-          selectedArea={selection.selectedArea}
-          selection={selection}
-          settings={data.settings}
-          navigation={data.navigation}
-          currentPage={currentPage}
-          currentSection={currentSection}
-          materials={data.materials}
-          currentMaterialCategory={currentMaterialCategory}
-          currentMaterialItem={currentMaterialItem}
-          staffProfiles={data.staffProfiles}
-          successStories={data.successStories}
-          areaLoading={status.areaLoading}
-          actions={actions}
-        />
-        <BuilderInspector
-          data={data}
-          selection={selection}
-          status={status}
-          currentPage={currentPage}
-          currentSection={currentSection}
-          setStaffProfiles={setStaffProfiles}
-          setSuccessStories={setSuccessStories}
-          actions={actions}
-        />
-      </section>
+      {selection.selectedArea === "ucretsiz-materyaller" ? (
+        <section className="admin-website-builder__materials-shell" data-mode={selection.responsiveMode}>
+          <BuilderLeftPanel areas={areas} pages={data.pages} selection={selection} actions={actions} />
+          <FreeMaterialEditor
+            materials={data.materials}
+            selectedCategory={currentMaterialCategory}
+            selectedItem={currentMaterialItem}
+            actions={actions}
+          />
+        </section>
+      ) : (
+        <section className="admin-website-builder__layout" data-mode={selection.responsiveMode}>
+          <BuilderLeftPanel areas={areas} pages={data.pages} selection={selection} actions={actions} />
+          <BuilderCanvas
+            selectedArea={selection.selectedArea}
+            selection={selection}
+            settings={data.settings}
+            navigation={data.navigation}
+            currentPage={currentPage}
+            currentSection={currentSection}
+            materials={data.materials}
+            currentMaterialCategory={currentMaterialCategory}
+            currentMaterialItem={currentMaterialItem}
+            staffProfiles={data.staffProfiles}
+            successStories={data.successStories}
+            areaLoading={status.areaLoading}
+            actions={actions}
+          />
+          <BuilderInspector
+            data={data}
+            selection={selection}
+            status={status}
+            currentPage={currentPage}
+            currentSection={currentSection}
+            setStaffProfiles={setStaffProfiles}
+            setSuccessStories={setSuccessStories}
+            actions={actions}
+          />
+        </section>
+      )}
     </main>
   );
 }

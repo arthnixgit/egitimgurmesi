@@ -434,6 +434,40 @@ describe("PublicContentService free materials", () => {
     assert.equal(item.accessibilityLabel, "TYT Plan dosyasını indir");
     assert.equal(JSON.stringify(item).includes("raw-plan.pdf"), false);
   });
+  it("omits published PDF cards that have no real download source", async () => {
+    const service = createService({
+      listFreeMaterialCategories: async () => [
+        {
+          id: "cat_1",
+          key: "pdf-documents",
+          label: "PDF Dokümanlar",
+          description: "Planlar",
+          sortOrder: 10,
+          publishStatus: ContentStatus.PUBLISHED,
+          version: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          items: [
+            {
+              ...downloadItemBase(),
+              id: "legacy-free-material-pdf-ayt-tekrar-cizelgesi",
+              slug: "ayt-tekrar-cizelgesi-pdf",
+              title: "AYT Tekrar Çizelgesi PDF",
+              itemType: FreeMaterialItemType.PDF,
+              href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi",
+              downloadUrl: null,
+              mediaAssetId: null,
+              countdownPage: null
+            }
+          ]
+        }
+      ]
+    });
+
+    const categories = await service.listFreeMaterials();
+
+    assert.equal(categories[0].items.length, 0);
+  });
 
   it("rejects missing or inactive public download items", async () => {
     const service = createService({

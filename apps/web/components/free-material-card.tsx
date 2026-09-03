@@ -8,14 +8,14 @@ export function FreeMaterialCard({
   item: ResourceLink;
   compact?: boolean;
 }) {
-  const isDownload = Boolean(item.downloadHref) || item.itemType === "DOWNLOAD";
-  const href = item.downloadHref ?? item.href;
+  const isDownload = item.destinationMode === "DOWNLOAD" || Boolean(item.downloadHref);
+  const href = isDownload ? item.downloadHref ?? item.href : item.href;
   const label = item.buttonLabel ?? (isDownload ? "Dosyayı İndir" : "İçeriği Aç");
   const ariaLabel = item.accessibilityLabel ?? (isDownload ? `${item.title} dosyasını indir` : label);
   const opensInNewTab = !isDownload && (item.opensInNewTab || href.startsWith("http"));
 
   return (
-    <article className={`ega-free-link-card${compact ? " ega-free-link-card--compact" : ""}`}>
+    <article className={`ega-free-link-card${compact ? " ega-free-link-card--compact" : ""}`} data-destination={item.destinationMode ?? item.itemType ?? "LINK"}>
       <div className="ega-free-link-card__topline">
         <span className="ega-free-link-card__icon" aria-hidden="true">
           {iconLabel(item.iconKey, isDownload)}
