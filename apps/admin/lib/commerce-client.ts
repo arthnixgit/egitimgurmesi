@@ -107,6 +107,12 @@ export type AdminCatalogProduct = {
   introVideoUrl?: string | null;
   introVideoPosterUrl?: string | null;
   introVideoTitle?: string | null;
+  detailAudienceHeading?: string | null;
+  detailAudienceBody?: string | null;
+  detailBenefitsHeading?: string | null;
+  detailBenefitsDescription?: string | null;
+  detailBackCtaLabel?: string | null;
+  detailPurchaseCtaLabel?: string | null;
   variants: AdminCatalogVariant[];
   features: AdminCatalogFeature[];
 };
@@ -131,6 +137,12 @@ export type SaveAdminCatalogProductPayload = {
   introVideoUrl?: string | null;
   introVideoPosterUrl?: string | null;
   introVideoTitle?: string | null;
+  detailAudienceHeading?: string | null;
+  detailAudienceBody?: string | null;
+  detailBenefitsHeading?: string | null;
+  detailBenefitsDescription?: string | null;
+  detailBackCtaLabel?: string | null;
+  detailPurchaseCtaLabel?: string | null;
   variants: SaveAdminCatalogVariantPayload[];
   features: SaveAdminCatalogFeaturePayload[];
 };

@@ -42,10 +42,17 @@ type PublicCommerceProductResponse = {
   subcategoryId: string;
   provider: "local" | "redirect";
   defaultVariantId?: string | null;
+  coverImageUrl?: string | null;
   introVideoSourceType?: "DIRECT" | "EMBED" | null;
   introVideoUrl?: string | null;
   introVideoPosterUrl?: string | null;
   introVideoTitle?: string | null;
+  detailAudienceHeading?: string | null;
+  detailAudienceBody?: string | null;
+  detailBenefitsHeading?: string | null;
+  detailBenefitsDescription?: string | null;
+  detailBackCtaLabel?: string | null;
+  detailPurchaseCtaLabel?: string | null;
 };
 
 type PublicCommerceCatalogResponse = {
@@ -114,10 +121,17 @@ function normalizeProduct(product: PublicCommerceProductResponse): PackageProduc
     subcategoryId: product.subcategoryId as PackageProduct["subcategoryId"],
     provider: product.provider,
     defaultVariantId: product.defaultVariantId ?? null,
+    coverImageUrl: product.coverImageUrl ?? null,
     introVideoSourceType: product.introVideoSourceType ?? null,
     introVideoUrl: product.introVideoUrl ?? null,
     introVideoPosterUrl: product.introVideoPosterUrl ?? null,
-    introVideoTitle: product.introVideoTitle ?? null
+    introVideoTitle: product.introVideoTitle ?? null,
+    detailAudienceHeading: product.detailAudienceHeading ?? null,
+    detailAudienceBody: product.detailAudienceBody ?? null,
+    detailBenefitsHeading: product.detailBenefitsHeading ?? null,
+    detailBenefitsDescription: product.detailBenefitsDescription ?? null,
+    detailBackCtaLabel: product.detailBackCtaLabel ?? null,
+    detailPurchaseCtaLabel: product.detailPurchaseCtaLabel ?? null
   };
 }
 

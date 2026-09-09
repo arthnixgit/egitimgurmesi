@@ -31,7 +31,7 @@ describe("public site settings normalization", () => {
     assert.equal(settings.logoAltText, "Custom logo");
   });
 
-  it("rejects malformed asset URLs without replacing safe defaults", () => {
+  it("rejects malformed asset URLs while keeping the compact logo on the safe primary logo", () => {
     const settings = normalizePublicSiteSettings({
       logoPrimaryUrl: "javascript:alert(1)",
       logoCompactUrl: "//cdn.example.com/logo.png",
@@ -40,9 +40,16 @@ describe("public site settings normalization", () => {
     });
 
     assert.equal(settings.logoPrimaryUrl, fallbackSiteSettings.logoPrimaryUrl);
-    assert.equal(settings.logoCompactUrl, fallbackSiteSettings.logoCompactUrl);
+    assert.equal(settings.logoCompactUrl, fallbackSiteSettings.logoPrimaryUrl);
     assert.equal(settings.faviconUrl, fallbackSiteSettings.faviconUrl);
     assert.equal(settings.defaultSocialImageUrl, "https://cdn.example.com/social.png");
     assert.equal(isValidPublicSiteSettingsSnapshot(settings), true);
+  });
+
+  it("uses the published primary logo when no compact logo was configured", () => {
+    const settings = normalizePublicSiteSettings({ logoPrimaryUrl: "/media/header-wide.png", logoCompactUrl: "" });
+
+    assert.equal(settings.logoPrimaryUrl, "/media/header-wide.png");
+    assert.equal(settings.logoCompactUrl, "/media/header-wide.png");
   });
 });

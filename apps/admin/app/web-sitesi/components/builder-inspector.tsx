@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type {
   AdminMarketingPage,
   AdminMarketingPageSection,
@@ -8,6 +8,7 @@ import type {
   AdminNavigationMenu,
   AdminSiteSettings,
   AdminStaffProfilesDocument,
+  AdminSuccessStory,
   AdminSuccessStoriesDocument
 } from "../../../lib/auth-client";
 import type {
@@ -69,12 +70,13 @@ export function BuilderInspector({
       {selection.selectedArea === "marka" ? <BrandSettingsPanel settings={data.settings} actions={actions} /> : null}
       {selection.selectedArea === "footer" ? <FooterSettingsPanel settings={data.settings} actions={actions} /> : null}
       {selection.selectedArea === "header" ? <NavigationPanel navigation={data.navigation} actions={actions} /> : null}
-      {selection.selectedArea === "sayfalar" ? (
+      {selection.selectedArea === "sayfalar" || selection.selectedArea === "ana-sayfa-slideri" ? (
         <PageInspector
           page={currentPage}
           section={currentSection}
           tab={selection.inspectorTab}
           selectedSlideId={selection.selectedSlideId}
+          sliderMode={selection.selectedArea === "ana-sayfa-slideri"}
           actions={actions}
         />
       ) : null}
@@ -101,7 +103,7 @@ export function BuilderInspector({
         <StaffPanel document={data.staffProfiles} setDocument={setStaffProfiles} />
       ) : null}
       {selection.selectedArea === "basari-hikayeleri" ? (
-        <SuccessStoriesPanel document={data.successStories} setDocument={setSuccessStories} />
+        <SuccessStoriesPanel document={data.successStories} setDocument={setSuccessStories} actions={actions} />
       ) : null}
       {selection.selectedArea === "gecmis" ? (
         <RevisionPanel
@@ -372,19 +374,29 @@ function PageInspector({
   section,
   tab,
   selectedSlideId,
+  sliderMode = false,
   actions
 }: {
   page: AdminMarketingPage | null;
   section: AdminMarketingPageSection | null;
   tab: InspectorTab;
   selectedSlideId: string | null;
+  sliderMode?: boolean;
   actions: BuilderActions;
 }) {
   if (!page) {
+    if (sliderMode) {
+      return <HomeSliderRepairState reason="Ana sayfa kaydı bulunamadı." actions={actions} />;
+    }
+
     return <div className="admin-empty-state">Sayfa seçin.</div>;
   }
 
   if (!section) {
+    if (sliderMode) {
+      return <HomeSliderRepairState reason="Ana sayfa slider bölümü bulunamadı." actions={actions} />;
+    }
+
     return <PageSettings page={page} actions={actions} />;
   }
 
@@ -489,6 +501,18 @@ function PageInspector({
   );
 }
 
+function HomeSliderRepairState({ reason, actions }: { reason: string; actions: BuilderActions }) {
+  return (
+    <div className="admin-empty-state admin-empty-state--action">
+      <strong>Ana Sayfa Sliderı hazırlanmalı</strong>
+      <span>{reason}</span>
+      <button type="button" className="admin-button" onClick={actions.repairHomeSliderDraft}>
+        Ana Sayfa Sliderını Oluştur
+      </button>
+    </div>
+  );
+}
+
 function PageSettings({ page, actions }: { page: AdminMarketingPage; actions: BuilderActions }) {
   return (
     <div className="admin-website-builder__form">
@@ -570,35 +594,334 @@ function StaffPanel({
 
 function SuccessStoriesPanel({
   document,
-  setDocument
+  setDocument,
+  actions
 }: {
   document: AdminSuccessStoriesDocument;
   setDocument: Dispatch<SetStateAction<AdminSuccessStoriesDocument>>;
+  actions: BuilderActions;
 }) {
-  const firstStory = document.stories[0];
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"ALL" | "PUBLISHED" | "DRAFT" | "ARCHIVED" | "FEATURED">("ALL");
+  const [selectedSlug, setSelectedSlug] = useState(document.stories[0]?.slug ?? "");
+  const counts = useMemo(
+    () => ({
+      all: document.stories.length,
+      published: document.stories.filter((story) => story.publishStatus === "PUBLISHED").length,
+      draft: document.stories.filter((story) => story.publishStatus !== "PUBLISHED" && story.publishStatus !== "ARCHIVED").length,
+      archived: document.stories.filter((story) => story.publishStatus === "ARCHIVED").length,
+      featured: document.stories.filter((story) => story.isFeatured).length
+    }),
+    [document.stories]
+  );
+  const selectedStory =
+    document.stories.find((story) => story.slug === selectedSlug) ?? document.stories[0] ?? null;
+  const visibleStories = document.stories.filter((story) => {
+    const matchesFilter =
+      filter === "ALL" ||
+      (filter === "FEATURED" ? story.isFeatured : (story.publishStatus ?? "DRAFT") === filter);
+    const text = `${story.studentName} ${story.slug} ${story.city ?? ""} ${story.examLabel ?? ""} ${story.resultTitle} ${story.highlight}`;
+
+    return matchesFilter && text.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR"));
+  });
+
+  function commitStory(slug: string, patch: Partial<AdminSuccessStory>) {
+    setDocument((current) => ({
+      ...current,
+      stories: current.stories.map((story) => (story.slug === slug ? { ...story, ...patch } : story))
+    }));
+    if (patch.slug) {
+      setSelectedSlug(patch.slug);
+    }
+  }
+
+  function createStory() {
+    const slug = `basari-hikayesi-${Date.now().toString(36)}`;
+    const story: AdminSuccessStory = {
+      slug,
+      studentName: "",
+      city: "",
+      examLabel: "",
+      resultTitle: "",
+      highlight: "",
+      story: "",
+      avatarUrl: "",
+      sortOrder: (document.stories.length + 1) * 10,
+      isFeatured: false,
+      publishStatus: "DRAFT"
+    };
+
+    setDocument((current) => ({
+      ...current,
+      stories: [...current.stories, story]
+    }));
+    setSelectedSlug(slug);
+  }
+
+  function duplicateStory() {
+    if (!selectedStory) {
+      return;
+    }
+
+    const slug = `${selectedStory.slug || "basari-hikayesi"}-kopya-${Date.now().toString(36)}`;
+    setDocument((current) => ({
+      ...current,
+      stories: resequenceStories([
+        ...current.stories,
+        {
+          ...selectedStory,
+          id: undefined,
+          slug,
+          studentName: `${selectedStory.studentName} kopyası`.trim(),
+          publishStatus: "DRAFT"
+        }
+      ])
+    }));
+    setSelectedSlug(slug);
+  }
+
+  function moveStory(direction: -1 | 1) {
+    if (!selectedStory) {
+      return;
+    }
+
+    const sorted = [...document.stories].sort(compareStories);
+    const index = sorted.findIndex((story) => story.slug === selectedStory.slug);
+    const targetIndex = index + direction;
+
+    if (index < 0 || targetIndex < 0 || targetIndex >= sorted.length) {
+      return;
+    }
+
+    const [story] = sorted.splice(index, 1);
+    sorted.splice(targetIndex, 0, story);
+    setDocument((current) => ({
+      ...current,
+      stories: resequenceStories(sorted)
+    }));
+  }
+
+  function deleteStory() {
+    if (!selectedStory) {
+      return;
+    }
+
+    const typed = window.prompt(`"${selectedStory.studentName || selectedStory.slug}" silinecek. Devam etmek için SİL yazın.`);
+    if (typed !== "SİL") {
+      return;
+    }
+
+    const nextStories = document.stories.filter((story) => story.slug !== selectedStory.slug);
+    setDocument((current) => ({
+      ...current,
+      stories: resequenceStories(current.stories.filter((story) => story.slug !== selectedStory.slug))
+    }));
+    setSelectedSlug(nextStories[0]?.slug ?? "");
+  }
+
   return (
-    <div className="admin-website-builder__form">
-      <p className="admin-website-builder__hint">Başarı hikayeleri öne çıkan sıralama ve yayın durumu ile saklanır.</p>
-      {firstStory ? (
+    <div className="admin-success-workspace">
+      <aside className="admin-success-workspace__list" aria-label="Başarı hikayeleri listesi">
+        <div className="admin-toolbar admin-toolbar--split">
+          <div>
+            <strong>Başarı Hikayeleri</strong>
+            <p>Yayında {counts.published} · Taslak {counts.draft} · Arşiv {counts.archived}</p>
+          </div>
+          <button className="admin-button--compact" type="button" onClick={createStory}>
+            Yeni Başarı Hikayesi
+          </button>
+        </div>
+
         <label className="admin-builder-field">
-          <span>İlk hikaye başlığı</span>
-          <input
-            value={firstStory.resultTitle}
-            onChange={(event) =>
-              setDocument((current) => ({
-                ...current,
-                stories: current.stories.map((story, index) =>
-                  index === 0 ? { ...story, resultTitle: event.target.value } : story
-                )
-              }))
-            }
-          />
+          <span>Arama</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Öğrenci, şehir, sınav" />
         </label>
+
+        <div className="admin-builder-check-grid" role="group" aria-label="Başarı hikayesi filtreleri">
+          {[
+            ["ALL", `Tümü (${counts.all})`],
+            ["PUBLISHED", `Yayında (${counts.published})`],
+            ["DRAFT", `Taslak (${counts.draft})`],
+            ["ARCHIVED", `Arşivlenmiş (${counts.archived})`],
+            ["FEATURED", `Öne Çıkanlar (${counts.featured})`]
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="admin-button--compact admin-button--ghost"
+              data-active={filter === key}
+              onClick={() => setFilter(key as typeof filter)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {document.stories.length === 0 ? (
+          <div className="admin-empty-state admin-empty-state--action">
+            <strong>Henüz başarı hikayesi eklenmedi.</strong>
+            <button className="admin-button" type="button" onClick={createStory}>
+              İlk Başarı Hikayesini Ekle
+            </button>
+          </div>
+        ) : (
+          <div className="admin-success-list">
+            {visibleStories.map((story) => (
+              <button
+                key={story.slug}
+                type="button"
+                className="admin-success-list__item"
+                data-active={story.slug === selectedStory?.slug}
+                onClick={() => setSelectedSlug(story.slug)}
+              >
+                <strong>{story.studentName || "İsimsiz hikaye"}</strong>
+                <span>{story.resultTitle || story.slug}</span>
+                <small>{story.publishStatus ?? "DRAFT"} · {story.isFeatured ? "Öne çıkan" : "Standart"}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </aside>
+
+      {selectedStory ? (
+        <section className="admin-success-workspace__editor" aria-label="Başarı hikayesi editörü">
+          <div className="admin-toolbar admin-toolbar--split admin-sticky-actions">
+            <div className="admin-editor-meta">
+              <span className="admin-badge">{selectedStory.publishStatus ?? "DRAFT"}</span>
+              <span className="admin-editor-meta__text">{selectedStory.slug}</span>
+            </div>
+            <div className="admin-actions">
+              <button className="admin-button--compact admin-button--ghost" type="button" onClick={duplicateStory}>Kopyala</button>
+              <button className="admin-button--compact admin-button--ghost" type="button" onClick={() => moveStory(-1)}>Yukarı Taşı</button>
+              <button className="admin-button--compact admin-button--ghost" type="button" onClick={() => moveStory(1)}>Aşağı Taşı</button>
+              <button className="admin-button--compact admin-button--ghost" type="button" onClick={() => actions.saveCurrent("draft")}>Kaydet</button>
+              <button className="admin-button--compact" type="button" onClick={() => {
+                commitStory(selectedStory.slug, { publishStatus: "PUBLISHED" });
+                window.setTimeout(() => void actions.saveCurrent("publish"), 0);
+              }}>Yayınla</button>
+            </div>
+          </div>
+
+          <div className="admin-success-preview">
+            {selectedStory.avatarUrl ? <img src={selectedStory.avatarUrl} alt={`${selectedStory.studentName} görseli`} /> : null}
+            <div>
+              <strong>{selectedStory.studentName || "Öğrenci adı"}</strong>
+              <span>{selectedStory.examLabel || "Sınav / Yıl"}</span>
+              <p>{selectedStory.highlight || selectedStory.resultTitle || "Kısa vurgu"}</p>
+            </div>
+          </div>
+
+          <div className="admin-form-grid">
+            <label className="admin-builder-field">
+              <span>Öğrenci Adı</span>
+              <input value={selectedStory.studentName} onChange={(event) => commitStory(selectedStory.slug, { studentName: event.target.value })} />
+            </label>
+            <label className="admin-builder-field">
+              <span>Slug</span>
+              <input value={selectedStory.slug} onChange={(event) => commitStory(selectedStory.slug, { slug: event.target.value })} />
+            </label>
+            <label className="admin-builder-field">
+              <span>Şehir</span>
+              <input value={selectedStory.city ?? ""} onChange={(event) => commitStory(selectedStory.slug, { city: event.target.value })} />
+            </label>
+            <label className="admin-builder-field">
+              <span>Sınav / Yıl</span>
+              <input value={selectedStory.examLabel ?? ""} onChange={(event) => commitStory(selectedStory.slug, { examLabel: event.target.value })} />
+            </label>
+            <label className="admin-builder-field">
+              <span>Sonuç Başlığı</span>
+              <input value={selectedStory.resultTitle} onChange={(event) => commitStory(selectedStory.slug, { resultTitle: event.target.value })} />
+            </label>
+            <label className="admin-builder-field">
+              <span>Sıra</span>
+              <input type="number" value={selectedStory.sortOrder ?? 0} onChange={(event) => commitStory(selectedStory.slug, { sortOrder: Number(event.target.value) })} />
+            </label>
+          </div>
+
+          <label className="admin-builder-field">
+            <span>Kısa Vurgu</span>
+            <textarea value={selectedStory.highlight} onChange={(event) => commitStory(selectedStory.slug, { highlight: event.target.value })} />
+          </label>
+          <label className="admin-builder-field">
+            <span>Başarı Hikayesi</span>
+            <textarea value={selectedStory.story ?? ""} onChange={(event) => commitStory(selectedStory.slug, { story: event.target.value })} />
+          </label>
+
+          <MediaField
+            intent={{
+              kind: "IMAGE",
+              label: "Öğrenci Görseli",
+              description: "Dosya yükleyin veya Medya Kütüphanesinden seçin.",
+              recommendedDimensions: "640x640 px",
+              recommendedAspectRatio: "1:1",
+              allowExternalUrl: true
+            }}
+            value={selectedStory.avatarUrl ?? ""}
+            altText={selectedStory.studentName ? `${selectedStory.studentName} başarı hikayesi` : "Başarı hikayesi görseli"}
+            onChange={(avatarUrl) => commitStory(selectedStory.slug, { avatarUrl })}
+          />
+
+          <div className="admin-inline-checks">
+            <label className="admin-checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedStory.isFeatured ?? false}
+                onChange={(event) => commitStory(selectedStory.slug, { isFeatured: event.target.checked })}
+              />
+              Öne Çıkar
+            </label>
+            <label className="admin-builder-field">
+              <span>Yayın Durumu</span>
+              <select
+                value={selectedStory.publishStatus ?? "DRAFT"}
+                onChange={(event) => commitStory(selectedStory.slug, { publishStatus: event.target.value })}
+              >
+                <option value="DRAFT">Taslak</option>
+                <option value="PUBLISHED">Yayında</option>
+                <option value="ARCHIVED">Arşivlenmiş</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="admin-actions">
+            <button className="admin-button--ghost" type="button" onClick={() => actions.requestPreviewToken()}>Önizle</button>
+            <button className="admin-button--ghost" type="button" onClick={() => {
+              commitStory(selectedStory.slug, { publishStatus: "DRAFT" });
+              window.setTimeout(() => void actions.saveCurrent("publish"), 0);
+            }}>Yayından Kaldır</button>
+            <button className="admin-button--ghost" type="button" onClick={() => {
+              commitStory(selectedStory.slug, { publishStatus: "ARCHIVED" });
+              window.setTimeout(() => void actions.saveCurrent("publish"), 0);
+            }}>Arşivle</button>
+            <button className="admin-button--ghost" type="button" onClick={() => {
+              commitStory(selectedStory.slug, { publishStatus: "DRAFT" });
+              window.setTimeout(() => void actions.saveCurrent("draft"), 0);
+            }}>Arşivden Çıkar</button>
+            <button className="admin-button--ghost" type="button" onClick={() => actions.dispatchSelection({ type: "select-area", area: "gecmis" })}>Revizyonu Gör</button>
+            <button className="admin-button--ghost" type="button" onClick={deleteStory}>Sil</button>
+          </div>
+        </section>
       ) : (
-        <p className="admin-empty-state">Başarı hikayesi bulunmuyor.</p>
+        <div className="admin-empty-state admin-empty-state--action">
+          <strong>Henüz başarı hikayesi eklenmedi.</strong>
+          <button className="admin-button" type="button" onClick={createStory}>
+            İlk Başarı Hikayesini Ekle
+          </button>
+        </div>
       )}
     </div>
   );
+}
+
+function compareStories(left: AdminSuccessStory, right: AdminSuccessStory) {
+  return (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || left.studentName.localeCompare(right.studentName, "tr");
+}
+
+function resequenceStories(stories: AdminSuccessStory[]) {
+  return stories.map((story, index) => ({
+    ...story,
+    sortOrder: (index + 1) * 10
+  }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -45,6 +45,21 @@ export default async function PackageDetailPage({
   const featureEntries = product.featureDetails?.length
     ? product.featureDetails
     : product.features.map((feature) => ({ title: feature, description: undefined }));
+  const audienceHeading =
+    product.detailAudienceHeading?.trim() ||
+    `${category?.label ?? "Paket"} programı kimler için uygun?`;
+  const audienceBody =
+    product.detailAudienceBody?.trim() ||
+    product.description ||
+    "Bu paket; hedefini netleştirmek, haftalık çalışma düzenini görünür hale getirmek ve sınav hazırlığını daha kontrollü yürütmek isteyen öğrenciler için tasarlanmıştır.";
+  const benefitsHeading =
+    product.detailBenefitsHeading?.trim() ||
+    (subcategory?.label ? `${subcategory.label} kazanımları` : "Paket kazanımları");
+  const benefitsDescription =
+    product.detailBenefitsDescription?.trim() ||
+    "Paket içeriğini, görüşme düzenini, erişim detaylarını ve öğrencinin süreç içinde ne kazanacağını aşağıdan inceleyebilirsin.";
+  const backCtaLabel = product.detailBackCtaLabel?.trim() || "Listeye Dön";
+  const purchaseCtaLabel = product.detailPurchaseCtaLabel?.trim() || "Satın Al";
 
   return (
     <PublicPageLayout>
@@ -55,18 +70,15 @@ export default async function PackageDetailPage({
             <div className="ega-detail-main__body">
               <h1>{product.title}</h1>
               <p>{product.subtitle}</p>
-              <h2>{category?.label ?? "Paket"} programı kimler için uygun?</h2>
-              <p>
-                {product.description ??
-                  "Bu paket; hedefini netleştirmek, haftalık çalışma düzenini görünür hale getirmek ve sınav hazırlığını daha kontrollü yürütmek isteyen öğrenciler için tasarlanmıştır."}
-              </p>
+              <h2>{audienceHeading}</h2>
+              <p>{audienceBody}</p>
             </div>
           </div>
 
           <div className="ega-detail-side ega-auth-card">
             <SectionHeading
-              title={subcategory?.label ? `${subcategory.label} kazanımları` : "Paket kazanımları"}
-              description="Paket içeriğini, görüşme düzenini, erişim detaylarını ve öğrencinin süreç içinde ne kazanacağını aşağıdan inceleyebilirsin."
+              title={benefitsHeading}
+              description={benefitsDescription}
             />
             <div className="ega-filter-summary">
               <strong>{product.price}</strong>
@@ -89,10 +101,10 @@ export default async function PackageDetailPage({
             <div className="ega-pack-card__actions ega-pack-card__actions--split">
               <ButtonLink
                 href={buildPackagesPageHref(product.categoryId, product.subcategoryId)}
-                label="Listeye Dön"
+                label={backCtaLabel}
                 variant="ghost"
               />
-              <ButtonLink href={`/checkout/${product.slug}`} label="Satın Al" />
+              <ButtonLink href={`/checkout/${product.slug}`} label={purchaseCtaLabel} />
             </div>
           </div>
         </div>

@@ -72,7 +72,8 @@ describe("AdminCommerceService category hierarchy validation", () => {
     assert.deepEqual(result.revalidateTags, [
       "navigation",
       "public-layout",
-      "public-commerce-catalog"
+      "public-commerce-catalog",
+      "public-commerce-product"
     ]);
   });
 

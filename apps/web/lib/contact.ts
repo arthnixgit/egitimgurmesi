@@ -92,6 +92,7 @@ export function normalizePublicSiteSettings(input: Partial<PublicSiteSettings> |
     input?.canonicalPhone && /^\+[1-9]\d{7,14}$/.test(input.canonicalPhone)
       ? input.canonicalPhone
       : CONTACT_CANONICAL_PHONE;
+  const logoPrimaryUrl = normalizePublicAssetUrl(input?.logoPrimaryUrl, fallbackSiteSettings.logoPrimaryUrl);
 
   return {
     ...fallbackSiteSettings,
@@ -106,8 +107,8 @@ export function normalizePublicSiteSettings(input: Partial<PublicSiteSettings> |
     telHref: `tel:${canonicalPhone}`,
     whatsappMessage,
     whatsappHref: buildWhatsAppHref(whatsappMessage, whatsappNumber),
-    logoPrimaryUrl: normalizePublicAssetUrl(input?.logoPrimaryUrl, fallbackSiteSettings.logoPrimaryUrl),
-    logoCompactUrl: normalizePublicAssetUrl(input?.logoCompactUrl, fallbackSiteSettings.logoCompactUrl),
+    logoPrimaryUrl,
+    logoCompactUrl: normalizePublicAssetUrl(input?.logoCompactUrl, logoPrimaryUrl),
     logoMarkUrl: normalizePublicAssetUrl(input?.logoMarkUrl, fallbackSiteSettings.logoMarkUrl),
     logoFooterUrl: normalizePublicAssetUrl(input?.logoFooterUrl, fallbackSiteSettings.logoFooterUrl),
     logoDarkUrl: normalizePublicAssetUrl(input?.logoDarkUrl, fallbackSiteSettings.logoDarkUrl),

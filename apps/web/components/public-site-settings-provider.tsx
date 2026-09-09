@@ -10,6 +10,7 @@ import {
 import { requestPublicSiteSettingsSnapshot } from "../lib/public-content-api";
 
 export const PUBLIC_SITE_SETTINGS_REFRESH_EVENT = "ega:public-site-settings-refresh";
+const PUBLIC_SITE_SETTINGS_REFRESH_STALE_MS = 30_000;
 
 const PublicSiteSettingsContext = createContext<PublicSiteSettings>(fallbackSiteSettings);
 
@@ -26,6 +27,7 @@ export function PublicSiteSettingsProvider({
   const settingsRef = useRef(settings);
   const refreshControllerRef = useRef<AbortController | null>(null);
   const refreshRequestIdRef = useRef(0);
+  const lastRefreshAtRef = useRef(Date.now());
 
   useEffect(() => {
     const normalized = normalizePublicSiteSettings(initialSettings);
@@ -53,6 +55,7 @@ export function PublicSiteSettingsProvider({
         }
 
         settingsRef.current = nextSettings;
+        lastRefreshAtRef.current = Date.now();
         setSettings(nextSettings);
       })
       .catch((error) => {
@@ -71,11 +74,25 @@ export function PublicSiteSettingsProvider({
 
   useEffect(() => {
     const handleRefresh = () => refreshSettings();
+    const refreshIfStale = () => {
+      if (Date.now() - lastRefreshAtRef.current >= PUBLIC_SITE_SETTINGS_REFRESH_STALE_MS) {
+        refreshSettings();
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshIfStale();
+      }
+    };
 
     window.addEventListener(PUBLIC_SITE_SETTINGS_REFRESH_EVENT, handleRefresh);
+    window.addEventListener("focus", refreshIfStale);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       refreshControllerRef.current?.abort();
       window.removeEventListener(PUBLIC_SITE_SETTINGS_REFRESH_EVENT, handleRefresh);
+      window.removeEventListener("focus", refreshIfStale);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshSettings]);
 

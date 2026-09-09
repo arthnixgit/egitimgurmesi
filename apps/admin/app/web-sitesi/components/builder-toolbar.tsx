@@ -26,29 +26,40 @@ export function BuilderToolbar({
   canRedo: boolean;
   actions: BuilderActions;
 }) {
-  const currentPage = pages.find((page) => page.key === selection.selectedPageKey) ?? pages[0] ?? null;
+  const currentPage =
+    selection.selectedArea === "ana-sayfa-slideri"
+      ? pages.find((page) => page.key === "home") ?? null
+      : pages.find((page) => page.key === selection.selectedPageKey) ?? pages[0] ?? null;
   const materialsBlocked =
     selection.selectedArea === "ucretsiz-materyaller" && (!status.materialsLoaded || status.areaLoading);
+  const showPageSelector = selection.selectedArea === "sayfalar" && pages.length > 0;
 
   return (
     <div className="admin-builder-toolbar" role="toolbar" aria-label="Web sitesi düzenleme araçları">
       <div className="admin-builder-toolbar__left">
-        <label className="admin-builder-toolbar__page">
-          <span>Sayfa</span>
-          <select
-            value={currentPage?.key ?? ""}
-            onChange={(event) => {
-              actions.dispatchSelection({ type: "select-area", area: "sayfalar" });
-              actions.dispatchSelection({ type: "select-page", pageKey: event.target.value });
-            }}
-          >
-            {pages.map((page) => (
-              <option key={page.key} value={page.key}>
-                {pageLabel(page)}
-              </option>
-            ))}
-          </select>
-        </label>
+        {showPageSelector ? (
+          <label className="admin-builder-toolbar__page">
+            <span>Sayfa</span>
+            <select
+              value={currentPage?.key ?? ""}
+              onChange={(event) => {
+                actions.dispatchSelection({ type: "select-area", area: "sayfalar" });
+                actions.dispatchSelection({ type: "select-page", pageKey: event.target.value });
+              }}
+            >
+              {pages.map((page) => (
+                <option key={page.key} value={page.key}>
+                  {pageLabel(page)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="admin-builder-toolbar__page" aria-label="Seçili sayfa">
+            <span>Sayfa</span>
+            <strong>{selection.selectedArea === "ana-sayfa-slideri" ? "Ana Sayfa" : selectedAreaLabel}</strong>
+          </div>
+        )}
         <div className="admin-builder-toolbar__crumb">
           <strong>{selectedAreaLabel}</strong>
           <span>{currentPage ? `${pageLabel(currentPage)} / ${selection.selectedSectionKey || "Bölüm seç"}` : "Alan seç"}</span>

@@ -76,10 +76,7 @@ function PageTree({
         type="button"
         className="admin-builder-shortcut"
         onClick={() => {
-          actions.dispatchSelection({ type: "select-area", area: "sayfalar" });
-          actions.dispatchSelection({ type: "select-page", pageKey: "home" });
-          actions.dispatchSelection({ type: "select-section", sectionKey: "showcase-hero" });
-          actions.dispatchSelection({ type: "set-left-panel-mode", mode: "bolumler" });
+          actions.dispatchSelection({ type: "select-area", area: "ana-sayfa-slideri" });
         }}
       >
         <strong>Ana Sayfa Sliderı</strong>
@@ -89,7 +86,7 @@ function PageTree({
       <div className="admin-builder-tree__group">
         <h2>Global</h2>
         {areas
-          .filter((area) => ["genel", "marka", "header", "footer", "ucretsiz-materyaller", "akademik-kadro", "basari-hikayeleri", "gecmis"].includes(area.key))
+          .filter((area) => ["genel", "marka", "header", "footer", "ana-sayfa-slideri", "ucretsiz-materyaller", "akademik-kadro", "basari-hikayeleri", "gecmis"].includes(area.key))
           .map((area) => (
             <button
               key={area.key}
@@ -175,7 +172,10 @@ function SectionTree({
               role="treeitem"
               aria-selected={selection.selectedSectionKey === section.sectionKey}
               onClick={() => {
-                actions.dispatchSelection({ type: "select-area", area: "sayfalar" });
+                actions.dispatchSelection({
+                  type: "select-area",
+                  area: selection.selectedArea === "ana-sayfa-slideri" ? "ana-sayfa-slideri" : "sayfalar"
+                });
                 actions.dispatchSelection({ type: "select-section", sectionKey: section.sectionKey });
               }}
             >

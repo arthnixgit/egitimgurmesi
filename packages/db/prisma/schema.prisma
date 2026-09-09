@@ -1273,6 +1273,12 @@ model Product {
   introVideoUrl         String?
   introVideoPosterUrl   String?
   introVideoTitle       String?
+  detailAudienceHeading String?
+  detailAudienceBody    String?
+  detailBenefitsHeading String?
+  detailBenefitsDescription String?
+  detailBackCtaLabel    String?
+  detailPurchaseCtaLabel String?
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
   category              ProductCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)

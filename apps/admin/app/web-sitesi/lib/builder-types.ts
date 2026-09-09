@@ -20,6 +20,7 @@ export type WebsiteArea =
   | "header"
   | "footer"
   | "sayfalar"
+  | "ana-sayfa-slideri"
   | "ucretsiz-materyaller"
   | "akademik-kadro"
   | "basari-hikayeleri"
@@ -145,6 +146,7 @@ export type BuilderActions = {
   updatePage: (patch: Partial<AdminMarketingPage>) => void;
   updateSection: (patch: Partial<AdminMarketingPageSection>) => void;
   updateSections: (mutation: SectionMutation, selectedSectionKey?: string) => void;
+  repairHomeSliderDraft: () => void;
   insertWidget: (widgetKey: string, afterSectionKey?: string) => void;
   moveSection: (direction: -1 | 1) => void;
   moveSectionTo: (sectionKey: string, direction: -1 | 1) => void;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { HomeShowcaseSlide, HomeShowcaseTone } from "@ega/ui";
+import { HomeShowcaseHero, type HomeShowcaseSlide, type HomeShowcaseTone } from "@ega/ui";
 import type { AdminMarketingPageSection } from "../../../lib/auth-client";
 import type { BuilderActions } from "../lib/builder-types";
 import {
@@ -21,9 +21,8 @@ export function HomepageSliderEditor({
   actions: BuilderActions;
 }) {
   const slider = normalizeHomeSliderPayload(section);
-  const selectedSlide =
-    slider.slides.find((slide) => slide.id === selectedSlideId) ?? slider.slides[0] ?? fallbackShowcaseSlides[0];
-  const selectedIndex = slider.slides.findIndex((slide) => slide.id === selectedSlide.id);
+  const selectedSlide = slider.slides.find((slide) => slide.id === selectedSlideId) ?? slider.slides[0] ?? null;
+  const selectedIndex = selectedSlide ? slider.slides.findIndex((slide) => slide.id === selectedSlide.id) : -1;
   const validation = validateSlider(slider.slides, slider.settings);
 
   function commit(nextSlides: HomeShowcaseSlide[], nextSettings = slider.settings) {
@@ -31,6 +30,10 @@ export function HomepageSliderEditor({
   }
 
   function updateSlide(patch: Partial<HomeShowcaseSlide>) {
+    if (!selectedSlide) {
+      return;
+    }
+
     commit(
       slider.slides.map((slide) => (slide.id === selectedSlide.id ? { ...slide, ...patch } : slide))
     );
@@ -57,6 +60,10 @@ export function HomepageSliderEditor({
   }
 
   function duplicateSlide() {
+    if (!selectedSlide) {
+      return;
+    }
+
     const nextSlide = {
       ...selectedSlide,
       id: `${selectedSlide.id}-copy-${Date.now().toString(36)}`,
@@ -80,6 +87,10 @@ export function HomepageSliderEditor({
   }
 
   function deleteSlide() {
+    if (!selectedSlide) {
+      return;
+    }
+
     if (slider.slides.length <= 1) {
       return;
     }
@@ -112,17 +123,45 @@ export function HomepageSliderEditor({
             data-active={slide.id === selectedSlide.id}
             onClick={() => actions.dispatchSelection({ type: "set-slide", slideId: slide.id })}
           >
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <strong>{slide.label || slide.title}</strong>
-            <small>{slide.mediaType === "VIDEO" ? "Video" : "Görsel"} · {slide.tone} · {slide.isActive === false ? "Pasif" : "Aktif"}</small>
+            <span className="admin-slider-thumb__handle" aria-hidden="true">::</span>
+            <span className="admin-slider-thumb__preview" aria-hidden="true">
+              {slide.mediaType === "IMAGE" && slide.mediaUrl ? (
+                <img src={slide.mobileMediaUrl || slide.mediaUrl} alt="" />
+              ) : (
+                <span>{slide.mediaType === "VIDEO" ? "VID" : "IMG"}</span>
+              )}
+            </span>
+            <span className="admin-slider-thumb__meta">
+              <strong>{String(index + 1).padStart(2, "0")} · {slide.label || slide.title}</strong>
+              <small>{slide.title}</small>
+              <small>{slide.mediaType === "VIDEO" ? "Video" : "Görsel"} · {slide.tone} · {slide.isActive === false ? "Pasif" : "Aktif"}</small>
+            </span>
           </button>
         ))}
       </div>
+
+      {!selectedSlide ? (
+        <div className="admin-empty-state admin-empty-state--action">
+          <strong>Henüz slide eklenmedi.</strong>
+          <p>İlk slide taslağını oluşturun; yayınlamak için en az bir aktif slide gerekir.</p>
+          <button className="admin-button" type="button" onClick={addSlide}>
+            İlk Slide'ı Ekle
+          </button>
+        </div>
+      ) : (
+        <>
 
       <div className="admin-builder-toolbar__center">
         <button type="button" className="admin-button--compact" onClick={duplicateSlide}>Slide Kopyala</button>
         <button type="button" className="admin-button--compact" onClick={() => moveSlide(-1)}>Yukarı Taşı</button>
         <button type="button" className="admin-button--compact" onClick={() => moveSlide(1)}>Aşağı Taşı</button>
+        <button
+          type="button"
+          className="admin-button--compact"
+          onClick={() => updateSlide({ isActive: selectedSlide.isActive === false })}
+        >
+          {selectedSlide.isActive === false ? "Aktifleştir" : "Pasifleştir"}
+        </button>
         <button type="button" className="admin-button--compact admin-button--ghost" onClick={deleteSlide} disabled={slider.slides.length <= 1}>
           Sil
         </button>
@@ -248,6 +287,38 @@ export function HomepageSliderEditor({
             <option value="blue">Mavi</option>
           </select>
         </label>
+        <label className="admin-builder-field">
+          <span>Medya sığdırma</span>
+          <select
+            value={selectedSlide.objectFit ?? "cover"}
+            onChange={(event) => updateSlide({ objectFit: event.target.value === "contain" ? "contain" : "cover" })}
+          >
+            <option value="cover">Alanı doldur</option>
+            <option value="contain">Tamamını göster</option>
+          </select>
+        </label>
+        <label className="admin-builder-field">
+          <span>Odak noktası</span>
+          <select
+            value={selectedSlide.focalPoint ?? "center"}
+            onChange={(event) => updateSlide({ focalPoint: event.target.value })}
+          >
+            <option value="center">Orta</option>
+            <option value="center top">Üst orta</option>
+            <option value="center bottom">Alt orta</option>
+            <option value="left center">Sol</option>
+            <option value="right center">Sağ</option>
+          </select>
+        </label>
+        <div className="admin-slider-editor__preview">
+          <HomeShowcaseHero
+            slides={slider.slides}
+            activeIndex={Math.max(0, selectedIndex)}
+            onSelectSlide={(_index, slide) => actions.dispatchSelection({ type: "set-slide", slideId: slide.id })}
+            disableActions
+            includeInactiveSlides
+          />
+        </div>
       </fieldset>
 
       <fieldset>
@@ -281,6 +352,19 @@ export function HomepageSliderEditor({
             <option value="slide">Kaydırma</option>
           </select>
         </label>
+        <label className="admin-builder-field">
+          <span>İlk slide</span>
+          <select
+            value={slider.settings.initialSlideId}
+            onChange={(event) => commit(slider.slides, { ...slider.settings, initialSlideId: event.target.value })}
+          >
+            {slider.slides.map((slide) => (
+              <option key={slide.id} value={slide.id}>
+                {slide.label || slide.title || slide.id}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="admin-builder-check-grid">
           {[
             ["pauseOnHover", "Hover sırasında duraklat"],
@@ -308,6 +392,8 @@ export function HomepageSliderEditor({
           ))}
         </div>
       ) : null}
+        </>
+      )}
     </div>
   );
 }

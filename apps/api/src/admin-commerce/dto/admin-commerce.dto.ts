@@ -214,6 +214,30 @@ export class SaveProductDto {
   @IsString()
   introVideoTitle?: string | null;
 
+  @IsOptional()
+  @IsString()
+  detailAudienceHeading?: string | null;
+
+  @IsOptional()
+  @IsString()
+  detailAudienceBody?: string | null;
+
+  @IsOptional()
+  @IsString()
+  detailBenefitsHeading?: string | null;
+
+  @IsOptional()
+  @IsString()
+  detailBenefitsDescription?: string | null;
+
+  @IsOptional()
+  @IsString()
+  detailBackCtaLabel?: string | null;
+
+  @IsOptional()
+  @IsString()
+  detailPurchaseCtaLabel?: string | null;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaveProductVariantDto)

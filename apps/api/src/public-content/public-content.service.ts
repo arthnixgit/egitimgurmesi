@@ -67,6 +67,48 @@ type PublicDownloadResult =
       contentLength?: number | null;
     };
 
+const defaultPublicSiteSettings = {
+  id: "",
+  key: "default",
+  siteName: "Eğitim Gurmesi Akademi",
+  siteTitle: "EĞİTİM GURMESİ AKADEMİ",
+  supportEmail: "bilgi@egitimgurmesi.com",
+  supportPhone: "+90 531 855 38 27",
+  supportWhatsappNumber: "905318553827",
+  logoPrimaryUrl: "/branding/ega-logo-official.png",
+  logoCompactUrl: "/branding/ega-mark-transparent.png",
+  logoMarkUrl: "/branding/ega-mark-transparent.png",
+  logoFooterUrl: "/branding/ega-logo-official.png",
+  logoDarkUrl: "/branding/ega-logo-official.png",
+  logoLightUrl: "/branding/ega-logo-official.png",
+  faviconUrl: "/icon.png",
+  defaultSocialImageUrl: "/branding/ega-logo-official.png",
+  logoAltText: "Eğitim Gurmesi Akademi",
+  displayPhone: "+90 531 855 38 27",
+  canonicalPhone: "+905318553827",
+  whatsappMessage: "Merhaba, Eğitim Gurmesi Akademi hakkında bilgi almak istiyorum.",
+  address: "Alacaatlı Mah. 4834. Sok. No: 10/8-59 Çankaya/Ankara",
+  publicContactEmail: "bilgi@egitimgurmesi.com",
+  footerBrandDescription:
+    "Eğitim Gurmesi Akademi; kayıtlı video paketlerini, koçluk yönlendirme mantığını ve öğrenci hesap disiplinini tek çatı altında birleştiren yeni nesil bir eğitim satış platformu olarak kurgulanıyor.",
+  footerQuickLinks: [
+    { label: "Paketlerimiz", href: "/paketlerimiz" },
+    { label: "Ücretsiz Materyaller", href: "/ucretsiz-materyaller" },
+    { label: "Hakkımızda", href: "/hakkimizda" },
+    { label: "Öğrenci Girişi", href: "/giris" }
+  ],
+  footerContactTitle: "İletişim",
+  socialLinks: [] as Array<{ label: string; href: string }>,
+  copyrightText: "© Eğitim Gurmesi Akademi. Tüm hakları saklıdır.",
+  footerNotice: "Eğitim Gurmesi Akademi iletişim ve marka bilgileri.",
+  defaultSeoTitle: "Eğitim Gurmesi Akademi",
+  defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.",
+  version: 1,
+  publishedAt: null as Date | null,
+  updatedAt: null as Date | null,
+  lastPublishedByStaffUserId: null as string | null
+};
+
 @Injectable()
 export class PublicContentService {
   private readonly logger = new Logger(PublicContentService.name);
@@ -78,26 +120,39 @@ export class PublicContentService {
 
   async getSiteSettings(key = "default") {
     const settings = await this.publicContentRepository.getSiteSetting(key);
+    const source = settings ?? { ...defaultPublicSiteSettings, key };
+    const logoPrimaryUrl = normalizePublicAssetUrl(
+      source.logoPrimaryUrl,
+      defaultPublicSiteSettings.logoPrimaryUrl
+    );
 
-    if (!settings) {
-      throw new NotFoundException(`Site settings not found for key "${key}".`);
-    }
-
-    const whatsappNumber = settings.supportWhatsappNumber || "905318553827";
+    const whatsappNumber = source.supportWhatsappNumber || "905318553827";
     const whatsappMessage =
-      settings.whatsappMessage || "Merhaba, Eğitim Gurmesi Akademi hakkında bilgi almak istiyorum.";
-    const canonicalPhone = settings.canonicalPhone || "+905318553827";
+      source.whatsappMessage || "Merhaba, Eğitim Gurmesi Akademi hakkında bilgi almak istiyorum.";
+    const canonicalPhone = source.canonicalPhone || "+905318553827";
 
     return {
-      ...settings,
-      displayPhone: settings.displayPhone || "+90 531 855 38 27",
+      ...source,
+      logoPrimaryUrl,
+      logoCompactUrl: normalizePublicAssetUrl(source.logoCompactUrl, logoPrimaryUrl),
+      logoMarkUrl: normalizePublicAssetUrl(source.logoMarkUrl, defaultPublicSiteSettings.logoMarkUrl),
+      logoFooterUrl: normalizePublicAssetUrl(source.logoFooterUrl, defaultPublicSiteSettings.logoFooterUrl),
+      logoDarkUrl: normalizePublicAssetUrl(source.logoDarkUrl, defaultPublicSiteSettings.logoDarkUrl),
+      logoLightUrl: normalizePublicAssetUrl(source.logoLightUrl, defaultPublicSiteSettings.logoLightUrl),
+      faviconUrl: normalizePublicAssetUrl(source.faviconUrl, defaultPublicSiteSettings.faviconUrl),
+      defaultSocialImageUrl: normalizePublicAssetUrl(
+        source.defaultSocialImageUrl,
+        defaultPublicSiteSettings.defaultSocialImageUrl
+      ),
+      logoAltText: source.logoAltText || defaultPublicSiteSettings.logoAltText,
+      displayPhone: source.displayPhone || "+90 531 855 38 27",
       canonicalPhone,
       telHref: `tel:${canonicalPhone}`,
       supportWhatsappNumber: whatsappNumber,
       whatsappHref: `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`,
       whatsappMessage,
-      footerQuickLinks: normalizeJsonLinks(settings.footerQuickLinks),
-      socialLinks: normalizeJsonLinks(settings.socialLinks)
+      footerQuickLinks: normalizeJsonLinks(source.footerQuickLinks),
+      socialLinks: normalizeJsonLinks(source.socialLinks)
     };
   }
 
@@ -396,6 +451,28 @@ function normalizeJsonLinks(value: unknown) {
         : null;
     })
     .filter((item): item is { label: string; href: string } => Boolean(item));
+}
+
+function normalizePublicAssetUrl(value: string | null | undefined, fallback: string) {
+  const normalized = value?.trim();
+
+  if (!normalized || !isSafePublicAssetUrl(normalized)) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
+function isSafePublicAssetUrl(value: string) {
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return !/[\u0000-\u001f]/.test(value);
+  }
+
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 const safeFallbackNavigationItems: NavigationNode[] = [

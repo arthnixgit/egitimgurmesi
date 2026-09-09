@@ -126,6 +126,59 @@ export const fallbackShowcaseSlides: HomeShowcaseSlide[] = [
   }
 ];
 
+export function createHomeSliderSection(sortOrder = 10): AdminMarketingPageSection {
+  return {
+    sectionKey: HOME_SLIDER_SECTION_KEY,
+    eyebrow: fallbackShowcaseSlides[0]?.label ?? "Ana Sayfa",
+    title: fallbackShowcaseSlides[0]?.title ?? "Ana Sayfa Sliderı",
+    body: fallbackShowcaseSlides[0]?.description ?? "",
+    variantKey: HOME_SLIDER_SECTION_KEY,
+    payload: {
+      slides: fallbackShowcaseSlides,
+      settings: defaultSliderSettings
+    },
+    sortOrder,
+    isActive: true,
+    publishStatus: "DRAFT"
+  };
+}
+
+export function createHomeSliderPageDraft(pages: readonly AdminMarketingPage[] = []): AdminMarketingPage {
+  const existingHome = pages.find((page) => page.key === "home");
+
+  if (!existingHome) {
+    return {
+      id: "",
+      key: "home",
+      slug: "home",
+      title: "Ana Sayfa",
+      excerpt: "",
+      description: "Ana sayfa vitrin ve slider içeriği.",
+      pageType: "HOME",
+      publishStatus: "DRAFT",
+      seoTitle: "",
+      seoDescription: "",
+      heroImageUrl: null,
+      metadata: {},
+      version: 1,
+      sections: [createHomeSliderSection()]
+    };
+  }
+
+  const hasSlider = existingHome.sections.some(
+    (section) => section.sectionKey === HOME_SLIDER_SECTION_KEY || section.variantKey === HOME_SLIDER_SECTION_KEY
+  );
+
+  if (hasSlider) {
+    return existingHome;
+  }
+
+  return {
+    ...existingHome,
+    sections: resequenceSections([createHomeSliderSection(10), ...existingHome.sections])
+  };
+}
+
 export function getSectionDefinition(section: AdminMarketingPageSection) {
   const variantKey = section.variantKey ?? section.sectionKey;
   return (
@@ -161,7 +214,7 @@ export function pageLabel(page: AdminMarketingPage) {
 export function normalizeHomeSliderPayload(section: AdminMarketingPageSection | null | undefined): HomeSliderPayload {
   const payload = isRecord(section?.payload) ? section.payload : {};
   const sourceSlides = Array.isArray(payload.slides) ? payload.slides : [];
-  const slides = sourceSlides.length > 0 ? sourceSlides : fallbackShowcaseSlides;
+  const slides = Array.isArray(payload.slides) ? sourceSlides : fallbackShowcaseSlides;
 
   return {
     slides: slides
@@ -230,6 +283,8 @@ function normalizeSlide(raw: unknown, fallback: HomeShowcaseSlide): HomeShowcase
     primaryCtaHref: asString(raw.primaryCtaHref, fallback.primaryCtaHref ?? ""),
     secondaryCtaLabel: asString(raw.secondaryCtaLabel, fallback.secondaryCtaLabel ?? ""),
     secondaryCtaHref: asString(raw.secondaryCtaHref, fallback.secondaryCtaHref ?? ""),
+    objectFit: raw.objectFit === "contain" ? "contain" : "cover",
+    focalPoint: asString(raw.focalPoint, fallback.focalPoint ?? "center"),
     isActive: typeof raw.isActive === "boolean" ? raw.isActive : fallback.isActive ?? true
   };
 }

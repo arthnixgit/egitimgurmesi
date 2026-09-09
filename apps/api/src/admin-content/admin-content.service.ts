@@ -940,6 +940,8 @@ export class AdminContentService {
       };
     }
 
+    assertPublishableSuccessStories(payload);
+
     const stories = await this.prisma.$transaction(async (tx) => {
       const activeSlugs: string[] = [];
 
@@ -1011,7 +1013,7 @@ export class AdminContentService {
         summary: "Başarı hikayeleri yayınlandı.",
         beforeData: before,
         afterData: normalized,
-        metadata: revalidationMetadata(["/basarilarimiz"], ["success-stories"])
+        metadata: revalidationMetadata(["/", "/basarilarimiz"], ["success-stories", "marketing-page"])
       });
 
       return savedStories;
@@ -1019,8 +1021,8 @@ export class AdminContentService {
 
     return {
       ...normalizeSuccessStoriesDocument(stories),
-      revalidateRoutes: ["/basarilarimiz"],
-      revalidateTags: ["success-stories"]
+      revalidateRoutes: ["/", "/basarilarimiz"],
+      revalidateTags: ["success-stories", "marketing-page"]
     };
   }
 
@@ -1851,6 +1853,7 @@ function normalizeSiteSettings(record: SiteSettingRecord | null) {
   const canonicalPhone = source.canonicalPhone ?? defaultSiteSettings.canonicalPhone;
   const whatsappNumber = source.supportWhatsappNumber ?? defaultSiteSettings.supportWhatsappNumber;
   const whatsappMessage = source.whatsappMessage ?? defaultSiteSettings.whatsappMessage;
+  const logoPrimaryUrl = source.logoPrimaryUrl ?? defaultSiteSettings.logoPrimaryUrl;
 
   return {
     id: source.id,
@@ -1861,10 +1864,10 @@ function normalizeSiteSettings(record: SiteSettingRecord | null) {
     supportEmail: source.supportEmail ?? defaultSiteSettings.supportEmail,
     supportPhone: source.supportPhone ?? defaultSiteSettings.supportPhone,
     supportWhatsappNumber: whatsappNumber,
-    logoPrimaryUrl: source.logoPrimaryUrl ?? defaultSiteSettings.logoPrimaryUrl,
+    logoPrimaryUrl,
     logoMarkUrl: source.logoMarkUrl ?? defaultSiteSettings.logoMarkUrl,
     logoFooterUrl: source.logoFooterUrl ?? defaultSiteSettings.logoFooterUrl,
-    logoCompactUrl: source.logoCompactUrl ?? defaultSiteSettings.logoCompactUrl,
+    logoCompactUrl: source.logoCompactUrl ?? logoPrimaryUrl,
     logoDarkUrl: source.logoDarkUrl ?? defaultSiteSettings.logoDarkUrl,
     logoLightUrl: source.logoLightUrl ?? defaultSiteSettings.logoLightUrl,
     faviconUrl: source.faviconUrl ?? defaultSiteSettings.faviconUrl,
@@ -1930,6 +1933,7 @@ function normalizeSiteSettingsPayload(payload: SaveSiteSettingsDto) {
 
   const footerQuickLinks = normalizeEditableLinks(payload.footerQuickLinks, REQUIRED_QUICK_LINKS);
   const socialLinks = normalizeEditableLinks(payload.socialLinks, []);
+  const logoPrimaryUrl = normalizeRequiredAssetUrl(payload.logoPrimaryUrl, defaultSiteSettings.logoPrimaryUrl);
 
   return {
     siteName: sanitizePlainText(payload.siteName),
@@ -1938,10 +1942,10 @@ function normalizeSiteSettingsPayload(payload: SaveSiteSettingsDto) {
     supportEmail: sanitizeNullableText(payload.supportEmail),
     supportPhone: displayPhone,
     supportWhatsappNumber,
-    logoPrimaryUrl: normalizeRequiredAssetUrl(payload.logoPrimaryUrl, defaultSiteSettings.logoPrimaryUrl),
+    logoPrimaryUrl,
     logoMarkUrl: normalizeRequiredAssetUrl(payload.logoMarkUrl, defaultSiteSettings.logoMarkUrl),
     logoFooterUrl: normalizeRequiredAssetUrl(payload.logoFooterUrl, defaultSiteSettings.logoFooterUrl),
-    logoCompactUrl: normalizeRequiredAssetUrl(payload.logoCompactUrl, defaultSiteSettings.logoCompactUrl),
+    logoCompactUrl: normalizeRequiredAssetUrl(payload.logoCompactUrl, logoPrimaryUrl),
     logoDarkUrl: normalizeRequiredAssetUrl(payload.logoDarkUrl, defaultSiteSettings.logoDarkUrl),
     logoLightUrl: normalizeRequiredAssetUrl(payload.logoLightUrl, defaultSiteSettings.logoLightUrl),
     faviconUrl: normalizeRequiredAssetUrl(payload.faviconUrl, defaultSiteSettings.faviconUrl),
@@ -2240,6 +2244,27 @@ function normalizeSuccessStoriesPayload(payload: SaveSuccessStoriesDocumentDto, 
       publishStatus: story.publishStatus ?? ContentStatus.PUBLISHED
     }))
   };
+}
+
+function assertPublishableSuccessStories(payload: SaveSuccessStoriesDocumentDto) {
+  for (const story of payload.stories) {
+    const status = story.publishStatus ?? ContentStatus.PUBLISHED;
+
+    if (status !== ContentStatus.PUBLISHED) {
+      continue;
+    }
+
+    if (
+      !story.slug?.trim() ||
+      !story.studentName?.trim() ||
+      !story.examLabel?.trim() ||
+      !story.resultTitle?.trim() ||
+      !story.highlight?.trim() ||
+      !story.story?.trim()
+    ) {
+      throw new BadRequestException("Yayına alınacak başarı hikayelerinde öğrenci adı, sınav/yıl, sonuç başlığı, kısa vurgu ve hikaye zorunludur.");
+    }
+  }
 }
 
 function normalizeFreeMaterialsDocument(

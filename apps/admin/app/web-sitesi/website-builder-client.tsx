@@ -58,7 +58,15 @@ import type {
   WebsiteArea,
   WebsiteSelection
 } from "./lib/builder-types";
-import { duplicatePageSection, getSectionDefinition, resequenceSections } from "./lib/section-registry";
+import {
+  createHomeSliderPageDraft,
+  duplicatePageSection,
+  getSectionDefinition,
+  HOME_SLIDER_SECTION_KEY,
+  normalizeHomeSliderPayload,
+  resequenceSections
+} from "./lib/section-registry";
+import { validateSlider } from "./lib/builder-validation";
 import { createSectionFromWidget } from "./lib/widget-registry";
 
 type StaffOverview = Awaited<ReturnType<typeof fetchStaffOverview>>;
@@ -69,6 +77,7 @@ const areas: Array<{ key: WebsiteArea; label: string; description: string }> = [
   { key: "marka", label: "Logo ve Marka", description: "Logo, favicon ve paylaşım görseli" },
   { key: "header", label: "Header ve Menü", description: "Ana menü ve mobil navigasyon" },
   { key: "footer", label: "Footer ve İletişim", description: "Telefon, WhatsApp, adres ve hızlı erişim" },
+  { key: "ana-sayfa-slideri", label: "Ana Sayfa Sliderı", description: "Hero görselleri, metinleri, CTA ve geçiş ayarları" },
   { key: "sayfalar", label: "Sayfalar", description: "Sayfa ağacı, bölümler ve widget ayarları" },
   { key: "ucretsiz-materyaller", label: "Ücretsiz Materyaller", description: "Kategori ve indirme kartları" },
   { key: "akademik-kadro", label: "Akademik Kadro", description: "Kadro grupları ve profiller" },
@@ -182,11 +191,19 @@ export function WebsiteBuilderClient() {
   const canPublishWebsite = Boolean(isSuperAdmin || overview?.permissionKeys.includes("website.publish"));
   const isBranchAdmin = Boolean(overview?.roleKeys.includes("branch-admin") && !isSuperAdmin);
 
-  const currentPage = pages.find((page) => page.key === selectedPageKey) ?? pages[0] ?? null;
+  const homePage = pages.find((page) => page.key === "home") ?? null;
+  const currentPage =
+    selectedArea === "ana-sayfa-slideri"
+      ? homePage
+      : pages.find((page) => page.key === selectedPageKey) ?? pages[0] ?? null;
   const currentSection =
-    currentPage?.sections.find((section) => section.sectionKey === selectedSectionKey) ??
-    currentPage?.sections[0] ??
-    null;
+    selectedArea === "ana-sayfa-slideri"
+      ? currentPage?.sections.find(
+          (section) => section.sectionKey === HOME_SLIDER_SECTION_KEY || section.variantKey === HOME_SLIDER_SECTION_KEY
+        ) ?? null
+      : currentPage?.sections.find((section) => section.sectionKey === selectedSectionKey) ??
+        currentPage?.sections[0] ??
+        null;
   const currentMaterialCategory =
     materials.categories.find((category) => category.key === selectedMaterialKey) ??
     materials.categories[0] ??
@@ -338,14 +355,25 @@ export function WebsiteBuilderClient() {
           }
           setNavigation(response);
           setNavigationLoaded(true);
-        } else if (selectedArea === "sayfalar") {
+        } else if (selectedArea === "sayfalar" || selectedArea === "ana-sayfa-slideri") {
           const response = await fetchAdminMarketingPages();
           if (!active) {
             return;
           }
           setPages(response);
-          setSelectedPageKey((current) => current || response[0]?.key || "");
-          setSelectedSectionKey((current) => current || response[0]?.sections[0]?.sectionKey || "");
+          if (selectedArea === "ana-sayfa-slideri") {
+            const home = response.find((page) => page.key === "home") ?? null;
+            const sliderSection = home?.sections.find(
+              (section) => section.sectionKey === HOME_SLIDER_SECTION_KEY || section.variantKey === HOME_SLIDER_SECTION_KEY
+            );
+            setSelectedPageKey("home");
+            setSelectedSectionKey(sliderSection?.sectionKey ?? HOME_SLIDER_SECTION_KEY);
+            setSelectedSlideId(null);
+            setLeftPanelMode("bolumler");
+          } else {
+            setSelectedPageKey((current) => current || response[0]?.key || "");
+            setSelectedSectionKey((current) => current || response[0]?.sections[0]?.sectionKey || "");
+          }
         } else if (selectedArea === "ucretsiz-materyaller") {
           setMaterialsLoaded(false);
           const response = await fetchAdminFreeMaterialsDocument();
@@ -623,6 +651,23 @@ export function WebsiteBuilderClient() {
     if (selectedKey !== undefined) {
       setSelectedSectionKey(selectedKey);
     }
+  }
+
+  function repairHomeSliderDraft() {
+    rememberMutation();
+    setPages((current) => {
+      const repairedHome = createHomeSliderPageDraft(current);
+      const hasHome = current.some((page) => page.key === "home");
+
+      return hasHome
+        ? current.map((page) => (page.key === "home" ? repairedHome : page))
+        : [repairedHome, ...current];
+    });
+    setSelectedPageKey("home");
+    setSelectedSectionKey(HOME_SLIDER_SECTION_KEY);
+    setSelectedSlideId(null);
+    setInspectorTab("icerik");
+    setMessage("Ana sayfa slider taslağı hazırlandı. Canlı siteyi değiştirmek için önce kaydedip sonra yayınlayın.");
   }
 
   function insertWidget(widgetKey: string, afterSectionKey?: string) {
@@ -1144,9 +1189,29 @@ export function WebsiteBuilderClient() {
         }
 
         setNavigation(await saveAdminNavigationMenu("primary", omitNavigationResponseFields(navigation), action));
-      } else if (selectedArea === "sayfalar" && currentPage) {
+      } else if (selectedArea === "ana-sayfa-slideri" && (!currentPage || !currentSection)) {
+        setError("Ana sayfa sliderı kaydedilmeden önce oluşturulmalıdır.");
+        return;
+      } else if ((selectedArea === "sayfalar" || selectedArea === "ana-sayfa-slideri") && currentPage) {
+        if (selectedArea === "ana-sayfa-slideri" && currentSection) {
+          const slider = normalizeHomeSliderPayload(currentSection);
+          const validation = validateSlider(slider.slides, slider.settings);
+
+          if (!validation.ok) {
+            setError(validation.messages.join(" "));
+            return;
+          }
+        }
+
         const response = await saveAdminMarketingPage(currentPage.key, omitMarketingPageResponseFields(currentPage), action);
         setPages((current) => current.map((page) => (page.key === response.key ? response : page)));
+        if (selectedArea === "ana-sayfa-slideri") {
+          const sliderSection = response.sections.find(
+            (section) => section.sectionKey === HOME_SLIDER_SECTION_KEY || section.variantKey === HOME_SLIDER_SECTION_KEY
+          );
+          setSelectedPageKey(response.key);
+          setSelectedSectionKey(sliderSection?.sectionKey ?? HOME_SLIDER_SECTION_KEY);
+        }
       } else if (selectedArea === "ucretsiz-materyaller") {
         if (!materialsLoaded || areaLoading) {
           setError("Ücretsiz materyaller tamamen yüklenmeden kaydedilemez.");
@@ -1248,6 +1313,7 @@ export function WebsiteBuilderClient() {
       updatePage,
       updateSection,
       updateSections,
+      repairHomeSliderDraft,
       insertWidget,
       moveSection,
       moveSectionTo,

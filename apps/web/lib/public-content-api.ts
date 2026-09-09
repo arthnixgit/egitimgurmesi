@@ -796,7 +796,7 @@ export async function getSuccessStories() {
   try {
     const stories = await requestJson<CollectionPayload<SuccessStoryResponse>>("/public/success-stories");
     const normalized = unwrapCollection(stories).map(normalizeSuccessStory);
-    return normalized.length > 0 ? normalized : fallbackSuccessStories.map(normalizeSuccessStory);
+    return normalized;
   } catch (error) {
     if (!shouldUsePublicContentFallback(error)) {
       throw error;

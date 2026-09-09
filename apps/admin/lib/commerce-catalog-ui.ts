@@ -233,6 +233,12 @@ export function normalizeProductForSave(
     introVideoUrl: product.introVideoUrl?.trim() || null,
     introVideoPosterUrl: product.introVideoPosterUrl?.trim() || null,
     introVideoTitle: product.introVideoTitle?.trim() || null,
+    detailAudienceHeading: product.detailAudienceHeading?.trim() || null,
+    detailAudienceBody: product.detailAudienceBody?.trim() || null,
+    detailBenefitsHeading: product.detailBenefitsHeading?.trim() || null,
+    detailBenefitsDescription: product.detailBenefitsDescription?.trim() || null,
+    detailBackCtaLabel: product.detailBackCtaLabel?.trim() || null,
+    detailPurchaseCtaLabel: product.detailPurchaseCtaLabel?.trim() || null,
     type: product.type,
     provider: product.provider,
     isFeatured: product.isFeatured,
@@ -301,10 +307,17 @@ export function buildPackageCardPreviewProduct(product: AdminCatalogProduct): Pa
     features: featureDetails.map((feature) => feature.title),
     featureDetails,
     tone: normalizeTone(product.accentColor),
+    coverImageUrl: product.coverImageUrl ?? null,
     introVideoSourceType: product.introVideoSourceType ?? null,
     introVideoUrl: product.introVideoUrl ?? null,
     introVideoPosterUrl: product.introVideoPosterUrl ?? null,
-    introVideoTitle: product.introVideoTitle ?? null
+    introVideoTitle: product.introVideoTitle ?? null,
+    detailAudienceHeading: product.detailAudienceHeading ?? null,
+    detailAudienceBody: product.detailAudienceBody ?? null,
+    detailBenefitsHeading: product.detailBenefitsHeading ?? null,
+    detailBenefitsDescription: product.detailBenefitsDescription ?? null,
+    detailBackCtaLabel: product.detailBackCtaLabel ?? null,
+    detailPurchaseCtaLabel: product.detailPurchaseCtaLabel ?? null
   };
 }
 

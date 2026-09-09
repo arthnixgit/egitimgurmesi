@@ -101,7 +101,7 @@ function renderCanvasContent(data: {
     return <NavigationPreview navigation={data.navigation} settings={data.settings} />;
   }
 
-  if (data.selectedArea === "sayfalar") {
+  if (data.selectedArea === "sayfalar" || data.selectedArea === "ana-sayfa-slideri") {
     return <PageCanvas {...data} currentPage={data.currentPage} />;
   }
 

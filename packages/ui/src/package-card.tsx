@@ -26,10 +26,17 @@ export type PackageCardProduct = {
   features: readonly string[];
   featureDetails?: readonly PackageFeatureSpec[];
   tone: PackTone;
+  coverImageUrl?: string | null;
   introVideoSourceType?: ProductIntroVideoSourceType | null;
   introVideoUrl?: string | null;
   introVideoPosterUrl?: string | null;
   introVideoTitle?: string | null;
+  detailAudienceHeading?: string | null;
+  detailAudienceBody?: string | null;
+  detailBenefitsHeading?: string | null;
+  detailBenefitsDescription?: string | null;
+  detailBackCtaLabel?: string | null;
+  detailPurchaseCtaLabel?: string | null;
 };
 
 type PackageCardProps = {
@@ -40,7 +47,12 @@ type PackageCardProps = {
 type ProductIntroVideoProps = {
   product: Pick<
     PackageCardProduct,
-    "title" | "introVideoSourceType" | "introVideoUrl" | "introVideoPosterUrl" | "introVideoTitle"
+    | "title"
+    | "coverImageUrl"
+    | "introVideoSourceType"
+    | "introVideoUrl"
+    | "introVideoPosterUrl"
+    | "introVideoTitle"
   >;
   variant?: "card" | "detail";
 };
@@ -52,12 +64,22 @@ export function ProductIntroVideo({ product, variant = "card" }: ProductIntroVid
   const normalizedVideoUrl = videoUrl ? normalizeVideoEmbedUrl(videoUrl) : "";
   const title = product.introVideoTitle?.trim() || `${product.title} tanıtım videosu`;
   const posterUrl = product.introVideoPosterUrl?.trim();
+  const coverUrl = product.coverImageUrl?.trim();
   const shellClassName =
     variant === "detail"
       ? "ega-product-video ega-product-video--detail"
       : "ega-product-video ega-product-video--card";
 
   if (!videoUrl) {
+    if (coverUrl) {
+      return (
+        <div className={shellClassName} data-has-video="false" data-has-cover="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ega-product-video__media" src={coverUrl} alt={`${product.title} kapak görseli`} />
+        </div>
+      );
+    }
+
     return (
       <div className={shellClassName} data-has-video="false">
         <div className="ega-product-video__placeholder">

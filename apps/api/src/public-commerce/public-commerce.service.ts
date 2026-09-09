@@ -151,10 +151,17 @@ function normalizePublicProduct(
     subcategoryId: subcategory ? extractSubcategoryFilterId(subcategory) ?? subcategory.slug : "",
     provider: product.provider === "UNIKAZAN" ? "redirect" : "local",
     defaultVariantId: defaultVariant?.id ?? null,
+    coverImageUrl: product.coverImageUrl,
     introVideoSourceType: product.introVideoSourceType,
     introVideoUrl: product.introVideoUrl,
     introVideoPosterUrl: product.introVideoPosterUrl,
-    introVideoTitle: product.introVideoTitle
+    introVideoTitle: product.introVideoTitle,
+    detailAudienceHeading: product.detailAudienceHeading,
+    detailAudienceBody: product.detailAudienceBody,
+    detailBenefitsHeading: product.detailBenefitsHeading,
+    detailBenefitsDescription: product.detailBenefitsDescription,
+    detailBackCtaLabel: product.detailBackCtaLabel,
+    detailPurchaseCtaLabel: product.detailPurchaseCtaLabel
   };
 }
 

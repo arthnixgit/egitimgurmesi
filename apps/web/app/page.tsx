@@ -7,6 +7,7 @@ import { PackageCard as CatalogPackageCard } from "../components/package-card";
 import { PublicFooter } from "../components/public-footer";
 import { PublicNavbar } from "../components/public-navbar";
 import { usePublicSiteSettings } from "../components/public-site-settings-provider";
+import { SuccessShowcase } from "../components/success-showcase";
 import { ShowcaseQuickActions } from "../components/showcase-quick-actions";
 import { isEmbeddableVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 import { getPackageCatalogContent } from "../lib/public-commerce-api";
@@ -18,6 +19,8 @@ import {
 } from "../lib/package-catalog";
 import {
   getMarketingPageContent,
+  getSuccessStories,
+  type SuccessStoryContent,
   type MarketingPageContent
 } from "../lib/public-content-api";
 
@@ -573,9 +576,10 @@ function normalizeShowcaseSlides(
     body?: string;
   }
 ): HomeShowcaseSlide[] {
-  const payloadSlides = Array.isArray(payload?.slides) ? payload.slides : [];
+  const hasManagedSlides = Array.isArray(payload?.slides);
+  const payloadSlides: unknown[] = Array.isArray(payload?.slides) ? payload.slides : [];
 
-  if (payloadSlides.length === 0) {
+  if (!hasManagedSlides) {
     return fallbackSlides.map((slide, index) =>
       index === 0 && sectionOverride
         ? {
@@ -596,10 +600,7 @@ function normalizeShowcaseSlides(
 
       const source = rawSlide as Record<string, unknown>;
       const fallback = fallbackSlides[index] ?? fallbackSlides[0];
-      const mediaUrl =
-        typeof source.mediaUrl === "string" && source.mediaUrl.trim().length > 0
-          ? source.mediaUrl.trim()
-          : fallback.mediaUrl;
+      const mediaUrl = typeof source.mediaUrl === "string" ? source.mediaUrl.trim() : fallback.mediaUrl;
 
       return {
         id: typeof source.id === "string" && source.id.trim().length > 0 ? source.id : fallback.id,
@@ -634,10 +635,68 @@ function normalizeShowcaseSlides(
         primaryCtaHref: typeof source.primaryCtaHref === "string" ? source.primaryCtaHref : fallback.primaryCtaHref,
         secondaryCtaLabel: typeof source.secondaryCtaLabel === "string" ? source.secondaryCtaLabel : fallback.secondaryCtaLabel,
         secondaryCtaHref: typeof source.secondaryCtaHref === "string" ? source.secondaryCtaHref : fallback.secondaryCtaHref,
+        objectFit: source.objectFit === "contain" ? "contain" : "cover",
+        focalPoint: typeof source.focalPoint === "string" ? source.focalPoint : fallback.focalPoint,
         isActive: typeof source.isActive === "boolean" ? source.isActive : fallback.isActive ?? true
       } satisfies HomeShowcaseSlide;
     })
     .filter((slide): slide is HomeShowcaseSlide => slide !== null);
+}
+
+type ShowcaseSliderSettings = {
+  autoplay: boolean;
+  intervalMs: number;
+  transition: "fade" | "slide";
+  pauseOnHover: boolean;
+  showArrows: boolean;
+  showDots: boolean;
+  keyboard: boolean;
+  swipe: boolean;
+  initialSlideId: string;
+};
+
+const defaultShowcaseSliderSettings: ShowcaseSliderSettings = {
+  autoplay: true,
+  intervalMs: 5200,
+  transition: "fade",
+  pauseOnHover: true,
+  showArrows: true,
+  showDots: true,
+  keyboard: true,
+  swipe: true,
+  initialSlideId: "showcase-plan"
+};
+
+function normalizeShowcaseSettings(payload: Record<string, unknown> | undefined): ShowcaseSliderSettings {
+  const settings = payload?.settings;
+
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+    return defaultShowcaseSliderSettings;
+  }
+
+  const source = settings as Record<string, unknown>;
+  const intervalMs =
+    typeof source.intervalMs === "number"
+      ? Math.min(Math.max(source.intervalMs, 2500), 15000)
+      : defaultShowcaseSliderSettings.intervalMs;
+
+  return {
+    autoplay: typeof source.autoplay === "boolean" ? source.autoplay : defaultShowcaseSliderSettings.autoplay,
+    intervalMs,
+    transition: source.transition === "slide" ? "slide" : defaultShowcaseSliderSettings.transition,
+    pauseOnHover:
+      typeof source.pauseOnHover === "boolean"
+        ? source.pauseOnHover
+        : defaultShowcaseSliderSettings.pauseOnHover,
+    showArrows: typeof source.showArrows === "boolean" ? source.showArrows : defaultShowcaseSliderSettings.showArrows,
+    showDots: typeof source.showDots === "boolean" ? source.showDots : defaultShowcaseSliderSettings.showDots,
+    keyboard: typeof source.keyboard === "boolean" ? source.keyboard : defaultShowcaseSliderSettings.keyboard,
+    swipe: typeof source.swipe === "boolean" ? source.swipe : defaultShowcaseSliderSettings.swipe,
+    initialSlideId:
+      typeof source.initialSlideId === "string" && source.initialSlideId.trim()
+        ? source.initialSlideId.trim()
+        : defaultShowcaseSliderSettings.initialSlideId
+  };
 }
 
 function getActiveCategory(
@@ -736,10 +795,12 @@ export default function HomePage() {
     useState<readonly PackageCategory[]>(packageCategories);
   const [catalogProducts, setCatalogProducts] =
     useState<readonly PackageProduct[]>(packageProducts);
+  const [successStories, setSuccessStories] = useState<readonly SuccessStoryContent[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>("online-coaching");
   const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(null);
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
   const [activeShowcaseSlide, setActiveShowcaseSlide] = useState(0);
+  const [showcasePaused, setShowcasePaused] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState<(typeof featureHighlights)[number]["id"]>(
     featureHighlights[0].id
   );
@@ -752,26 +813,40 @@ export default function HomePage() {
     title: showcaseSection?.title,
     body: showcaseSection?.body ?? undefined
   });
+  const showcaseSettings = normalizeShowcaseSettings(showcaseSection?.payload);
   const activeShowcaseSlideCount = Math.max(1, showcaseSlidesWithContent.filter((slide) => slide.isActive !== false).length);
+  const activeInitialShowcaseIndex = showcaseSlidesWithContent
+    .filter((slide) => slide.isActive !== false)
+    .findIndex((slide) => slide.id === showcaseSettings.initialSlideId);
 
   useEffect(() => {
     const heroInterval = window.setInterval(() => {
       setActiveHeroSlide((current) => (current + 1) % heroSlides.length);
     }, 4800);
 
-    const showcaseInterval = window.setInterval(() => {
-      setActiveShowcaseSlide((current) => (current + 1) % activeShowcaseSlideCount);
-    }, 5200);
+    const showcaseInterval = showcaseSettings.autoplay && !showcasePaused
+      ? window.setInterval(() => {
+          setActiveShowcaseSlide((current) => (current + 1) % activeShowcaseSlideCount);
+        }, showcaseSettings.intervalMs)
+      : null;
 
     return () => {
       window.clearInterval(heroInterval);
-      window.clearInterval(showcaseInterval);
+      if (showcaseInterval !== null) {
+        window.clearInterval(showcaseInterval);
+      }
     };
-  }, [activeShowcaseSlideCount]);
+  }, [activeShowcaseSlideCount, showcasePaused, showcaseSettings.autoplay, showcaseSettings.intervalMs]);
 
   useEffect(() => {
     setActiveShowcaseSlide((current) => Math.min(current, activeShowcaseSlideCount - 1));
   }, [activeShowcaseSlideCount]);
+
+  useEffect(() => {
+    if (activeInitialShowcaseIndex >= 0) {
+      setActiveShowcaseSlide(activeInitialShowcaseIndex);
+    }
+  }, [activeInitialShowcaseIndex]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -786,6 +861,12 @@ export default function HomePage() {
       if (!isCancelled) {
         setCatalogCategories(catalog.categories);
         setCatalogProducts(catalog.products);
+      }
+    });
+
+    void getSuccessStories().then((stories) => {
+      if (!isCancelled) {
+        setSuccessStories(stories);
       }
     });
 
@@ -817,6 +898,13 @@ export default function HomePage() {
         onSelectSlide={setActiveShowcaseSlide}
         isEmbedVideo={looksLikeEmbedUrl}
         normalizeVideoUrl={normalizeVideoEmbedUrl}
+        showArrows={showcaseSettings.showArrows}
+        showIndicators={showcaseSettings.showDots}
+        keyboardNavigation={showcaseSettings.keyboard}
+        swipeNavigation={showcaseSettings.swipe}
+        pauseOnHover={showcaseSettings.pauseOnHover}
+        transition={showcaseSettings.transition}
+        onHoverPauseChange={setShowcasePaused}
       />
 
       <section className="ega-showcase-actions-section" aria-label="Hızlı etkileşim alanı">
@@ -891,6 +979,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {successStories.length > 0 ? <SuccessShowcase stories={successStories} /> : null}
 
       <section className="ega-section ega-container" id="videolar">
         <SectionHeading

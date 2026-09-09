@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { PackageCard, type PackageCardProduct } from "@ega/ui";
+import { PackageCard, ProductIntroVideo, SectionHeading, type PackageCardProduct } from "@ega/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -1917,6 +1917,21 @@ function ProductForm({
       ? [...activeSubcategoryOptions, selectedCategory]
       : activeSubcategoryOptions;
   const categoryPath = getProductCategoryPath(draft, categories);
+  const detailAudienceHeading =
+    draft.detailAudienceHeading?.trim() ||
+    `${selectedRoot?.name ?? "Paket"} programı kimler için uygun?`;
+  const detailAudienceBody =
+    draft.detailAudienceBody?.trim() ||
+    draft.description ||
+    "Bu paket; hedefini netleştirmek, haftalık çalışma düzenini görünür hale getirmek ve sınav hazırlığını daha kontrollü yürütmek isteyen öğrenciler için tasarlanmıştır.";
+  const detailBenefitsHeading =
+    draft.detailBenefitsHeading?.trim() ||
+    (selectedCategory?.parentSlug ? `${selectedCategory.name} kazanımları` : "Paket kazanımları");
+  const detailBenefitsDescription =
+    draft.detailBenefitsDescription?.trim() ||
+    "Paket içeriğini, görüşme düzenini, erişim detaylarını ve öğrencinin süreç içinde ne kazanacağını aşağıdan inceleyebilirsin.";
+  const detailBackCtaLabel = draft.detailBackCtaLabel?.trim() || "Listeye Dön";
+  const detailPurchaseCtaLabel = draft.detailPurchaseCtaLabel?.trim() || "Satın Al";
 
   function updateVariant(index: number, nextValue: AdminCatalogVariant) {
     onChange({
@@ -1929,6 +1944,44 @@ function ProductForm({
     onChange({
       ...draft,
       features: draft.features.map((entry, entryIndex) => (entryIndex === index ? nextValue : entry))
+    });
+  }
+
+  function duplicateFeature(index: number) {
+    const feature = draft.features[index];
+
+    if (!feature) {
+      return;
+    }
+
+    const nextFeatures = [...draft.features];
+    nextFeatures.splice(index + 1, 0, {
+      ...feature,
+      id: undefined,
+      title: `${feature.title || "Özellik"} kopyası`,
+      sortOrder: (index + 2) * 10
+    });
+
+    onChange({
+      ...draft,
+      features: resequenceProductFeatures(nextFeatures)
+    });
+  }
+
+  function moveFeature(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+
+    if (targetIndex < 0 || targetIndex >= draft.features.length) {
+      return;
+    }
+
+    const nextFeatures = [...draft.features];
+    const [feature] = nextFeatures.splice(index, 1);
+    nextFeatures.splice(targetIndex, 0, feature);
+
+    onChange({
+      ...draft,
+      features: resequenceProductFeatures(nextFeatures)
     });
   }
 
@@ -2208,6 +2261,112 @@ function ProductForm({
               }
             />
           </div>
+        </div>
+      </section>
+
+      <section className="admin-subpanel">
+        <div className="admin-editor-meta">
+          <span className="admin-badge">Detay Sayfası İçeriği</span>
+          <span className="admin-editor-meta__text">
+            Detay sayfasındaki başlık, açıklama, kazanım girişi ve güvenli buton etiketleri.
+          </span>
+        </div>
+
+        <div className="admin-field-group">
+          <h3>Başlık ve Açıklama</h3>
+          <div className="admin-form-grid">
+            <div className="admin-field">
+              <label htmlFor="detailProductName">Paket adı</label>
+              <input
+                id="detailProductName"
+                className="admin-input"
+                value={draft.name}
+                onChange={(event) => onChange({ ...draft, name: event.target.value })}
+              />
+              <small className="admin-field-help">Kart ve detay sayfasındaki ana paket başlığı.</small>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailShortDescription">Kart kısa açıklaması</label>
+              <textarea
+                id="detailShortDescription"
+                className="admin-input admin-textarea admin-textarea--compact"
+                value={draft.shortDescription ?? ""}
+                onChange={(event) => onChange({ ...draft, shortDescription: event.target.value })}
+              />
+              <small className="admin-field-help">Kart alt metni ve detay sayfasındaki ilk açıklama.</small>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailAudienceHeading">Kimler İçin Uygun Başlığı</label>
+              <input
+                id="detailAudienceHeading"
+                className="admin-input"
+                value={draft.detailAudienceHeading ?? ""}
+                placeholder={`${selectedRoot?.name ?? "Paket"} programı kimler için uygun?`}
+                onChange={(event) => onChange({ ...draft, detailAudienceHeading: event.target.value })}
+              />
+              <small className="admin-field-help">
+                Bu başlık paket detay sayfasında, ana açıklamanın altında görünür.
+              </small>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailAudienceBody">Kimler İçin Uygun Açıklaması</label>
+              <textarea
+                id="detailAudienceBody"
+                className="admin-input admin-textarea"
+                value={draft.detailAudienceBody ?? ""}
+                onChange={(event) => onChange({ ...draft, detailAudienceBody: event.target.value })}
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailBenefitsHeading">Kazanımlar Başlığı</label>
+              <input
+                id="detailBenefitsHeading"
+                className="admin-input"
+                value={draft.detailBenefitsHeading ?? ""}
+                placeholder={selectedCategory?.parentSlug ? `${selectedCategory.name} kazanımları` : "Paket kazanımları"}
+                onChange={(event) => onChange({ ...draft, detailBenefitsHeading: event.target.value })}
+              />
+              <small className="admin-field-help">Sağ kolon kazanım listesinin üst başlığı.</small>
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailBenefitsDescription">Kazanımlar Açıklaması</label>
+              <textarea
+                id="detailBenefitsDescription"
+                className="admin-input admin-textarea"
+                value={draft.detailBenefitsDescription ?? ""}
+                onChange={(event) => onChange({ ...draft, detailBenefitsDescription: event.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-field-group">
+          <h3>Butonlar</h3>
+          <div className="admin-form-grid">
+            <div className="admin-field">
+              <label htmlFor="detailBackCtaLabel">Listeye Dön Buton Metni</label>
+              <input
+                id="detailBackCtaLabel"
+                className="admin-input"
+                value={draft.detailBackCtaLabel ?? ""}
+                placeholder="Listeye Dön"
+                onChange={(event) => onChange({ ...draft, detailBackCtaLabel: event.target.value })}
+              />
+            </div>
+            <div className="admin-field">
+              <label htmlFor="detailPurchaseCtaLabel">Satın Al Buton Metni</label>
+              <input
+                id="detailPurchaseCtaLabel"
+                className="admin-input"
+                value={draft.detailPurchaseCtaLabel ?? ""}
+                placeholder="Satın Al"
+                onChange={(event) => onChange({ ...draft, detailPurchaseCtaLabel: event.target.value })}
+              />
+            </div>
+          </div>
+          <p className="admin-field-help">
+            Liste bağlantısı paket listesine, satın alma bağlantısı doğru checkout rotasına kilitlidir.
+          </p>
         </div>
       </section>
 
@@ -2559,18 +2718,43 @@ function ProductForm({
             <div key={feature.id ?? `feature-${index}`} className="admin-nested-card">
               <div className="admin-toolbar admin-toolbar--split">
                 <strong>Özellik {index + 1}</strong>
-                <button
-                  className="admin-button--ghost"
-                  type="button"
-                  onClick={() =>
-                    onChange({
-                      ...draft,
-                      features: draft.features.filter((_, entryIndex) => entryIndex !== index)
-                    })
-                  }
-                >
-                  Kaldır
-                </button>
+                <div className="admin-actions">
+                  <button
+                    className="admin-button--compact admin-button--ghost"
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() => moveFeature(index, -1)}
+                  >
+                    Yukarı
+                  </button>
+                  <button
+                    className="admin-button--compact admin-button--ghost"
+                    type="button"
+                    disabled={index === draft.features.length - 1}
+                    onClick={() => moveFeature(index, 1)}
+                  >
+                    Aşağı
+                  </button>
+                  <button
+                    className="admin-button--compact admin-button--ghost"
+                    type="button"
+                    onClick={() => duplicateFeature(index)}
+                  >
+                    Kopyala
+                  </button>
+                  <button
+                    className="admin-button--compact admin-button--ghost"
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        ...draft,
+                        features: resequenceProductFeatures(draft.features.filter((_, entryIndex) => entryIndex !== index))
+                      })
+                    }
+                  >
+                    Kaldır
+                  </button>
+                </div>
               </div>
 
               <div className="admin-form-grid">
@@ -2665,6 +2849,50 @@ function ProductForm({
         <div className="admin-preview-and-checklist">
           <div className="admin-package-preview" data-preview-mode={previewMode}>
             <PackageCard product={previewProduct} previewMode />
+          </div>
+
+          <div className="admin-package-detail-preview" data-preview-mode={previewMode}>
+            <div className="ega-detail-layout">
+              <div className="ega-detail-main ega-highlight-card ega-highlight-card--primary">
+                <ProductIntroVideo product={previewProduct} variant="detail" />
+                <div className="ega-detail-main__body">
+                  <h1>{previewProduct.title}</h1>
+                  <p>{previewProduct.subtitle}</p>
+                  <h2>{detailAudienceHeading}</h2>
+                  <p>{detailAudienceBody}</p>
+                </div>
+              </div>
+              <div className="ega-detail-side ega-auth-card">
+                <SectionHeading title={detailBenefitsHeading} description={detailBenefitsDescription} />
+                <div className="ega-filter-summary">
+                  <strong>{previewProduct.price}</strong>
+                  <span>
+                    {draft.provider === "UNIKAZAN"
+                      ? "Başvuru ve yönlendirmeli ödeme akışı"
+                      : "Yerel satın alma ve öğrenci paneli erişimi"}
+                  </span>
+                </div>
+                <ul className="ega-pack-card__features ega-pack-card__features--detail">
+                  {(previewProduct.featureDetails?.length
+                    ? previewProduct.featureDetails
+                    : previewProduct.features.map((title) => ({ title }))
+                  ).map((feature) => (
+                    <li key={feature.title}>
+                      <strong>{feature.title}</strong>
+                      {"description" in feature && feature.description ? <span>{feature.description}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+                <div className="ega-pack-card__actions ega-pack-card__actions--split">
+                  <a className="ega-button ega-button--ghost" href="#admin-card-preview" aria-disabled="true">
+                    {detailBackCtaLabel}
+                  </a>
+                  <a className="ega-button" href="#admin-card-preview" aria-disabled="true">
+                    {detailPurchaseCtaLabel}
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="admin-readiness-list" aria-label="Yayın hazırlık listesi">
@@ -3028,6 +3256,13 @@ function createEmptyFeature(): AdminCatalogFeature {
   };
 }
 
+function resequenceProductFeatures(features: AdminCatalogFeature[]) {
+  return features.map((feature, index) => ({
+    ...feature,
+    sortOrder: (index + 1) * 10
+  }));
+}
+
 function createEmptyProduct(): AdminCatalogProduct {
   return {
     id: undefined,
@@ -3049,6 +3284,12 @@ function createEmptyProduct(): AdminCatalogProduct {
     introVideoUrl: "",
     introVideoPosterUrl: "",
     introVideoTitle: "",
+    detailAudienceHeading: "",
+    detailAudienceBody: "",
+    detailBenefitsHeading: "",
+    detailBenefitsDescription: "",
+    detailBackCtaLabel: "",
+    detailPurchaseCtaLabel: "",
     variants: [createEmptyVariant()],
     features: [createEmptyFeature()]
   };

@@ -32,7 +32,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:--[a-z0-9]+(?:-[a-z0-9]+)*)?$/
 const VALID_ACCENT_COLORS = new Set(["blue", "teal", "amber"]);
 const CATALOG_REVALIDATION = {
   revalidateRoutes: ["/", "/paketlerimiz"],
-  revalidateTags: ["navigation", "public-layout", "public-commerce-catalog"]
+  revalidateTags: ["navigation", "public-layout", "public-commerce-catalog", "public-commerce-product"]
 } as const;
 
 const catalogCategoryInclude = {
@@ -367,7 +367,13 @@ export class AdminCommerceService {
           introVideoSourceType: payload.introVideoSourceType ?? null,
           introVideoUrl: normalizeNullableText(payload.introVideoUrl),
           introVideoPosterUrl: normalizeNullableText(payload.introVideoPosterUrl),
-          introVideoTitle: normalizeNullableText(payload.introVideoTitle)
+          introVideoTitle: normalizeNullableText(payload.introVideoTitle),
+          detailAudienceHeading: normalizeNullableText(payload.detailAudienceHeading),
+          detailAudienceBody: normalizeNullableText(payload.detailAudienceBody),
+          detailBenefitsHeading: normalizeNullableText(payload.detailBenefitsHeading),
+          detailBenefitsDescription: normalizeNullableText(payload.detailBenefitsDescription),
+          detailBackCtaLabel: normalizeNullableText(payload.detailBackCtaLabel),
+          detailPurchaseCtaLabel: normalizeNullableText(payload.detailPurchaseCtaLabel)
         }
       });
 
@@ -384,7 +390,10 @@ export class AdminCommerceService {
       summary: `Created product ${created.slug}.`
     });
 
-    return created;
+    return {
+      ...created,
+      ...productRevalidation(created.slug)
+    };
   }
 
   async updateProduct(
@@ -432,7 +441,13 @@ export class AdminCommerceService {
           introVideoSourceType: payload.introVideoSourceType ?? null,
           introVideoUrl: normalizeNullableText(payload.introVideoUrl),
           introVideoPosterUrl: normalizeNullableText(payload.introVideoPosterUrl),
-          introVideoTitle: normalizeNullableText(payload.introVideoTitle)
+          introVideoTitle: normalizeNullableText(payload.introVideoTitle),
+          detailAudienceHeading: normalizeNullableText(payload.detailAudienceHeading),
+          detailAudienceBody: normalizeNullableText(payload.detailAudienceBody),
+          detailBenefitsHeading: normalizeNullableText(payload.detailBenefitsHeading),
+          detailBenefitsDescription: normalizeNullableText(payload.detailBenefitsDescription),
+          detailBackCtaLabel: normalizeNullableText(payload.detailBackCtaLabel),
+          detailPurchaseCtaLabel: normalizeNullableText(payload.detailPurchaseCtaLabel)
         }
       });
 
@@ -448,7 +463,10 @@ export class AdminCommerceService {
       summary: `Updated product ${updated.slug}.`
     });
 
-    return updated;
+    return {
+      ...updated,
+      ...productRevalidation(updated.slug, existing.slug)
+    };
   }
 
   async deleteProduct(productId: string, auth: AuthenticatedRequestContext) {
@@ -605,7 +623,13 @@ export class AdminCommerceService {
             introVideoSourceType: product.introVideoSourceType ?? null,
             introVideoUrl: product.introVideoUrl ?? null,
             introVideoPosterUrl: product.introVideoPosterUrl ?? null,
-            introVideoTitle: product.introVideoTitle ?? null
+            introVideoTitle: product.introVideoTitle ?? null,
+            detailAudienceHeading: product.detailAudienceHeading ?? null,
+            detailAudienceBody: product.detailAudienceBody ?? null,
+            detailBenefitsHeading: product.detailBenefitsHeading ?? null,
+            detailBenefitsDescription: product.detailBenefitsDescription ?? null,
+            detailBackCtaLabel: product.detailBackCtaLabel ?? null,
+            detailPurchaseCtaLabel: product.detailPurchaseCtaLabel ?? null
           }
         });
 
@@ -1357,6 +1381,13 @@ function validateProductBasics(product: SaveProductDto) {
     throw new BadRequestException("Her paket en az bir seçenek içermelidir.");
   }
 
+  validateTextLength(product.detailAudienceHeading, 140, "Kimler için uygun başlığı 140 karakteri geçmemelidir.");
+  validateTextLength(product.detailAudienceBody, 1200, "Kimler için uygun açıklaması 1200 karakteri geçmemelidir.");
+  validateTextLength(product.detailBenefitsHeading, 120, "Kazanımlar başlığı 120 karakteri geçmemelidir.");
+  validateTextLength(product.detailBenefitsDescription, 1200, "Kazanımlar açıklaması 1200 karakteri geçmemelidir.");
+  validateCtaLabel(product.detailBackCtaLabel, "Listeye dön buton metni geçerli olmalıdır.");
+  validateCtaLabel(product.detailPurchaseCtaLabel, "Satın al buton metni geçerli olmalıdır.");
+
   for (const variant of product.variants) {
     if (!variant.title?.trim()) {
       throw new BadRequestException("Paket seçeneği başlığı zorunludur.");
@@ -1425,6 +1456,45 @@ function withCatalogRevalidation<T extends Record<string, unknown>>(payload: T) 
     ...payload,
     ...CATALOG_REVALIDATION
   };
+}
+
+function productRevalidation(slug: string, previousSlug?: string | null) {
+  const routes = new Set<string>(CATALOG_REVALIDATION.revalidateRoutes);
+  const normalizedSlug = slug.trim();
+  const normalizedPreviousSlug = previousSlug?.trim() ?? "";
+
+  if (normalizedSlug) {
+    routes.add(`/paketlerimiz/${normalizedSlug}`);
+  }
+
+  if (normalizedPreviousSlug && normalizedPreviousSlug !== normalizedSlug) {
+    routes.add(`/paketlerimiz/${normalizedPreviousSlug}`);
+  }
+
+  return {
+    revalidateRoutes: [...routes],
+    revalidateTags: CATALOG_REVALIDATION.revalidateTags
+  };
+}
+
+function validateTextLength(value: string | null | undefined, max: number, message: string) {
+  const normalized = value?.trim();
+
+  if (normalized && normalized.length > max) {
+    throw new BadRequestException(message);
+  }
+}
+
+function validateCtaLabel(value: string | null | undefined, message: string) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return;
+  }
+
+  if (normalized.length > 40 || /[<>]/.test(normalized)) {
+    throw new BadRequestException(message);
+  }
 }
 
 function normalizeFeaturePayloads(features: SaveProductFeatureDto[]) {
@@ -1512,6 +1582,12 @@ function normalizeProduct(
     introVideoUrl: product.introVideoUrl,
     introVideoPosterUrl: product.introVideoPosterUrl,
     introVideoTitle: product.introVideoTitle,
+    detailAudienceHeading: product.detailAudienceHeading,
+    detailAudienceBody: product.detailAudienceBody,
+    detailBenefitsHeading: product.detailBenefitsHeading,
+    detailBenefitsDescription: product.detailBenefitsDescription,
+    detailBackCtaLabel: product.detailBackCtaLabel,
+    detailPurchaseCtaLabel: product.detailPurchaseCtaLabel,
     variants: product.variants.map((variant) => {
       const externalLink = product.externalProviderLinks.find(
         (link) => link.variantId === variant.id

@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 import {
   getCountdownPageBySlugResult,
   getFreeMaterialsContent,
+  getSuccessStories,
   requestPublicSiteSettingsSnapshot
 } from "./public-content-api";
 
@@ -192,6 +193,25 @@ describe("public site-settings API", () => {
       () => requestPublicSiteSettingsSnapshot({ rejectMalformed: true }),
       /Malformed public site settings response/
     );
+  });
+});
+
+describe("public success-story content API", () => {
+  afterEach(() => {
+    delete (globalThis as { fetch?: typeof fetch }).fetch;
+  });
+
+  it("keeps a successful empty story response empty instead of restoring fallback stories", async () => {
+    (globalThis as { fetch?: typeof fetch }).fetch = async (input) => {
+      assert.match(String(input), /\/public\/success-stories$/);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => []
+      } as Response;
+    };
+
+    assert.deepEqual(await getSuccessStories(), []);
   });
 });
 

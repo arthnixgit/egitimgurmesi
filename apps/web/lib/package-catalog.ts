@@ -60,10 +60,17 @@ export type PackageProduct = {
   subcategoryId: PackageSubcategoryId;
   provider: "local" | "redirect";
   defaultVariantId?: string | null;
+  coverImageUrl?: string | null;
   introVideoSourceType?: ProductIntroVideoSourceType | null;
   introVideoUrl?: string | null;
   introVideoPosterUrl?: string | null;
   introVideoTitle?: string | null;
+  detailAudienceHeading?: string | null;
+  detailAudienceBody?: string | null;
+  detailBenefitsHeading?: string | null;
+  detailBenefitsDescription?: string | null;
+  detailBackCtaLabel?: string | null;
+  detailPurchaseCtaLabel?: string | null;
   externalProductId?: string | null;
   externalVariantId?: string | null;
 };

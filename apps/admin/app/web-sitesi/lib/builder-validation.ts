@@ -25,12 +25,32 @@ export function validateSlider(slides: readonly HomeShowcaseSlide[], settings: S
       messages.push("Slide başlığı zorunludur.");
     }
 
+    if (slide.isActive !== false && !slide.mediaUrl.trim()) {
+      messages.push("Aktif slide için medya seçilmelidir.");
+    }
+
     if (slide.mediaUrl && !isSafeDestination(slide.mediaUrl)) {
       messages.push("Slide medya bağlantısı güvenli bir site içi rota veya HTTPS adresi olmalıdır.");
     }
 
+    if (slide.mobileMediaUrl && !isSafeDestination(slide.mobileMediaUrl)) {
+      messages.push("Mobil slide medya bağlantısı güvenli bir site içi rota veya HTTPS adresi olmalıdır.");
+    }
+
+    if (slide.mediaPosterUrl && !isSafeDestination(slide.mediaPosterUrl)) {
+      messages.push("Video poster bağlantısı güvenli bir site içi rota veya HTTPS adresi olmalıdır.");
+    }
+
     if (slide.mediaUrl && !slide.mediaAlt.trim()) {
       messages.push("Anlamlı görseller için alt metin gereklidir.");
+    }
+
+    if (Boolean(slide.primaryCtaLabel?.trim()) !== Boolean(slide.primaryCtaHref?.trim())) {
+      messages.push("Primary CTA metni ve hedefi birlikte doldurulmalıdır.");
+    }
+
+    if (Boolean(slide.secondaryCtaLabel?.trim()) !== Boolean(slide.secondaryCtaHref?.trim())) {
+      messages.push("Secondary CTA metni ve hedefi birlikte doldurulmalıdır.");
     }
 
     if (slide.primaryCtaHref && !isSafeDestination(slide.primaryCtaHref)) {

@@ -567,6 +567,7 @@ function BrandLogoImage({
   priority?: boolean;
 }) {
   const [resolvedSrc, setResolvedSrc] = useState(src || fallbackSrc);
+  const lastValidSrcRef = useRef(src || fallbackSrc);
 
   useEffect(() => {
     setResolvedSrc(src || fallbackSrc);
@@ -580,7 +581,19 @@ function BrandLogoImage({
       height={height}
       className={className}
       priority={priority}
+      onLoad={() => {
+        if (resolvedSrc && resolvedSrc !== fallbackSrc) {
+          lastValidSrcRef.current = resolvedSrc;
+        }
+      }}
       onError={() => {
+        const safeFallback = lastValidSrcRef.current || fallbackSrc;
+
+        if (resolvedSrc !== safeFallback) {
+          setResolvedSrc(safeFallback);
+          return;
+        }
+
         if (resolvedSrc !== fallbackSrc) {
           setResolvedSrc(fallbackSrc);
         }

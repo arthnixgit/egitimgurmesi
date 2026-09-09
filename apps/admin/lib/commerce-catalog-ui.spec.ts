@@ -164,6 +164,12 @@ describe("commerce catalog admin UI helpers", () => {
           derivedLabel: "response-only"
         } as AdminCatalogProduct["variants"][number]
       ],
+      detailAudienceHeading: " Audience heading ",
+      detailAudienceBody: " Audience body ",
+      detailBenefitsHeading: " Benefits heading ",
+      detailBenefitsDescription: " Benefits description ",
+      detailBackCtaLabel: " Back ",
+      detailPurchaseCtaLabel: " Purchase ",
       features: [
         {
           id: "feature_1",
@@ -193,6 +199,12 @@ describe("commerce catalog admin UI helpers", () => {
     assert.equal(payload.variants[0].sortOrder, 20);
     assert.equal(payload.features[0].title, "HaftalÄ±k takip");
     assert.equal(payload.features[0].sortOrder, 30);
+    assert.equal(payload.detailAudienceHeading, "Audience heading");
+    assert.equal(payload.detailAudienceBody, "Audience body");
+    assert.equal(payload.detailBenefitsHeading, "Benefits heading");
+    assert.equal(payload.detailBenefitsDescription, "Benefits description");
+    assert.equal(payload.detailBackCtaLabel, "Back");
+    assert.equal(payload.detailPurchaseCtaLabel, "Purchase");
   });
 
   it("creates a PackageCard-compatible preview model with readiness and warnings", () => {
@@ -307,6 +319,12 @@ function productDraft(input: Partial<AdminCatalogProduct>): AdminCatalogProduct 
     introVideoUrl: input.introVideoUrl ?? null,
     introVideoPosterUrl: input.introVideoPosterUrl ?? null,
     introVideoTitle: input.introVideoTitle ?? null,
+    detailAudienceHeading: input.detailAudienceHeading ?? null,
+    detailAudienceBody: input.detailAudienceBody ?? null,
+    detailBenefitsHeading: input.detailBenefitsHeading ?? null,
+    detailBenefitsDescription: input.detailBenefitsDescription ?? null,
+    detailBackCtaLabel: input.detailBackCtaLabel ?? null,
+    detailPurchaseCtaLabel: input.detailPurchaseCtaLabel ?? null,
     variants: input.variants ?? [variant({ isDefault: true })],
     features: input.features ?? [{ title: "Özellik", description: null, iconKey: null, sortOrder: 10 }]
   };
