@@ -12,6 +12,10 @@ import {
   USER_AUTH_CHANGED_EVENT
 } from "../lib/auth-client";
 import { fallbackSiteSettings } from "../lib/contact";
+import {
+  getBrandLogoRenderMode,
+  resolveBrandLogoSource
+} from "../lib/brand-logo";
 import { requestNavigationSnapshot } from "../lib/public-content-api";
 import {
   isValidNavigationSnapshot,
@@ -294,6 +298,7 @@ export function PublicNavbar({
             width={152}
             height={80}
             priority
+            source="primary"
           />
           <BrandLogoImage
             src={siteSettings.logoCompactUrl}
@@ -303,6 +308,7 @@ export function PublicNavbar({
             width={80}
             height={80}
             priority
+            source="compact"
           />
           <div className="ega-brand__copy">
             <strong>Eğitim Gurmesi Akademi</strong>
@@ -556,7 +562,8 @@ function BrandLogoImage({
   className,
   width,
   height,
-  priority
+  priority,
+  source
 }: {
   src: string;
   fallbackSrc: string;
@@ -565,40 +572,74 @@ function BrandLogoImage({
   width: number;
   height: number;
   priority?: boolean;
+  source: "primary" | "compact";
 }) {
-  const [resolvedSrc, setResolvedSrc] = useState(src || fallbackSrc);
-  const lastValidSrcRef = useRef(src || fallbackSrc);
+  const requestedSrc = resolveBrandLogoSource(src, fallbackSrc);
+  const [sourceState, setSourceState] = useState({
+    request: requestedSrc,
+    resolved: requestedSrc
+  });
+  const lastValidSrcRef = useRef<string | null>(null);
+  const failedSourcesRef = useRef(new Set<string>());
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const resolvedSrc = sourceState.request === requestedSrc ? sourceState.resolved : requestedSrc;
 
   useEffect(() => {
-    setResolvedSrc(src || fallbackSrc);
-  }, [fallbackSrc, src]);
+    if (sourceState.request === requestedSrc) {
+      return;
+    }
+
+    failedSourcesRef.current.clear();
+    setSourceState({ request: requestedSrc, resolved: requestedSrc });
+  }, [requestedSrc, sourceState.request]);
+
+  const handleLoad = useCallback(() => {
+    lastValidSrcRef.current = resolvedSrc;
+    failedSourcesRef.current.delete(resolvedSrc);
+  }, [resolvedSrc]);
+
+  const handleError = useCallback(() => {
+    failedSourcesRef.current.add(resolvedSrc);
+
+    const nextSource = [lastValidSrcRef.current, fallbackSrc].find(
+      (candidate): candidate is string =>
+        typeof candidate === "string" &&
+        candidate !== resolvedSrc &&
+        !failedSourcesRef.current.has(candidate)
+    );
+
+    if (nextSource) {
+      setSourceState({ request: requestedSrc, resolved: nextSource });
+    }
+  }, [fallbackSrc, requestedSrc, resolvedSrc]);
+
+  useEffect(() => {
+    const image = imageRef.current;
+
+    // A server-rendered image can fail before React attaches onError during hydration.
+    if (image?.complete && image.naturalWidth === 0) {
+      handleError();
+    }
+  }, [handleError, resolvedSrc]);
+
+  const sharedProps = {
+    src: resolvedSrc,
+    alt,
+    width,
+    height,
+    className,
+    ref: imageRef,
+    "data-logo-source": source,
+    onLoad: handleLoad,
+    onError: handleError
+  };
+
+  if (getBrandLogoRenderMode(resolvedSrc) === "native-image") {
+    return <img {...sharedProps} fetchPriority={priority ? "high" : undefined} />;
+  }
 
   return (
-    <Image
-      src={resolvedSrc}
-      alt={alt}
-      width={width}
-      height={height}
-      className={className}
-      priority={priority}
-      onLoad={() => {
-        if (resolvedSrc && resolvedSrc !== fallbackSrc) {
-          lastValidSrcRef.current = resolvedSrc;
-        }
-      }}
-      onError={() => {
-        const safeFallback = lastValidSrcRef.current || fallbackSrc;
-
-        if (resolvedSrc !== safeFallback) {
-          setResolvedSrc(safeFallback);
-          return;
-        }
-
-        if (resolvedSrc !== fallbackSrc) {
-          setResolvedSrc(fallbackSrc);
-        }
-      }}
-    />
+    <Image {...sharedProps} priority={priority} />
   );
 }
 

@@ -17,6 +17,9 @@ describe("public branding consumers", () => {
     assert.match(navbarSource, /siteSettings\.logoPrimaryUrl/);
     assert.match(navbarSource, /siteSettings\.logoCompactUrl/);
     assert.match(navbarSource, /siteSettings\.logoAltText/);
+    assert.match(navbarSource, /data-logo-source/);
+    assert.match(navbarSource, /getBrandLogoRenderMode/);
+    assert.match(navbarSource, /native-image/);
   });
 
   it("maps footer and metadata to their dedicated settings fields", () => {

@@ -416,6 +416,153 @@ test("public branding uses the published settings snapshot across desktop, mobil
   expect(hydrationWarnings).toEqual([]);
 });
 
+test("CMS-hosted navbar branding bypasses the optimizer and recovers safely", async ({ page }) => {
+  const hydrationWarnings = collectHydrationWarnings(page);
+  const mediaBase = "https://api.egitimgurmesi.com/v1/media/assets";
+  const primary = `${mediaBase}/28fe668f-c711-45c3-9e54-cf4aa647fafd/file`;
+  const compact = `${mediaBase}/compact-logo/file`;
+  const footer = `${mediaBase}/footer-logo/file`;
+  const directRequests: string[] = [];
+  const optimizerRequests: string[] = [];
+  const directResponses: Array<{ url: string; status: number; contentType: string | undefined }> = [];
+
+  await page.route("https://api.egitimgurmesi.com/v1/media/assets/**", async (route) => {
+    const url = route.request().url();
+    directRequests.push(url);
+
+    if (url.includes("failed-logo")) {
+      await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+      return;
+    }
+
+    const fixture = getCmsLogoFixture(url);
+    if (fixture) {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: fixture.svg
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M/wHwAF/gL+ff7XyQAAAABJRU5ErkJggg==",
+        "base64"
+      )
+    });
+  });
+
+  page.on("request", (request) => {
+    if (request.url().includes("/_next/image?url=") && decodeURIComponent(request.url()).includes("api.egitimgurmesi.com")) {
+      optimizerRequests.push(request.url());
+    }
+  });
+  page.on("response", (response) => {
+    if (response.url().startsWith(mediaBase)) {
+      directResponses.push({
+        url: response.url(),
+        status: response.status(),
+        contentType: response.headers()["content-type"]
+      });
+    }
+  });
+
+  publicSiteSettingsState = createPublicSiteSettings({
+    logoPrimaryUrl: primary,
+    logoCompactUrl: compact,
+    logoFooterUrl: footer,
+    logoAltText: "YayÄ±nlanmÄ±ÅŸ CMS logosu"
+  });
+
+  const serverHtml = await (await page.request.get("/")).text();
+  expect(serverHtml).toContain(primary);
+  expect(serverHtml).not.toContain(`/_next/image?url=${encodeURIComponent(primary)}`);
+
+  for (const width of [1920, 1440, 1024, 768, 390]) {
+    await openPublicRoute(page, "/", width);
+    const expectedSource = width > 1080 ? "primary" : "compact";
+    const expectedUrl = expectedSource === "primary" ? primary : compact;
+    const visibleLogo = page.locator(`[data-logo-source="${expectedSource}"]`);
+    const hiddenLogo = page.locator(`[data-logo-source="${expectedSource === "primary" ? "compact" : "primary"}"]`);
+
+    await expect(visibleLogo).toBeVisible();
+    await expect(hiddenLogo).toBeHidden();
+    await expect(visibleLogo).toHaveAttribute("src", expectedUrl);
+    await expect
+      .poll(() => visibleLogo.evaluate((image) => (image as HTMLImageElement).currentSrc))
+      .toBe(expectedUrl);
+    await expect(page.locator(".ega-footer__logo")).toHaveAttribute("src", footer);
+    await assertNoHorizontalOverflow(page);
+
+    const box = await visibleLogo.boundingBox();
+    expect(box?.width).toBeGreaterThan(0);
+    expect(box?.height).toBeGreaterThan(0);
+    expect(box?.width).toBeLessThanOrEqual(width);
+    expect(box?.height).toBeLessThanOrEqual(52);
+
+    await page.screenshot({
+      path: `test-results/public-website/cms-branding-${expectedSource}-${width}.png`,
+      fullPage: true
+    });
+  }
+
+  expect(optimizerRequests).toEqual([]);
+  expect(directResponses.some((response) => response.url === primary && response.status === 200 && response.contentType?.includes("image/png"))).toBe(true);
+
+  for (const fixture of ["wide", "square", "tall", "transparent"]) {
+    const fixturePrimary = `${mediaBase}/${fixture}-logo/file`;
+    publicSiteSettingsState = createPublicSiteSettings({
+      logoPrimaryUrl: fixturePrimary,
+      logoCompactUrl: compact,
+      logoFooterUrl: footer
+    });
+    await openPublicRoute(page, "/", 1440);
+    const logo = page.locator('[data-logo-source="primary"]');
+    await expect(logo).toHaveAttribute("src", fixturePrimary);
+    await expect
+      .poll(() => logo.evaluate((image) => ({ width: image.naturalWidth, height: image.naturalHeight })))
+      .toEqual(getCmsLogoFixture(fixturePrimary)?.dimensions);
+    await expect(logo).toHaveCSS("object-fit", "contain");
+    await assertNoHorizontalOverflow(page);
+    await page.screenshot({ path: `test-results/public-website/cms-branding-${fixture}-logo.png`, fullPage: true });
+  }
+
+  const newPrimary = `${mediaBase}/new-primary-logo/file`;
+  publicSiteSettingsState = createPublicSiteSettings({
+    logoPrimaryUrl: newPrimary,
+    logoCompactUrl: compact,
+    logoFooterUrl: footer
+  });
+  await refreshPublicSiteSettingsAndWait(page);
+  await expect(page.locator('[data-logo-source="primary"]')).toHaveAttribute("src", newPrimary);
+  await page.screenshot({ path: "test-results/public-website/cms-branding-source-change.png", fullPage: true });
+
+  const failedPrimary = `${mediaBase}/failed-logo/file`;
+  publicSiteSettingsState = createPublicSiteSettings({
+    logoPrimaryUrl: failedPrimary,
+    logoCompactUrl: compact,
+    logoFooterUrl: footer
+  });
+  await openPublicRoute(page, "/", 1440);
+  await expect
+    .poll(() => page.locator('[data-logo-source="primary"]').getAttribute("src"))
+    .not.toBe(failedPrimary);
+  expect(directRequests.filter((url) => url === failedPrimary)).toHaveLength(1);
+  await page.screenshot({ path: "test-results/public-website/cms-branding-failed-fallback.png", fullPage: true });
+
+  publicSiteSettingsState = createPublicSiteSettings({
+    logoPrimaryUrl: newPrimary,
+    logoCompactUrl: compact,
+    logoFooterUrl: footer
+  });
+  await refreshPublicSiteSettingsAndWait(page);
+  await expect(page.locator('[data-logo-source="primary"]')).toHaveAttribute("src", newPrimary);
+  expect(hydrationWarnings).toEqual([]);
+});
+
 test("public site-settings refresh keeps last valid branding on malformed or failed responses", async ({ page }) => {
   publicSiteSettingsState = createPublicSiteSettings({
     logoPrimaryUrl: "/branding/ega-logo-official.png?primary=valid",
@@ -923,6 +1070,24 @@ function createPublicSiteSettings(overrides: Record<string, unknown> = {}) {
   return {
     ...base,
     ...overrides
+  };
+}
+
+function getCmsLogoFixture(url: string) {
+  const fixture = [
+    { key: "wide-logo", width: 360, height: 60, color: "#0b3466" },
+    { key: "square-logo", width: 160, height: 160, color: "#0d8f92" },
+    { key: "tall-logo", width: 80, height: 280, color: "#f59b1b" },
+    { key: "transparent-logo", width: 300, height: 100, color: "#1a5a9d" }
+  ].find((candidate) => url.includes(candidate.key));
+
+  if (!fixture) {
+    return null;
+  }
+
+  return {
+    dimensions: { width: fixture.width, height: fixture.height },
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${fixture.width}" height="${fixture.height}" viewBox="0 0 ${fixture.width} ${fixture.height}"><rect x="1" y="1" width="${fixture.width - 2}" height="${fixture.height - 2}" rx="8" fill="${fixture.color}" fill-opacity="0.85"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="20">EGA</text></svg>`
   };
 }
 

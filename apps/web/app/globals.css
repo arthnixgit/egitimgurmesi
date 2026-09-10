@@ -7846,6 +7846,19 @@ textarea {
   }
 }
 
+@media (min-width: 781px) and (max-width: 1080px) {
+  .ega-brand__logo--desktop {
+    display: none;
+  }
+
+  .ega-brand__logo--compact {
+    display: block;
+    width: auto;
+    max-width: min(150px, 30vw);
+    max-height: 48px;
+  }
+}
+
 @media (max-width: 780px) {
   .ega-header__inner {
     min-height: 68px;
