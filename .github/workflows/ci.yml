@@ -1,0 +1,80 @@
+name: CI
+
+# Quality gate for every change. Before this workflow existed the only
+# automation in the repository was a manual deploy, so nothing verified that a
+# branch typechecked, linted, or passed the unit suite.
+#
+# The unit tests use Node's built-in runner (`node:test`) and are discovered by
+# scripts/run-unit-tests.mjs. Lint runs at full strength against
+# eslint-suppressions.json, so pre-existing violations pass and new ones fail.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Prisma reads these at generate time. No database is contacted by the jobs
+  # below; the values only need to be syntactically valid.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  DIRECT_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+
+jobs:
+  verify:
+    name: Lint, typecheck and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm --workspace @ega/db run generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  line-endings:
+    name: Line endings are normalized
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # .gitattributes stores LF for all text. If a commit reintroduces CRLF,
+      # renormalizing produces a diff and every subsequent review drowns in
+      # whole-file rewrites again. Fail fast instead.
+      - name: Check for denormalized line endings
+        run: |
+          git add --renormalize .
+          if ! git diff --cached --quiet; then
+            echo "::error::These files are not stored with the line endings declared in .gitattributes:"
+            git diff --cached --name-only
+            echo "Fix locally with: git add --renormalize . && git commit"
+            exit 1
+          fi
+          echo "All tracked text files match the .gitattributes policy."

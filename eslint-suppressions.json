@@ -1,0 +1,291 @@
+{
+  "apps/admin/app/admin-frame.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/admin-session-manager.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/beta-readiness/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/giris/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/guncellemeler/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/medya/page.tsx": {
+    "@next/next/no-img-element": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/operasyon/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "apps/admin/app/personel/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/role-dashboard.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "apps/admin/app/saas/saas-management-page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 4
+    }
+  },
+  "apps/admin/app/ticaret/page.tsx": {
+    "@next/next/no-img-element": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/web-sitesi/components/builder-canvas.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/web-sitesi/components/builder-inspector.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/web-sitesi/components/free-material-editor.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/admin/app/web-sitesi/components/homepage-slider-editor.tsx": {
+    "react-hooks/purity": {
+      "count": 2
+    }
+  },
+  "apps/admin/app/web-sitesi/website-builder-client.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/admin/lib/auth-client.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/admin/next-env.d.ts": {
+    "@typescript-eslint/triple-slash-reference": {
+      "count": 1
+    }
+  },
+  "apps/api/src/admin-commerce/admin-commerce.service.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "apps/api/src/admin-content/admin-content.service.ts": {
+    "no-control-regex": {
+      "count": 2
+    }
+  },
+  "apps/api/src/admin-content/dto/admin-content.dto.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/api/src/admin-tenancy/admin-tenancy.service.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "apps/api/src/auth/auth.service.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/api/src/auth/staff-bootstrap.service.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/api/src/media/media.service.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "apps/api/src/operations/operations.service.spec.ts": {
+    "no-unexpected-multiline": {
+      "count": 1
+    }
+  },
+  "apps/api/src/orders/unikazan-adapter.service.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/api/src/public-content/public-content.service.ts": {
+    "no-control-regex": {
+      "count": 3
+    }
+  },
+  "apps/api/src/types/iyzipay.d.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "apps/web/app/page.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 8
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "apps/web/components/closest-exam-flip-counter.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/exam-countdown-grid.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/exam-countdown-rings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "apps/web/components/free-materials-directory-showcase.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/free-tool-card.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/public-navbar.tsx": {
+    "react-hooks/immutability": {
+      "count": 1
+    },
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/public-site-settings-provider.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/student-session-manager.tsx": {
+    "react-hooks/purity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "apps/web/components/success-showcase.tsx": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/auth-client.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/commerce-client.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/contact.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/lms-client.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/navigation.ts": {
+    "no-control-regex": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/public-content-api.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "apps/web/lib/public-engagement-client.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "apps/web/next-env.d.ts": {
+    "@typescript-eslint/triple-slash-reference": {
+      "count": 1
+    }
+  },
+  "e2e/admin.visual-system-responsive.spec.ts": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "e2e/auth.setup.ts": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "ecosystem.config.js": {
+    "@typescript-eslint/no-require-imports": {
+      "count": 1
+    }
+  },
+  "packages/db/prisma/seed.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "packages/ui/src/home-showcase.tsx": {
+    "@next/next/no-img-element": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "packages/ui/src/package-card.tsx": {
+    "@next/next/no-img-element": {
+      "count": 1
+    }
+  }
+}

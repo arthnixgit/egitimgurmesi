@@ -6,7 +6,8 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/run-unit-tests.mjs ."
   },
   "dependencies": {
     "@ega/ui": "0.1.0",

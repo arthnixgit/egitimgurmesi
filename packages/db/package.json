@@ -21,7 +21,8 @@
     "studio": "prisma studio",
     "format": "prisma format",
     "validate": "prisma validate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/run-unit-tests.mjs ."
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
