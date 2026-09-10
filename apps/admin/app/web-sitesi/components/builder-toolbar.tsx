@@ -5,6 +5,30 @@ import type { AdminMarketingPage } from "../../../lib/auth-client";
 import type { BuilderActions, BuilderStatus, ResponsiveMode, WebsiteArea, WebsiteSelection } from "../lib/builder-types";
 import { pageLabel } from "../lib/section-registry";
 
+/**
+ * Three distinct states, which the previous two-state badge collapsed into one
+ * and got wrong: unsaved edits in the browser, a saved-but-unpublished draft,
+ * and content that matches what visitors see.
+ */
+function publishStateLabel(status: BuilderStatus) {
+  if (status.isDirty) {
+    return "Kaydedilmemiş değişiklikler";
+  }
+  if (status.hasDraft) {
+    return status.draftUpdatedAt
+      ? `Yayınlanmamış taslak · ${new Date(status.draftUpdatedAt).toLocaleString("tr-TR")}`
+      : "Yayınlanmamış taslak";
+  }
+  return "Yayındaki içerikle aynı";
+}
+
+function publishStateTone(status: BuilderStatus) {
+  if (status.isDirty) {
+    return "amber";
+  }
+  return status.hasDraft ? "blue" : "teal";
+}
+
 export function BuilderToolbar({
   pages,
   selection,
@@ -64,9 +88,14 @@ export function BuilderToolbar({
           <strong>{selectedAreaLabel}</strong>
           <span>{currentPage ? `${pageLabel(currentPage)} / ${selection.selectedSectionKey || "Bölüm seç"}` : "Alan seç"}</span>
         </div>
-        <span className="admin-builder-badge" data-tone={status.isDirty ? "amber" : "teal"}>
-          {status.isDirty ? "Kaydedilmemiş değişiklikler" : "Tüm değişiklikler kaydedildi"}
+        <span className="admin-builder-badge" data-tone={publishStateTone(status)}>
+          {publishStateLabel(status)}
         </span>
+        {status.draftIsStale ? (
+          <span className="admin-builder-badge" data-tone="amber" role="status">
+            Bu taslak alındıktan sonra yayına yeni bir sürüm çıktı. Yayınlarsanız o sürümün üzerine yazılır.
+          </span>
+        ) : null}
       </div>
 
       <div className="admin-builder-toolbar__center">
@@ -114,6 +143,17 @@ export function BuilderToolbar({
         <button className="admin-button--ghost" type="button" onClick={() => void actions.requestPreviewToken()}>
           Önizle
         </button>
+        {status.hasDraft ? (
+          <button
+            className="admin-button--ghost"
+            type="button"
+            disabled={status.saving || !canManage}
+            onClick={() => void actions.discardDraft()}
+            title="Kaydedilmiş taslağı sil ve yayındaki hale dön"
+          >
+            Taslağı Sil
+          </button>
+        ) : null}
         <button
           className="admin-button"
           type="button"

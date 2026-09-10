@@ -1208,6 +1208,21 @@ model SiteSetting {
   @@map("site_settings")
 }
 
+model WebsiteContentDraft {
+  id                   String   @id @default(cuid())
+  entityType           String
+  entityKey            String
+  baseVersion          Int
+  data                 Json
+  updatedByStaffUserId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([entityType, entityKey])
+  @@index([updatedAt])
+  @@map("website_content_drafts")
+}
+
 model WebsiteContentRevision {
   id                   String   @id @default(cuid())
   scope                String

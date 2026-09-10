@@ -28,6 +28,29 @@ Ana alanlar:
 - **Akademik Kadro / Başarı Hikayeleri:** ilgili genel içerik grupları.
 - **Taslaklar ve Geçmiş:** kaydedilen taslak, yayın ve geri yükleme kayıtları.
 
+## Taslak, Önizleme ve Yayın
+
+**Taslağı Kaydet** artık içeriği gerçekten saklar. Her düzenlenebilir alanın
+(site ayarları, menü, sayfalar, ücretsiz materyaller, akademik kadro, başarı
+hikayeleri) tek bir taslağı vardır; bu taslak ekip tarafından paylaşılır,
+kullanıcıya özel değildir. Taslak kaydedildikten sonra tarayıcı kapatılsa bile
+alan yeniden açıldığında taslak geri gelir.
+
+Üst bardaki durum rozeti üç durumu ayırt eder:
+
+- **Kaydedilmemiş değişiklikler:** tarayıcıda yapılmış, henüz kaydedilmemiş
+  düzenlemeler var.
+- **Yayınlanmamış taslak:** taslak kaydedilmiş, ziyaretçiler henüz görmüyor.
+- **Yayındaki içerikle aynı:** gösterilen içerik ziyaretçilerin gördüğü içerik.
+
+**Yayınla** taslağı canlı kayıtlara yazar ve taslağı temizler. **Taslağı Sil**
+kaydedilmiş taslağı atar ve alanı yayındaki haline döndürür; silinen taslağın
+içeriği denetim kaydına yazıldığı için yönetici tarafından geri alınabilir.
+
+Bir taslak açıkken başka bir kullanıcı yayın yaparsa taslak silinmez; bunun
+yerine "bu taslak alındıktan sonra yayına yeni bir sürüm çıktı" uyarısı
+gösterilir. Yayınlamak o sürümün üzerine yazar.
+
 ## Görsel Editör Düzeni
 
 Yeni Web Sitesi Yönetimi ekranı üç çalışma alanından oluşur:

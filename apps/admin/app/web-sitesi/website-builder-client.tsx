@@ -25,6 +25,7 @@ import {
   restoreAdminMaterialCard,
   restoreAdminMaterialCategory,
   restoreAdminWebsiteRevision,
+  discardAdminWebsiteDraft,
   moveAdminMaterialCard,
   saveAdminFreeMaterialsDocument,
   saveAdminMarketingPage,
@@ -162,6 +163,7 @@ export function WebsiteBuilderClient() {
   const [previewTokenStatus, setPreviewTokenStatus] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [dirtyVersion, setDirtyVersion] = useState(0);
+  const [areaReloadToken, setAreaReloadToken] = useState(0);
   const [savedVersion, setSavedVersion] = useState(0);
   const [history, setHistory] = useState<BuilderHistory>(emptyHistory);
 
@@ -428,7 +430,7 @@ export function WebsiteBuilderClient() {
     return () => {
       active = false;
     };
-  }, [canReadWebsite, loadingShell, router, selectedArea]);
+  }, [areaReloadToken, canReadWebsite, loadingShell, router, selectedArea]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -1159,6 +1161,90 @@ export function WebsiteBuilderClient() {
     );
   }
 
+  /**
+   * The draft entity behind the selected area. Site settings back three areas
+   * (Genel, Marka, Footer), and the page areas are keyed by the open page.
+   */
+  function resolveDraftEntity(): { entityType: string; entityKey: string } | null {
+    if (["genel", "marka", "footer"].includes(selectedArea)) {
+      return { entityType: "SiteSetting", entityKey: "default" };
+    }
+    if (selectedArea === "header") {
+      return { entityType: "NavigationMenu", entityKey: "primary" };
+    }
+    if (selectedArea === "sayfalar" || selectedArea === "ana-sayfa-slideri") {
+      return currentPage ? { entityType: "MarketingPage", entityKey: currentPage.key } : null;
+    }
+    if (selectedArea === "ucretsiz-materyaller") {
+      return { entityType: "FreeMaterialsDocument", entityKey: "free-materials" };
+    }
+    if (selectedArea === "akademik-kadro") {
+      return { entityType: "StaffProfilesDocument", entityKey: "academic-staff" };
+    }
+    if (selectedArea === "basari-hikayeleri") {
+      return { entityType: "SuccessStoriesDocument", entityKey: "success-stories" };
+    }
+    return null;
+  }
+
+  /** The draft state reported by the API for whatever is currently open. */
+  function resolveDraftState() {
+    if (["genel", "marka", "footer"].includes(selectedArea)) {
+      return settings;
+    }
+    if (selectedArea === "header") {
+      return navigation;
+    }
+    if (selectedArea === "sayfalar" || selectedArea === "ana-sayfa-slideri") {
+      return currentPage;
+    }
+    if (selectedArea === "ucretsiz-materyaller") {
+      return materials;
+    }
+    if (selectedArea === "akademik-kadro") {
+      return staffProfiles;
+    }
+    if (selectedArea === "basari-hikayeleri") {
+      return successStories;
+    }
+    return null;
+  }
+
+  async function discardDraft() {
+    const entity = resolveDraftEntity();
+
+    if (!entity) {
+      setError("Bu alan için silinebilecek bir taslak bulunmuyor.");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Kaydedilmiş taslak silinecek ve bu alan yayındaki haline dönecek. Bu işlem geri alınamaz. Devam edilsin mi?"
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await discardAdminWebsiteDraft(entity.entityType, entity.entityKey);
+      setMessage("Taslak silindi. Alan yayındaki haliyle yeniden yüklendi.");
+      setAreaReloadToken((current) => current + 1);
+    } catch (requestError) {
+      if (isStaffSessionError(requestError)) {
+        clearStaffTokens();
+        router.replace("/giris");
+        return;
+      }
+      setError(getAdminRequestErrorMessage(requestError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveCurrent(action: "draft" | "publish") {
     if (action === "publish" && !canPublishWebsite) {
       setError("Web sitesini yayınlama yetkiniz bulunmuyor.");
@@ -1335,6 +1421,7 @@ export function WebsiteBuilderClient() {
       deleteMaterialCard,
       moveMaterialCard,
       saveCurrent,
+      discardDraft,
       requestPreviewToken,
       loadRevisions,
       restoreRevision,
@@ -1387,7 +1474,10 @@ export function WebsiteBuilderClient() {
         lastSavedAt,
         message,
         error,
-        previewTokenStatus
+        previewTokenStatus,
+        hasDraft: Boolean(resolveDraftState()?.hasDraft),
+        draftIsStale: Boolean(resolveDraftState()?.draftIsStale),
+        draftUpdatedAt: resolveDraftState()?.draftUpdatedAt ?? null
       }}
       canManage={canManageWebsite}
       canPublish={canPublishWebsite}
