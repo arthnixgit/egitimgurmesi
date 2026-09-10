@@ -26,6 +26,9 @@
         "^build"
       ],
       "outputs": []
+    },
+    "@ega/ui#build": {
+      "outputs": []
     }
   }
 }
