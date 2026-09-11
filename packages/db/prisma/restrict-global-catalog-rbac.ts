@@ -3,7 +3,7 @@ import { DEFAULT_PERMISSIONS, PERMISSION_KEYS, ROLE_KEYS } from "../src/rbac";
 
 const prisma = new PrismaClient();
 
-const catalogWritePermissionKeys = [
+const catalogWritePermissionKeys: string[] = [
   PERMISSION_KEYS.productsManage,
   PERMISSION_KEYS.pricingManage,
   PERMISSION_KEYS.couponsManage

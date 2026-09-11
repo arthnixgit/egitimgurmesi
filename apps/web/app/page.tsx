@@ -23,498 +23,17 @@ import {
   type SuccessStoryContent,
   type MarketingPageContent
 } from "../lib/public-content-api";
+import {
+  HOME_SECTION_KEYS,
+  findHomeSection,
+  readContactCta,
+  readFeatureHighlights,
+  readLogoRail,
+  readVideoShowcase,
+  resolveCtaHref,
+  type HomeVideoCard
+} from "../lib/home-sections";
 
-type FilterMode = "grade" | "preference";
-
-type HeroSlide = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  badge: string;
-  stats: readonly string[];
-  theme: "amber" | "teal" | "blue";
-};
-
-type FilterOption = {
-  id: string;
-  label: string;
-  hint: string;
-};
-
-type PackCardData = {
-  title: string;
-  subtitle: string;
-  price: string;
-  badge: string;
-  features: readonly string[];
-  ctaLabel: string;
-  ctaHref: string;
-  tone: "amber" | "teal" | "blue";
-};
-
-type VideoCardData = {
-  title: string;
-  category: string;
-  duration: string;
-  teacher: string;
-  summary: string;
-  tone: "amber" | "teal" | "blue";
-};
-
-const heroSlides: readonly HeroSlide[] = [
-  {
-    id: "yks-master",
-    eyebrow: "2026 YKS Programları",
-    title: "Koçluk, video dersler ve haftalık planlama tek ekranda ilerlesin.",
-    description:
-      "Öğrenci önce doğru paketi seçsin, sonra sistemli ders akışıyla sürece girsin. Karmaşık değil, güven veren bir başlangıç deneyimi.",
-    badge: "Yeni dönem kayıtları açık",
-    stats: ["Haftalık takip", "Kayıtlı ders arşivi", "Öğrenci hesabı zorunlu"],
-    theme: "amber"
-  },
-  {
-    id: "coach-flow",
-    eyebrow: "Koçluk Akışı",
-    title: "Koçluk ürünleri net anlatılsın, başvuru güvenle tamamlansın.",
-    description:
-      "Bizim sistemimiz siparişi ve kullanıcıyı kayıt altına alır; dış ödeme adımı ise net ve güvenli şekilde ayrıştırılır.",
-    badge: "Unikazan yönlendirme modeli",
-    stats: ["Yerel sipariş kaydı", "Yönlendirme takibi", "Temiz muhasebe izi"],
-    theme: "teal"
-  },
-  {
-    id: "video-lms",
-    eyebrow: "Video Paketleri",
-    title: "Satın alınan video paketleri doğrudan öğrenci paneline düşsün.",
-    description:
-      "Ders, modül, tekrar ve kaynak erişimi tek hesap içinde düzenli görünsün. Satış sonrası kopukluk bırakmayan LMS omurgası.",
-    badge: "LMS merkezli kurgu",
-    stats: ["Anında erişim", "Mobil uyum", "Ders bazlı ilerleme"],
-    theme: "blue"
-  }
-] as const;
-
-const logoRailItems = [
-  { id: "logo-1", src: "/rail-logos/logo1.webp", alt: "Yayın partneri logosu 1" },
-  { id: "logo-2", src: "/rail-logos/logo2.svg", alt: "Yayın partneri logosu 2" },
-  { id: "logo-3", src: "/rail-logos/logo3.svg", alt: "Yayın partneri logosu 3" },
-  { id: "logo-4", src: "/rail-logos/logo4.webp", alt: "Yayın partneri logosu 4" },
-  { id: "logo-5", src: "/rail-logos/logo5.svg", alt: "Yayın partneri logosu 5" },
-  { id: "logo-6", src: "/rail-logos/logo6.svg", alt: "Yayın partneri logosu 6" },
-  { id: "logo-7", src: "/rail-logos/logo7.svg", alt: "Yayın partneri logosu 7" },
-  { id: "logo-8", src: "/rail-logos/logo8.svg", alt: "Yayın partneri logosu 8" },
-  { id: "logo-9", src: "/rail-logos/logo9.webp", alt: "Yayın partneri logosu 9" },
-  { id: "logo-10", src: "/rail-logos/logo10.svg", alt: "Yayın partneri logosu 10" },
-  { id: "logo-11", src: "/rail-logos/logo11.svg", alt: "Yayın partneri logosu 11" }
-] as const;
-
-const filterOptions: Record<FilterMode, readonly FilterOption[]> = {
-  grade: [
-    { id: "grade-9-10", label: "9 ve 10. Sınıf", hint: "Temel güçlendirme" },
-    { id: "grade-11", label: "11. Sınıf", hint: "Düzen kurma" },
-    { id: "grade-12", label: "12. Sınıf", hint: "Yoğun hazırlık" },
-    { id: "graduate", label: "Mezun", hint: "Tam odak" }
-  ],
-  preference: [
-    { id: "tyt-camp", label: "TYT Kampı", hint: "Hız ve rutin" },
-    { id: "ayt-focus", label: "AYT Odak", hint: "Derin konu çalışması" },
-    { id: "coaching", label: "Koçluk", hint: "Birebir takip" },
-    { id: "repeat", label: "Tekrar Programı", hint: "Son viraj" }
-  ]
-};
-
-const packLibrary: Record<string, readonly PackCardData[]> = {
-  "grade-9-10": [
-    {
-      title: "Temel Güçlendirme Paketi",
-      subtitle: "Ders düzeni kurmak ve eksikleri erken kapatmak isteyen öğrenciler için",
-      price: "₺2.490",
-      badge: "Video ağırlıklı",
-      features: ["Haftalık ders akışı", "Kayıtlı konu anlatımı", "Paragraf ve problem rutini"],
-      ctaLabel: "Paketi İncele",
-      ctaHref: "/kayit",
-      tone: "teal"
-    },
-    {
-      title: "Okul Destek Paketi",
-      subtitle: "Okul temposunu toparlayan, düzenli tekrar ve mini kamp düzeni",
-      price: "₺3.150",
-      badge: "Ders + kaynak",
-      features: ["Sınıf seviyesine göre yol", "Konu tekrar akışı", "Ders notu erişimi"],
-      ctaLabel: "İçeriği Gör",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "Hızlandırılmış Başlangıç",
-      subtitle: "Sene içinde ritim kaçıran öğrenciler için toparlayıcı paket",
-      price: "₺3.790",
-      badge: "Hızlı toparlama",
-      features: ["Kısa dönem hedef planı", "Takvimli video listesi", "Ölçümlü tekrar akışı"],
-      ctaLabel: "Başvuru Yap",
-      ctaHref: "#iletisim",
-      tone: "amber"
-    }
-  ],
-  "grade-11": [
-    {
-      title: "11. Sınıf Strateji Paketi",
-      subtitle: "Temeli güçlendirirken YKS disiplinine erken geçmek isteyenler için",
-      price: "₺3.490",
-      badge: "Sistem kuran paket",
-      features: ["TYT rutin başlangıcı", "11. sınıf konu takibi", "Video + çalışma planı"],
-      ctaLabel: "Paketi İncele",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "11. Sınıf Koçluk Destekli",
-      subtitle: "Video paketi yanında haftalık yönlendirme isteyen öğrenciler için",
-      price: "Koçluk yönlendirmeli",
-      badge: "Dış ödeme akışı",
-      features: ["Yerel hesap zorunlu", "Koçluk sipariş kaydı", "Güvenli yönlendirme"],
-      ctaLabel: "Koçluk Detayı",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    },
-    {
-      title: "11. Sınıf Yaz Hazırlığı",
-      subtitle: "Yaz dönemini boş geçmek istemeyen öğrenciler için yoğun tekrar akışı",
-      price: "₺2.990",
-      badge: "Yaz kampı",
-      features: ["Programlı tekrar", "Video kamp listesi", "Çalışma blokları"],
-      ctaLabel: "Kampı Gör",
-      ctaHref: "/kayit",
-      tone: "amber"
-    }
-  ],
-  "grade-12": [
-    {
-      title: "12. Sınıf Ana Paket",
-      subtitle: "Sınav yılı boyunca konu, tekrar ve video akışını merkezde tutan yapı",
-      price: "₺4.290",
-      badge: "En çok tercih edilen",
-      features: ["TYT ve AYT akışı", "Kayıtlı ders arşivi", "Ders bazlı takip ekranı"],
-      ctaLabel: "Paketi İncele",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "12. Sınıf Koçluk Paketi",
-      subtitle: "Haftalık takip, düzen ve birebir yön ihtiyacı olan öğrenciler için",
-      price: "Koçluk yönlendirmeli",
-      badge: "Koçluk akışı",
-      features: ["Yerel sipariş kaydı", "Dış ödeme yönlendirmesi", "Takip için öğrenci hesabı"],
-      ctaLabel: "Koçluk İçin Başla",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    },
-    {
-      title: "12. Sınıf Son Viraj",
-      subtitle: "Deneme analizi, tekrar düzeni ve sıkı çalışma temposu isteyenler için",
-      price: "₺3.690",
-      badge: "Hızlı kapanış",
-      features: ["Sık tekrar listeleri", "Deneme ritmi", "Bitirme kampı planı"],
-      ctaLabel: "Programı Gör",
-      ctaHref: "/kayit",
-      tone: "amber"
-    }
-  ],
-  graduate: [
-    {
-      title: "Mezun Full Program",
-      subtitle: "Günü tamamen sınav düzenine göre kurmak isteyen mezun öğrenciler için",
-      price: "₺4.690",
-      badge: "Yoğun sistem",
-      features: ["Tam gün plan mantığı", "Video + tekrar omurgası", "Düzenli ders erişimi"],
-      ctaLabel: "Detayları Gör",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "Mezun Koçluk Takibi",
-      subtitle: "Dış disiplin ve birebir yön ihtiyacı olan mezun öğrencilere uygun akış",
-      price: "Koçluk yönlendirmeli",
-      badge: "Takip merkezli",
-      features: ["Koçluk için yönlendirme", "Yerel kullanıcı ve sipariş kaydı", "Düzenli süreç izi"],
-      ctaLabel: "Koçluk Paketi",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    },
-    {
-      title: "Mezun Tekrar ve Deneme",
-      subtitle: "Büyük kısmı bitirmiş, son bölümde hızlanmak isteyen öğrenciler için",
-      price: "₺3.290",
-      badge: "Tekrar odaklı",
-      features: ["Deneme ritmi", "Video tekrar listeleri", "Yoğunlaştırılmış haftalar"],
-      ctaLabel: "Programı İncele",
-      ctaHref: "/kayit",
-      tone: "amber"
-    }
-  ],
-  "tyt-camp": [
-    {
-      title: "TYT Başlangıç Kampı",
-      subtitle: "Rutin kurmak, paragraf ve problem hızını artırmak isteyen öğrenciler için",
-      price: "₺2.890",
-      badge: "TYT odak",
-      features: ["Paragraf disiplini", "Problem blokları", "Günlük akış kartları"],
-      ctaLabel: "Kampı İncele",
-      ctaHref: "/kayit",
-      tone: "amber"
-    },
-    {
-      title: "TYT Hızlandırma",
-      subtitle: "Süre yönetimi ve deneme ritmi üzerine kurulu yoğun model",
-      price: "₺3.250",
-      badge: "Tempo artırır",
-      features: ["Süre odaklı çözüm", "Hız takibi", "Kısa döngü tekrar"],
-      ctaLabel: "İçeriği Gör",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "TYT Koçluk Destekli",
-      subtitle: "Ritmi tek başına koruyamayan öğrenciler için yönlendirmeli koçluk akışı",
-      price: "Koçluk yönlendirmeli",
-      badge: "Takipli model",
-      features: ["Koçluk için dış ödeme", "Yerel sipariş takibi", "Hedef odaklı yön"],
-      ctaLabel: "Koçluk Hakkında",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    }
-  ],
-  "ayt-focus": [
-    {
-      title: "AYT Derinleşme Paketi",
-      subtitle: "Alan derslerinde net artırmak isteyen öğrenciler için yoğun konu takibi",
-      price: "₺3.990",
-      badge: "Alan odak",
-      features: ["Ders bazlı derinleşme", "Konu listesi akışı", "Video tekrar planı"],
-      ctaLabel: "Paketi Gör",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "AYT Son Tekrar",
-      subtitle: "Bitirmiş ama unutma yaşayan öğrenciler için sıklaştırılmış dönüş planı",
-      price: "₺2.790",
-      badge: "Son tekrar",
-      features: ["Kısa dönüş döngüsü", "Yüksek verimli videolar", "Hedef konu kapanışı"],
-      ctaLabel: "Programı Gör",
-      ctaHref: "/kayit",
-      tone: "amber"
-    },
-    {
-      title: "AYT Koçluk Akışı",
-      subtitle: "Net takibi ve program disiplini için koçluk yönlendirmesi gereken öğrenciler",
-      price: "Koçluk yönlendirmeli",
-      badge: "Birebir yön",
-      features: ["Yerel kullanıcı kaydı", "Koçluk yönlendirmesi", "Muhasebe için temiz iz"],
-      ctaLabel: "Başvuru Aç",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    }
-  ],
-  coaching: [
-    {
-      title: "YKS Koçluk Başlangıç",
-      subtitle: "Dış destekle ritim kurmak ve program disiplinini korumak isteyenler için",
-      price: "Yönlendirmeli ödeme",
-      badge: "Koçluk",
-      features: ["Haftalık takip mantığı", "Yerel sipariş başlangıcı", "Unikazan yönlendirmesi"],
-      ctaLabel: "Detay Al",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    },
-    {
-      title: "Yoğun Takip Programı",
-      subtitle: "Hedefi yüksek olan ve sık geri bildirim isteyen öğrenciler için",
-      price: "Yönlendirmeli ödeme",
-      badge: "Yoğun model",
-      features: ["Sık yönlendirme", "Çalışma düzeni kontrolü", "Koçluk odaklı süreç"],
-      ctaLabel: "Başvuru Yap",
-      ctaHref: "#iletisim",
-      tone: "blue"
-    },
-    {
-      title: "Koçluk + Video Hibrit",
-      subtitle: "Video altyapısını koçluk takibiyle desteklemek isteyenler için",
-      price: "Karma model",
-      badge: "Hibrit",
-      features: ["Video paketi entegrasyonu", "Koçluk yönlendirmesi", "Öğrenci hesabında tek görünüm"],
-      ctaLabel: "Karma Paketi Sor",
-      ctaHref: "#iletisim",
-      tone: "amber"
-    }
-  ],
-  repeat: [
-    {
-      title: "Büyük Tekrar Kampı",
-      subtitle: "Biriken konuları planlı şekilde bitirmek isteyen öğrenciler için",
-      price: "₺2.590",
-      badge: "Kamp",
-      features: ["Liste bazlı tekrar", "Yoğun video seti", "Kontrollü kapanış akışı"],
-      ctaLabel: "Kampı Gör",
-      ctaHref: "/kayit",
-      tone: "amber"
-    },
-    {
-      title: "Deneme Kulübü",
-      subtitle: "Deneme sonrası eksik tespiti ve geri dönüş için düzen kuran yapı",
-      price: "₺1.990",
-      badge: "Deneme odak",
-      features: ["Analiz rutini", "Eksik konu dönüşü", "Haftalık tempo kartları"],
-      ctaLabel: "Kulübü İncele",
-      ctaHref: "/kayit",
-      tone: "blue"
-    },
-    {
-      title: "Son Viraj Koçluk Akışı",
-      subtitle: "Kapanışta dış disiplin ve koç takibi ihtiyacı olan öğrenciler için",
-      price: "Yönlendirmeli ödeme",
-      badge: "Son dönem",
-      features: ["Takip gerektiren süreç", "Koçluk yönlendirmesi", "Yerel sipariş izi"],
-      ctaLabel: "İletişime Geç",
-      ctaHref: "#iletisim",
-      tone: "teal"
-    }
-  ]
-};
-
-const sampleVideos: readonly VideoCardData[] = [
-  {
-    title: "TYT Türkçe Paragraf Hızlandırma",
-    category: "TYT Türkçe",
-    duration: "18 dk",
-    teacher: "Eğitim Gurmesi Ekibi",
-    summary: "Soru okuma ritmini ve paragraf akışını güçlendiren hızlı bir ön izleme dersi.",
-    tone: "amber",
-  },
-  {
-    title: "AYT Matematik Limitte Sık Yapılan Hatalar",
-    category: "AYT Matematik",
-    duration: "24 dk",
-    teacher: "Kayıtlı Ders",
-    summary: "Limit sorularında sık kaçan adımları toparlayan, çözüm düzenini güçlendiren yoğun bir tekrar dersi.",
-    tone: "blue"
-  },
-  {
-    title: "Biyoloji Tekrar Dersi: Hücre ve Bölünme",
-    category: "AYT Biyoloji",
-    duration: "16 dk",
-    teacher: "Video Kütüphanesi",
-    summary: "Tekrar döneminde öğrencinin kaybolmadan izleyeceği daha kısa ve yoğun içerik örneği.",
-    tone: "teal",
-  },
-  {
-    title: "Koçluk Görüşmesine Hazırlık Mini Videosu",
-    category: "Koçluk Süreci",
-    duration: "11 dk",
-    teacher: "Hazırlık İçeriği",
-    summary: "Haftalık görüşmeden önce deneme sonuçlarını, eksiklerini ve hedeflerini nasıl toparlayacağını anlatan kısa hazırlık videosu.",
-    tone: "amber"
-  }
-] as const;
-
-const featureHighlights = [
-  {
-    id: "product-story",
-    label: "Kişiye göre ürün anlatımı",
-    title: "Her öğrenci kendi ihtiyacına göre doğru paketi görsün.",
-    body:
-      "Paket içerikleri sade biçimde ayrıştırılır; öğrenci ya da veli, hangi ürünün neye hizmet ettiğini tek bakışta anlayabilir.",
-    mediaLabel: "Tanıtım Videosu",
-    mediaTitle: "Paket İçeriği Anlatımı",
-    mediaBody: "Ürün tanıtım videosu veya görsel anlatım eklenebilir.",
-    tone: "amber"
-  },
-  {
-    id: "live-lesson",
-    label: "Canlı ve kayıtlı ders omurgası",
-    title: "Canlı dersler ve kayıtlı içerikler aynı düzen içinde sunulsun.",
-    body:
-      "Öğrenci canlı ders akışını kaçırmadan takip ederken, tekrar videolarına ve destek içeriklerine aynı panelden ulaşabilir.",
-    mediaLabel: "Ders Videosu",
-    mediaTitle: "Canlı Ders Akışı",
-    mediaBody: "Canlı ders ekranı veya kısa ders tanıtım videosu oynatılabilir.",
-    tone: "blue"
-  },
-  {
-    id: "student-account",
-    label: "Yerel öğrenci hesabı ve sipariş kaydı",
-    title: "Öğrenci hesabı ve sipariş geçmişi düzenli biçimde izlenebilsin.",
-    body:
-      "Hangi paketin satın alındığı, hangi derslerin açıldığı ve hangi içeriklerin aktif olduğu tek hesap altında net biçimde tutulur.",
-    mediaLabel: "Panel Önizlemesi",
-    mediaTitle: "Öğrenci Paneli",
-    mediaBody: "Öğrenci panelini anlatan kısa video veya görsel kullanılabilir.",
-    tone: "teal"
-  },
-  {
-    id: "coaching-flow",
-    label: "Koçlukta kontrollü dış ödeme akışı",
-    title: "Koçluk yönlendirmesi güvenli ve net bir akışla ilerlesin.",
-    body:
-      "Koçluk başvurusu düzenli alınır; ödeme adımı kontrollü yönlendirme ile ilerler.",
-    mediaLabel: "Akış Videosu",
-    mediaTitle: "Koçluk Başvuru Akışı",
-    mediaBody: "Koçluk ödeme ve yönlendirme akışı görsel veya video ile anlatılabilir.",
-    tone: "amber"
-  },
-  {
-    id: "whatsapp-contact",
-    label: "WhatsApp ile hızlı temas",
-    title: "Kararsız ziyaretçi sorusunu hızlıca iletebilsin.",
-    body:
-      "Öğrenci ve veli çoğu zaman önce danışmak ister. Bu nedenle iletişim alanı görünür, hızlı ve yönlendirici biçimde kurgulanır.",
-    mediaLabel: "İletişim Alanı",
-    mediaTitle: "WhatsApp Teması",
-    mediaBody: "WhatsApp iletişim akışı görsel veya video ile tanıtılabilir.",
-    tone: "teal"
-  },
-  {
-    id: "admin-panel",
-    label: "Kolay öğrenilen yönetim paneli",
-    title: "Ekip içerikleri ve ürünleri hızlıca yönetebilsin.",
-    body:
-      "Paket, kadro, ücretsiz materyal ve yönlendirme alanları teknik destek gerektirmeden güncellenebilir yapıdadır.",
-    mediaLabel: "Yönetim Paneli",
-    mediaTitle: "Admin Kullanımı",
-    mediaBody: "Yönetim paneli tanıtım videosu veya ekran kaydı kullanılabilir.",
-    tone: "blue"
-  }
-] as const;
-
-const quickStats = [
-  { value: "7/24", label: "Kayıtlı ders erişimi" },
-  { value: "2", label: "Ayrı satış mantığı" },
-  { value: "4", label: "Operasyon rolü" }
-] as const;
-
-const faqs = [
-  {
-    question: "Video paketi satın alındığında erişim hemen açılır mı?",
-    answer:
-      "Evet. Ödeme tamamlandığında video paketleri öğrenci hesabına tanımlanır."
-  },
-  {
-    question: "Koçluk paketinde neden farklı bir ödeme akışı var?",
-    answer:
-      "Koçluk ürünlerinde sipariş kaydı yerel olarak tutulur; ödeme adımı güvenli yönlendirme ile tamamlanır."
-  },
-  {
-    question: "Paket seçmeden önce kayıt olmak zorunlu mu?",
-    answer:
-      "Satın alma adımında kayıt zorunludur. Bu hem video erişimini açmak hem de koçluk siparişini izlemek için gereklidir."
-  },
-  {
-    question: "WhatsApp üzerinden yönlendirme alabilir miyim?",
-    answer:
-      "Evet. Karar veremeyen öğrenci veya veli için hızlı iletişim kanalı olarak WhatsApp çağrısı görünür tutulur."
-  }
-] as const;
 
 const showcaseSlides: readonly HomeShowcaseSlide[] = [
   {
@@ -738,30 +257,7 @@ function getVisibleProducts(
   });
 }
 
-function PackCard({ title, subtitle, price, badge, features, ctaLabel, ctaHref, tone }: PackCardData) {
-  return (
-    <article className="ega-pack-card" data-tone={tone}>
-      <div className="ega-pack-card__top">
-        <span className="ega-pack-card__badge">{badge}</span>
-        <strong className="ega-pack-card__price">{price}</strong>
-      </div>
-      <h3 className="ega-pack-card__title">{title}</h3>
-      <p className="ega-pack-card__subtitle">{subtitle}</p>
-
-      <ul className="ega-pack-card__features">
-        {features.map((feature) => (
-          <li key={feature}>{feature}</li>
-        ))}
-      </ul>
-
-      <div className="ega-pack-card__actions">
-        <ButtonLink href={ctaHref} label={ctaLabel} />
-      </div>
-    </article>
-  );
-}
-
-function VideoCard({ title, category, duration, teacher, summary, tone }: VideoCardData) {
+function VideoCard({ title, category, duration, teacher, summary, tone }: HomeVideoCard) {
   return (
     <article className="ega-video-card" data-tone={tone}>
       <div className="ega-video-card__cover">
@@ -798,14 +294,18 @@ export default function HomePage() {
   const [successStories, setSuccessStories] = useState<readonly SuccessStoryContent[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>("online-coaching");
   const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(null);
-  const [activeHeroSlide, setActiveHeroSlide] = useState(0);
   const [activeShowcaseSlide, setActiveShowcaseSlide] = useState(0);
   const [showcasePaused, setShowcasePaused] = useState(false);
-  const [activeFeatureId, setActiveFeatureId] = useState<(typeof featureHighlights)[number]["id"]>(
-    featureHighlights[0].id
-  );
+  const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
   const showcaseSection = homePageContent?.sections.find((section) => section.sectionKey === "showcase-hero");
-  const logoRailSection = homePageContent?.sections.find((section) => section.sectionKey === "logo-rail");
+  const logoRail = readLogoRail(findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.logoRail));
+  const videoShowcase = readVideoShowcase(
+    findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.videoShowcase)
+  );
+  const featureSection = readFeatureHighlights(
+    findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.featureHighlights)
+  );
+  const contactCta = readContactCta(findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.contactCta));
   const packageSurfaceSection = homePageContent?.sections.find((section) => section.sectionKey === "package-surface");
 
   const showcaseSlidesWithContent = normalizeShowcaseSlides(showcaseSection?.payload, showcaseSlides, {
@@ -820,10 +320,6 @@ export default function HomePage() {
     .findIndex((slide) => slide.id === showcaseSettings.initialSlideId);
 
   useEffect(() => {
-    const heroInterval = window.setInterval(() => {
-      setActiveHeroSlide((current) => (current + 1) % heroSlides.length);
-    }, 4800);
-
     const showcaseInterval = showcaseSettings.autoplay && !showcasePaused
       ? window.setInterval(() => {
           setActiveShowcaseSlide((current) => (current + 1) % activeShowcaseSlideCount);
@@ -831,7 +327,6 @@ export default function HomePage() {
       : null;
 
     return () => {
-      window.clearInterval(heroInterval);
       if (showcaseInterval !== null) {
         window.clearInterval(showcaseInterval);
       }
@@ -875,11 +370,8 @@ export default function HomePage() {
     };
   }, []);
 
-  const liveLogoRailItems = logoRailItems;
-
-  const currentSlide = heroSlides[activeHeroSlide];
   const activeFeature =
-    featureHighlights.find((item) => item.id === activeFeatureId) ?? featureHighlights[0];
+    featureSection.items.find((item) => item.id === activeFeatureId) ?? featureSection.items[0];
   const activeCategory = getActiveCategory(catalogCategories, activeCategoryId);
   const activeSubcategory = getActiveSubcategory(
     catalogCategories,
@@ -916,7 +408,7 @@ export default function HomePage() {
       <section className="ega-logo-rail-section">
         <div className="ega-logo-rail">
           <div className="ega-logo-rail__track">
-            {[...liveLogoRailItems, ...liveLogoRailItems].map((item, index) => (
+            {[...logoRail.items, ...logoRail.items].map((item, index) => (
               <div key={`${item.id}-${index}`} className="ega-logo-chip">
                 <Image
                   src={item.src}
@@ -983,30 +475,26 @@ export default function HomePage() {
       {successStories.length > 0 ? <SuccessShowcase stories={successStories} /> : null}
 
       <section className="ega-section ega-container" id="videolar">
-        <SectionHeading
-          title="Öğrencilerimize Canlı Ders Yapan Hocalar"
-        />
+        <SectionHeading title={videoShowcase.title} description={videoShowcase.description} />
 
         <div className="ega-video-grid">
-          {sampleVideos.map((video) => (
-            <VideoCard key={video.title} {...video} />
+          {videoShowcase.items.map((video) => (
+            <VideoCard key={video.id} {...video} />
           ))}
         </div>
       </section>
 
       <section className="ega-section ega-container" id="neler-var">
-        <SectionHeading
-          title="Eğitim Gurmesi'nde Seni Neler Bekliyor?"
-        />
+        <SectionHeading title={featureSection.title} description={featureSection.description} />
 
         <div className="ega-feature-layout">
           <div className="ega-feature-band" aria-label="Bekleyen deneyim başlıkları">
-            {featureHighlights.map((item) => (
+            {featureSection.items.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 className="ega-feature-band__item"
-                data-active={activeFeature.id === item.id}
+                data-active={activeFeature?.id === item.id}
                 onMouseEnter={() => setActiveFeatureId(item.id)}
                 onFocus={() => setActiveFeatureId(item.id)}
                 onClick={() => setActiveFeatureId(item.id)}
@@ -1017,20 +505,20 @@ export default function HomePage() {
             ))}
           </div>
 
-          <article className="ega-experience-stage" data-tone={activeFeature.tone}>
+          <article className="ega-experience-stage" data-tone={activeFeature?.tone}>
             <div className="ega-experience-stage__media">
               <div className="ega-experience-stage__media-shell">
                 <div className="ega-experience-stage__placeholder">
-                  <span className="ega-experience-stage__badge">{activeFeature.mediaLabel}</span>
-                  <strong>{activeFeature.mediaTitle}</strong>
-                  <span>{activeFeature.mediaBody}</span>
+                  <span className="ega-experience-stage__badge">{activeFeature?.mediaLabel}</span>
+                  <strong>{activeFeature?.mediaTitle}</strong>
+                  <span>{activeFeature?.mediaBody}</span>
                 </div>
               </div>
             </div>
 
             <div className="ega-experience-stage__copy">
-              <h3>{activeFeature.title}</h3>
-              <p>{activeFeature.body}</p>
+              <h3>{activeFeature?.title}</h3>
+              <p>{activeFeature?.body}</p>
             </div>
           </article>
         </div>
@@ -1042,22 +530,22 @@ export default function HomePage() {
             <img src={siteSettings.logoLightUrl} alt={siteSettings.logoAltText} />
           </div>
           <div className="ega-cta-panel__copy">
-            <span className="ega-pill ega-pill--warm">İletişime Geçin</span>
-            <h2>Karar vermeden önce soru sormak isteyen öğrenci ve veliler için doğrudan iletişim alanı.</h2>
-            <p>
-              Paket seçimi, koçluk süreci veya kayıt adımları için hızlıca destek alınabilir.
-            </p>
+            <span className="ega-pill ega-pill--warm">{contactCta.eyebrow}</span>
+            <h2>{contactCta.title}</h2>
+            <p>{contactCta.body}</p>
           </div>
 
           <div className="ega-cta-panel__actions">
-            <ButtonLink
-              href={siteSettings.whatsappHref}
-              label="WhatsApp ile Yazın"
-              target="_blank"
-              rel="noreferrer"
-            />
-            <ButtonLink href={siteSettings.telHref} label="Bizi Arayın" variant="ghost" />
-            <ButtonLink href="/kayit" label="Hesap Oluştur" variant="ghost" />
+            {contactCta.actions.map((action) => (
+              <ButtonLink
+                key={action.id}
+                href={resolveCtaHref(action.href, siteSettings)}
+                label={action.label}
+                variant={action.variant === "primary" ? undefined : "ghost"}
+                target={action.openInNewTab ? "_blank" : undefined}
+                rel={action.openInNewTab ? "noreferrer" : undefined}
+              />
+            ))}
           </div>
         </div>
       </section>

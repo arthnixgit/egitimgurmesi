@@ -1,0 +1,16 @@
+{
+  // The build config (tsconfig.json) emits dist/ from src/, so it cannot also
+  // include prisma/. That left the seeds, RBAC scripts and migration
+  // validators — thousands of lines that write to production data — outside
+  // the typechecker entirely, which is how five references to an out-of-scope
+  // `item` variable shipped in seed.ts. This config typechecks both.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist", "generated"]
+}

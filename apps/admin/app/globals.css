@@ -6890,3 +6890,151 @@ select.admin-input,
     max-width: 100%;
   }
 }
+
+/* Section list editor -------------------------------------------------------
+   Repeatable payload lists (logo rail, video cards, feature highlights, CTA
+   buttons). Sized to work inside the inspector at desktop width and as a full
+   width stack once the builder collapses to one column on tablet and phone. */
+
+.admin-section-list {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  min-width: 0;
+}
+
+.admin-section-list__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-section-list__head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.admin-section-list__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(21, 168, 168, 0.16);
+  color: var(--admin-accent-strong);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.admin-section-list__empty {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
+.admin-section-list__items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-section-list__item {
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-panel-strong);
+  overflow: hidden;
+}
+
+.admin-section-list__item[data-open="true"] {
+  border-color: rgba(21, 168, 168, 0.5);
+  box-shadow: 0 10px 26px rgba(10, 35, 62, 0.08);
+}
+
+.admin-section-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.admin-section-list__toggle {
+  display: flex;
+  flex: 1 1 180px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-section-list__index {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(16, 47, 85, 0.08);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.admin-section-list__heading {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.admin-section-list__controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.admin-icon-button--danger:hover:not(:disabled) {
+  border-color: rgba(190, 48, 48, 0.4);
+  color: #a32020;
+}
+
+.admin-section-list__fields {
+  display: grid;
+  gap: 12px;
+  padding: 4px 12px 14px;
+  border-top: 1px solid var(--admin-line);
+}
+
+@media (max-width: 720px) {
+  .admin-section-list {
+    padding: 10px;
+  }
+
+  .admin-section-list__row {
+    align-items: flex-start;
+  }
+
+  .admin-section-list__toggle {
+    flex-basis: 100%;
+  }
+
+  .admin-section-list__controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

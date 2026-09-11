@@ -27,7 +27,7 @@ export const sectionDefinitions: SectionDefinition[] = [
   {
     variantKey: "logo-rail",
     label: "Logo ve marka şeridi",
-    description: "Ana sayfadaki hareketli marka şeridi.",
+    description: "Ana sayfadaki hareketli logo şeridi; logolar ve alternatif metinler düzenlenebilir.",
     behavior: "editable",
     removable: false,
     duplicable: true
@@ -52,6 +52,30 @@ export const sectionDefinitions: SectionDefinition[] = [
     variantKey: "guarantee-ribbon",
     label: "Güvence şeridi",
     description: "Paketler sayfasındaki statik güvence mesajı.",
+    behavior: "editable",
+    removable: false,
+    duplicable: false
+  },
+  {
+    variantKey: "video-showcase",
+    label: "Ders vitrini kartları",
+    description: "Ana sayfadaki tanıtım videosu kartları; başlık ve kartlar düzenlenebilir.",
+    behavior: "editable",
+    removable: false,
+    duplicable: false
+  },
+  {
+    variantKey: "feature-highlights",
+    label: "Deneyim şeridi",
+    description: "\"Seni Neler Bekliyor?\" bölümündeki etiketler ve anlatım alanları.",
+    behavior: "editable",
+    removable: false,
+    duplicable: false
+  },
+  {
+    variantKey: "contact-cta",
+    label: "İletişim çağrı alanı",
+    description: "Ana sayfa altındaki iletişim kartı; başlık, metin ve butonlar düzenlenebilir.",
     behavior: "editable",
     removable: false,
     duplicable: false

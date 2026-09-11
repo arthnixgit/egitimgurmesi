@@ -21,6 +21,8 @@ import type {
 import { getSectionDefinition, HOME_SLIDER_SECTION_KEY, readableSectionLabel } from "../lib/section-registry";
 import { normalizeAnchorId } from "../lib/builder-validation";
 import { MediaField } from "./media-field";
+import { SectionListEditor } from "./section-list-editor";
+import { getSectionListSpec } from "../lib/section-content-schema";
 import { HomepageSliderEditor } from "./homepage-slider-editor";
 import { FreeMaterialEditor } from "./free-material-editor";
 import { RevisionPanel } from "./revision-panel";
@@ -405,6 +407,7 @@ function PageInspector({
   }
 
   const definition = getSectionDefinition(section);
+  const listSpec = getSectionListSpec(section);
 
   if (tab === "tasarim") {
     const payload = isRecord(section.payload) ? section.payload : {};
@@ -491,6 +494,7 @@ function PageInspector({
         <span>Açıklama</span>
         <textarea value={section.body ?? ""} onChange={(event) => actions.updateSection({ body: event.target.value })} />
       </label>
+      {listSpec ? <SectionListEditor section={section} spec={listSpec} actions={actions} /> : null}
       <SectionMediaControl section={section} actions={actions} />
       {definition.behavior === "dynamic" ? (
         <div className="admin-alert" role="status">

@@ -14,26 +14,36 @@ import {
 import { emptyHistory, pushHistory, undoHistory } from "../app/web-sitesi/lib/builder-history";
 import { createSectionFromWidget, getWidgetDefinition, widgetRegistry } from "../app/web-sitesi/lib/widget-registry";
 import { validateSlider } from "../app/web-sitesi/lib/builder-validation";
+import { isRenderableSectionVariant } from "@ega/ui";
 import type { BuilderSnapshot } from "../app/web-sitesi/lib/builder-types";
 import type { AdminMarketingPageSection } from "./auth-client";
 
 describe("website builder section and widget registry", () => {
-  it("exposes functional insertable widgets instead of static labels", () => {
+  it("never offers a widget the public site cannot render", () => {
+    // The palette used to advertise ~20 insertable widgets while apps/web
+    // matched only a handful of section keys, so an editor could add a
+    // section, publish it, and watch nothing appear on the site. Every
+    // insertable widget must now map to a variant in the shared contract.
     const insertable = widgetRegistry.filter((widget) => !widget.locked && !widget.dynamic);
 
-    assert.ok(insertable.length > 8);
-    assert.ok(insertable.every((widget) => createSectionFromWidget(widget.key, 10) !== null));
+    for (const widget of insertable) {
+      assert.ok(
+        isRenderableSectionVariant(widget.defaultContent.variantKey ?? widget.type),
+        `${widget.key} is insertable but has no public renderer`
+      );
+      assert.ok(createSectionFromWidget(widget.key, 10) !== null, `${widget.key} cannot be inserted`);
+    }
+  });
 
+  it("refuses to insert a widget whose variant has no public renderer", () => {
+    // Blocks are locked while their public renderer does not exist; a locked
+    // entry explains itself in the palette rather than silently failing.
     const heading = getWidgetDefinition("heading");
-    assert.ok(heading);
 
-    const inserted = createSectionFromWidget(heading.key, 30);
-    assert.ok(inserted);
-    assert.equal(inserted.variantKey, "heading");
-    assert.equal(inserted.sortOrder, 30);
-    assert.equal(inserted.isActive, true);
-    assert.equal(inserted.publishStatus, "DRAFT");
-    assert.match(inserted.sectionKey, /^heading-/);
+    assert.ok(heading);
+    assert.equal(heading.locked, true);
+    assert.equal(createSectionFromWidget(heading.key, 30), null);
+    assert.match(heading.description, /public sitede/i);
   });
 
   it("blocks locked dynamic widgets from being inserted into editable page payloads", () => {

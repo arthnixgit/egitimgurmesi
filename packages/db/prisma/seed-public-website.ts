@@ -19,7 +19,7 @@ type AcademicStaffModule = {
 };
 
 async function loadWebCatalog(): Promise<PackageCatalogModule> {
-  const mod = await import("../../../apps/web/lib/package-catalog");
+  const mod: Record<string, unknown> = await import("../../../apps/web/lib/package-catalog");
   const source = ("packageCategories" in mod ? mod : mod.default) as PackageCatalogModule;
 
   if (!source.packageCategories?.length || !source.packageProducts?.length) {
@@ -30,7 +30,7 @@ async function loadWebCatalog(): Promise<PackageCatalogModule> {
 }
 
 async function loadAcademicStaff(): Promise<AcademicStaffModule> {
-  const mod = await import("../../../apps/web/lib/academic-staff");
+  const mod: Record<string, unknown> = await import("../../../apps/web/lib/academic-staff");
   const source = ("academicStaffGroups" in mod ? mod : mod.default) as AcademicStaffModule;
 
   if (!source.academicStaffGroups?.length) {
