@@ -309,6 +309,21 @@ export function WebsiteBuilderClient() {
 
         setStaff(staffResponse);
         setOverview(overviewResponse);
+
+        // The left panel lists the site's pages in every area, but the page
+        // list used to load only once the "sayfalar" area was already
+        // selected — and the only way to select it was to click a page in
+        // that empty list. Editors opening the panel saw an empty "Sayfalar"
+        // group with no way into the page editor. Load the list with the
+        // shell so the tree is populated from the first render.
+        const pagesResponse = await fetchAdminMarketingPages();
+
+        if (!active) {
+          return;
+        }
+
+        setPages(pagesResponse);
+        setSelectedPageKey((current) => current || pagesResponse[0]?.key || "");
       } catch (requestError) {
         if (!active) {
           return;

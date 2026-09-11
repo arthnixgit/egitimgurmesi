@@ -105,6 +105,13 @@ function PageTree({
 
       <div className="admin-builder-tree__group">
         <h2>Sayfalar</h2>
+        {visiblePages.length === 0 ? (
+          <p className="admin-builder-tree__empty">
+            {search
+              ? "Aramanızla eşleşen sayfa yok."
+              : "Sayfa kaydı bulunamadı. Veritabanı henüz seed edilmemiş olabilir."}
+          </p>
+        ) : null}
         {visiblePages.map((page) => (
           <button
             key={page.key}

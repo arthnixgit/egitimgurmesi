@@ -7038,3 +7038,12 @@ select.admin-input,
     justify-content: flex-end;
   }
 }
+
+.admin-builder-tree__empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--admin-line);
+  border-radius: 12px;
+  color: var(--admin-muted);
+  font-size: 0.84rem;
+}
