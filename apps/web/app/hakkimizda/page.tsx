@@ -1,6 +1,7 @@
 import { SectionHeading } from "@ega/ui";
 import { PublicPageLayout } from "../../components/public-page-layout";
 import { getMarketingPageContent } from "../../lib/public-content-api";
+import { readPreviewTokenFromParams } from "../../lib/preview-mode";
 
 const values = [
   {
@@ -21,8 +22,18 @@ const values = [
   }
 ] as const;
 
-export default async function AboutPage() {
-  const page = await getMarketingPageContent("hakkimizda");
+export default async function AboutPage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Server-rendered pages take the preview token from their own searchParams
+  // rather than a cookie, so preview can never bleed into a visitor's request.
+  const params = (await searchParams) ?? {};
+  const page = await getMarketingPageContent(
+    "hakkimizda",
+    readPreviewTokenFromParams(params.preview)
+  );
   const intro = page?.sections.find((section) => section.sectionKey === "about-intro");
 
   return (

@@ -14,6 +14,8 @@ import {
   resolveFreeMaterialDestination,
   type MaterialDestinationItem
 } from "../free-materials/material-destination";
+import { mergePreviewMarketingPage, mergePreviewSiteSettings } from "../preview/preview-content";
+import { verifyPreviewToken } from "../preview/preview-token";
 
 type NavigationNode = {
   id: string;
@@ -118,9 +120,25 @@ export class PublicContentService {
     private readonly mediaService: MediaService
   ) {}
 
-  async getSiteSettings(key = "default") {
+  /**
+   * A valid preview token means the caller is an admin viewing unpublished
+   * work. An absent or stale token is not an error: preview silently degrades
+   * to the published site, so an expired link shows visitors the real thing
+   * rather than a failure page.
+   */
+  private isPreviewRequest(previewToken?: string | null) {
+    return verifyPreviewToken(previewToken, appEnv.authSecret()) !== null;
+  }
+
+  async getSiteSettings(key = "default", previewToken?: string | null) {
     const settings = await this.publicContentRepository.getSiteSetting(key);
-    const source = settings ?? { ...defaultPublicSiteSettings, key };
+    const base = settings ?? { ...defaultPublicSiteSettings, key };
+    const draft = this.isPreviewRequest(previewToken)
+      ? await this.publicContentRepository.getWebsiteDraft("SiteSetting", key)
+      : null;
+    const source = (
+      draft ? mergePreviewSiteSettings(base as Record<string, unknown>, draft.data) : base
+    ) as typeof base & { isPreview?: boolean };
     const logoPrimaryUrl = normalizePublicAssetUrl(
       source.logoPrimaryUrl,
       defaultPublicSiteSettings.logoPrimaryUrl
@@ -222,7 +240,21 @@ export class PublicContentService {
     }
   }
 
-  async getMarketingPage(slug: string) {
+  async getMarketingPage(slug: string, previewToken?: string | null) {
+    if (this.isPreviewRequest(previewToken)) {
+      const page = await this.publicContentRepository.getMarketingPageBySlugForPreview(slug);
+
+      if (!page) {
+        throw new NotFoundException(`Marketing page not found for slug "${slug}".`);
+      }
+
+      const draft = await this.publicContentRepository.getWebsiteDraft("MarketingPage", page.key);
+
+      return draft
+        ? mergePreviewMarketingPage(page as unknown as Record<string, unknown>, draft.data)
+        : { ...page, isPreview: true };
+    }
+
     const page = await this.publicContentRepository.getMarketingPageBySlug(slug);
 
     if (!page) {
