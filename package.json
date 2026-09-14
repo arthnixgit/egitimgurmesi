@@ -38,7 +38,8 @@
     "db:seed:lms-demo": "npm --workspace @ega/db run seed:lms-demo",
     "seed:beta": "npm --workspace @ega/db run seed:beta",
     "seed:public-website": "npm --workspace @ega/db run seed:public-website",
-    "seed:home-sections": "npm --workspace @ega/db run seed:home-sections"
+    "seed:home-sections": "npm --workspace @ega/db run seed:home-sections",
+    "seed:marketing-pages": "npm --workspace @ega/db run seed:marketing-pages"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -20,6 +20,7 @@ import type {
 } from "../lib/builder-types";
 import { getSectionDefinition, HOME_SLIDER_SECTION_KEY, readableSectionLabel } from "../lib/section-registry";
 import { normalizeAnchorId } from "../lib/builder-validation";
+import { AssetImage } from "./asset-image";
 import { MediaField } from "./media-field";
 import { SectionListEditor } from "./section-list-editor";
 import { getSectionListSpec } from "../lib/section-content-schema";
@@ -237,10 +238,18 @@ function BrandSettingsPanel({ settings, actions }: { settings: AdminSiteSettings
           </div>
           <div className="admin-brand-card__previews" aria-label={`${field.label} kullanım önizlemesi`}>
             <span data-tone="light">
-              <img src={String(settings[field.key as keyof AdminSiteSettings] || field.fallbackUrl)} alt="" />
+              <AssetImage
+                src={String(settings[field.key as keyof AdminSiteSettings] || "")}
+                fallbackSrc={field.fallbackUrl}
+                alt=""
+              />
             </span>
             <span data-tone="dark">
-              <img src={String(settings[field.key as keyof AdminSiteSettings] || field.fallbackUrl)} alt="" />
+              <AssetImage
+                src={String(settings[field.key as keyof AdminSiteSettings] || "")}
+                fallbackSrc={field.fallbackUrl}
+                alt=""
+              />
             </span>
           </div>
           <MediaField
@@ -807,7 +816,9 @@ function SuccessStoriesPanel({
           </div>
 
           <div className="admin-success-preview">
-            {selectedStory.avatarUrl ? <img src={selectedStory.avatarUrl} alt={`${selectedStory.studentName} görseli`} /> : null}
+            {selectedStory.avatarUrl ? (
+              <AssetImage src={selectedStory.avatarUrl} alt={`${selectedStory.studentName} görseli`} />
+            ) : null}
             <div>
               <strong>{selectedStory.studentName || "Öğrenci adı"}</strong>
               <span>{selectedStory.examLabel || "Sınav / Yıl"}</span>
