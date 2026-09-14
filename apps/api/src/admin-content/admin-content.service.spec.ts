@@ -259,12 +259,15 @@ describe("AdminContentService navigation validation", () => {
   });
 
   it("allows explicitly disabled empty navigation documents", async () => {
+    const draftTable = createDraftTableDouble();
     const service = new AdminContentService({
       navigationMenu: {
         findUnique: async () => null
       },
+      websiteContentDraft: draftTable.prisma,
       $transaction: async <T>(callback: (client: unknown) => Promise<T>) =>
         callback({
+          websiteContentDraft: draftTable.tx,
           websiteContentRevision: {
             create: async (args: unknown) => args
           },
@@ -283,15 +286,197 @@ describe("AdminContentService navigation validation", () => {
 
     assert.equal(result.isActive, false);
     assert.equal((result as { draftStatus?: string }).draftStatus, "DRAFT");
+    // Navigation drafts must persist too, not just report success.
+    assert.equal(draftTable.rows.length, 1);
+    assert.equal(draftTable.rows[0].entityType, "NavigationMenu");
+    assert.equal(draftTable.rows[0].entityKey, "primary");
   });
 });
 
+describe("AdminContentService draft persistence", () => {
+  it("stores a saved draft and serves it back instead of the published content", async () => {
+    const { service, state } = createSiteSettingsHarness();
+
+    const saved = await service.saveSiteSettings(
+      siteSettingsPayload({ siteName: "Taslak Adı" }),
+      superAdminAuth,
+      "draft"
+    );
+
+    assert.equal(saved.draftStatus, "DRAFT");
+    assert.equal(state.drafts.length, 1);
+    // A draft save must not touch the published row.
+    assert.notEqual(state.siteSetting.siteName, "Taslak Adı");
+
+    // The regression this whole mechanism exists for: before drafts were
+    // persisted, reloading returned published content and the editor's work
+    // was silently gone.
+    const reloaded = await service.getSiteSettings(superAdminAuth);
+
+    assert.equal(reloaded.siteName, "Taslak Adı");
+    assert.equal(reloaded.hasDraft, true);
+    assert.equal(reloaded.draftStatus, "DRAFT");
+    assert.equal(reloaded.draftIsStale, false);
+  });
+
+  it("clears the draft once the content is published", async () => {
+    const { service, state } = createSiteSettingsHarness();
+
+    await service.saveSiteSettings(
+      siteSettingsPayload({ siteName: "Taslak Adı" }),
+      superAdminAuth,
+      "draft"
+    );
+    await service.saveSiteSettings(
+      siteSettingsPayload({ siteName: "Yayın Adı" }),
+      superAdminAuth,
+      "publish"
+    );
+
+    assert.equal(state.drafts.length, 0);
+
+    const reloaded = await service.getSiteSettings(superAdminAuth);
+
+    assert.equal(reloaded.siteName, "Yayın Adı");
+    assert.equal(reloaded.hasDraft, false);
+    assert.equal(reloaded.draftStatus, "PUBLISHED");
+  });
+
+  it("flags a draft whose published base moved on instead of dropping it", async () => {
+    const { service, state } = createSiteSettingsHarness();
+
+    await service.saveSiteSettings(
+      siteSettingsPayload({ siteName: "Taslak Adı" }),
+      superAdminAuth,
+      "draft"
+    );
+    // Someone else publishes while this draft is open.
+    state.siteSetting = { ...state.siteSetting, version: state.siteSetting.version + 5 };
+
+    const reloaded = await service.getSiteSettings(superAdminAuth);
+
+    assert.equal(reloaded.hasDraft, true);
+    assert.equal(reloaded.draftIsStale, true);
+    assert.equal(reloaded.siteName, "Taslak Adı");
+  });
+
+  it("discards a draft and returns the area to its published state", async () => {
+    const { service, state } = createSiteSettingsHarness();
+
+    await service.saveSiteSettings(
+      siteSettingsPayload({ siteName: "Taslak Adı" }),
+      superAdminAuth,
+      "draft"
+    );
+    const result = await service.discardDraft("SiteSetting", "default", superAdminAuth);
+
+    assert.equal(result.discarded, true);
+    assert.equal(state.drafts.length, 0);
+    // The discarded body is written to the audit log so it stays recoverable.
+    assert.ok(state.auditLogs.some((entry) => entry.action === "website.draft.discard"));
+
+    const reloaded = await service.getSiteSettings(superAdminAuth);
+
+    assert.equal(reloaded.hasDraft, false);
+    assert.notEqual(reloaded.siteName, "Taslak Adı");
+  });
+
+  it("refuses to discard drafts for unknown entities or mismatched keys", async () => {
+    const { service } = createSiteSettingsHarness();
+
+    for (const attempt of [
+      () => service.discardDraft("Product", "anything", superAdminAuth),
+      () => service.discardDraft("SiteSetting", "not-default", superAdminAuth)
+    ]) {
+      await assert.rejects(attempt, (error: unknown) => {
+        assert.ok(error instanceof BadRequestException);
+        return true;
+      });
+    }
+  });
+});
+
+/**
+ * In-memory stand-in for the website_content_drafts table, shared by the
+ * harnesses below. Rows are mutated in place so `state.drafts` stays a stable
+ * reference that assertions can read after a delete.
+ */
+function createDraftTableDouble() {
+  type DraftRow = {
+    id: string;
+    entityType: string;
+    entityKey: string;
+    baseVersion: number;
+    data: unknown;
+    updatedByStaffUserId: string | null;
+    updatedAt: Date;
+  };
+
+  const rows: DraftRow[] = [];
+  const find = (entityType: string, entityKey: string) =>
+    rows.find((row) => row.entityType === entityType && row.entityKey === entityKey) ?? null;
+
+  return {
+    rows,
+    tx: {
+      upsert: async (args: {
+        where: { entityType_entityKey: { entityType: string; entityKey: string } };
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }) => {
+        const { entityType, entityKey } = args.where.entityType_entityKey;
+        const existing = find(entityType, entityKey);
+
+        if (existing) {
+          Object.assign(existing, args.update, { updatedAt: new Date() });
+          return existing;
+        }
+
+        const created = {
+          id: `draft_${rows.length + 1}`,
+          entityType,
+          entityKey,
+          updatedAt: new Date(),
+          ...args.create
+        } as DraftRow;
+        rows.push(created);
+        return created;
+      },
+      deleteMany: async (args: { where: { entityType: string; entityKey: string } }) => {
+        let count = 0;
+        for (let index = rows.length - 1; index >= 0; index -= 1) {
+          if (
+            rows[index].entityType === args.where.entityType &&
+            rows[index].entityKey === args.where.entityKey
+          ) {
+            rows.splice(index, 1);
+            count += 1;
+          }
+        }
+        return { count };
+      }
+    },
+    prisma: {
+      findUnique: async (args: {
+        where: { entityType_entityKey: { entityType: string; entityKey: string } };
+      }) =>
+        find(
+          args.where.entityType_entityKey.entityType,
+          args.where.entityType_entityKey.entityKey
+        ),
+      findMany: async () => rows
+    }
+  };
+}
+
 function createSiteSettingsHarness(overrides: Partial<ReturnType<typeof siteSettingRecord>> = {}) {
+  const draftTable = createDraftTableDouble();
   const state = {
     siteSetting: siteSettingRecord(overrides),
     siteSettingUpserts: [] as Array<Record<string, unknown>>,
     revisions: [] as Array<Record<string, unknown>>,
-    auditLogs: [] as Array<Record<string, unknown>>
+    auditLogs: [] as Array<Record<string, unknown>>,
+    drafts: draftTable.rows
   };
   const tx = {
     siteSetting: {
@@ -308,6 +493,7 @@ function createSiteSettingsHarness(overrides: Partial<ReturnType<typeof siteSett
         return next;
       }
     },
+    websiteContentDraft: draftTable.tx,
     websiteContentRevision: {
       create: async (args: { data: Record<string, unknown> }) => {
         state.revisions.push(args.data);
@@ -325,6 +511,7 @@ function createSiteSettingsHarness(overrides: Partial<ReturnType<typeof siteSett
     siteSetting: {
       findUnique: async () => state.siteSetting
     },
+    websiteContentDraft: draftTable.prisma,
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => callback(tx)
   };
 
@@ -352,11 +539,14 @@ function navigationPayload(overrides: Partial<SaveNavigationMenuDto> = {}): Save
 }
 
 function createFreeMaterialsHarness() {
+  const draftTable = createDraftTableDouble();
   const state = {
     revisions: [] as Array<Record<string, unknown>>,
-    auditLogs: [] as Array<Record<string, unknown>>
+    auditLogs: [] as Array<Record<string, unknown>>,
+    drafts: draftTable.rows
   };
   const tx = {
+    websiteContentDraft: draftTable.tx,
     websiteContentRevision: {
       create: async (args: { data: Record<string, unknown> }) => {
         state.revisions.push(args.data);
@@ -378,6 +568,7 @@ function createFreeMaterialsHarness() {
     countdownPage: {
       findMany: async () => []
     },
+    websiteContentDraft: draftTable.prisma,
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => callback(tx)
   };
 

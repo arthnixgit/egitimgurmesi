@@ -113,7 +113,22 @@ describe("MediaService storage resolution and readiness", () => {
 
     assert.equal(resolveMediaStorageRoot(absolutePath), absolutePath);
     assert.match(resolveMediaStorageRoot(""), /storage[\\/]media$/);
-    assert.notEqual(resolveMediaStorageRoot(""), path.resolve(process.cwd(), "../../storage/media"));
+  });
+
+  it("resolves the default storage root independently of the working directory", () => {
+    // The default must be anchored to the project, not to wherever the process
+    // happens to be started from: the API is launched from the repository root
+    // in development and from apps/api under PM2. Asserting the property
+    // directly keeps this test honest no matter which directory runs it.
+    const originalCwd = process.cwd();
+    const fromOriginalCwd = resolveMediaStorageRoot("");
+
+    try {
+      process.chdir(os.tmpdir());
+      assert.equal(resolveMediaStorageRoot(""), fromOriginalCwd);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 
   it("prepares and probes storage readiness without leaving probe files", async () => {

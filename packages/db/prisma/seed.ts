@@ -412,7 +412,35 @@ const countdownPages = [
   }
 ] as const;
 
-const freeMaterialItems = [
+type SeedFreeMaterialItem = {
+  categoryKey: string;
+  title: string;
+  itemType:
+    | "TOOL"
+    | "LINK"
+    | "PDF"
+    | "GUIDANCE"
+    | "EXTERNAL"
+    | "DOWNLOAD"
+    | "INTERNAL_PAGE"
+    | "EXTERNAL_LINK"
+    | "COUNTDOWN"
+    | "CALCULATOR"
+    | "BLOG"
+    | "SIMULATION"
+    | "SYSTEM_TOOL";
+  badgeLabel: string;
+  summary: string;
+  href: string | null;
+  buttonLabel: string;
+  sortOrder: number;
+  isFeatured?: boolean;
+  opensInNewTab?: boolean;
+  publishStatus?: typeof PUBLISHED | typeof DRAFT;
+  countdownSlug?: string;
+};
+
+const freeMaterialItems: readonly SeedFreeMaterialItem[] = [
   { categoryKey: "free-tools", title: "TYT", itemType: "TOOL", badgeLabel: "Ücretsiz", summary: "2026 TYT için canlı geri sayım ve resmî oturum bilgileri.", href: "/ucretsiz-materyaller/tyt-kac-gun-kaldi", buttonLabel: "TYT Sayacını Aç", sortOrder: 10, isFeatured: true, countdownSlug: "tyt-kac-gun-kaldi" },
   { categoryKey: "free-tools", title: "AYT", itemType: "TOOL", badgeLabel: "Ücretsiz", summary: "2026 AYT için ayrı sayaç alanı ve oturum saati.", href: "/ucretsiz-materyaller/ayt-kac-gun-kaldi", buttonLabel: "AYT Sayacını Aç", sortOrder: 20, isFeatured: true, countdownSlug: "ayt-kac-gun-kaldi" },
   { categoryKey: "free-tools", title: "YDT", itemType: "TOOL", badgeLabel: "Ücretsiz", summary: "2026 YDT için ayrı geri sayım ve son oturum bilgisi.", href: "/ucretsiz-materyaller/ydt-kac-gun-kaldi", buttonLabel: "YDT Sayacını Aç", sortOrder: 30, isFeatured: true, countdownSlug: "ydt-kac-gun-kaldi" },
@@ -616,7 +644,7 @@ async function seedMarketingPages() {
         excerpt: page.excerpt,
         description: page.description,
         pageType: page.pageType,
-        publishStatus: item.publishStatus ?? PUBLISHED,
+        publishStatus: PUBLISHED,
         seoTitle: page.seoTitle,
         seoDescription: page.seoDescription
       },
@@ -627,7 +655,7 @@ async function seedMarketingPages() {
         excerpt: page.excerpt,
         description: page.description,
         pageType: page.pageType,
-        publishStatus: item.publishStatus ?? PUBLISHED,
+        publishStatus: PUBLISHED,
         seoTitle: page.seoTitle,
         seoDescription: page.seoDescription
       }
@@ -1091,7 +1119,7 @@ async function seedCatalog() {
           ].join("\n"),
         type: mapSeedProductType(product.provider),
         provider: mapSeedProvider(product.provider),
-        publishStatus: item.publishStatus ?? PUBLISHED,
+        publishStatus: PUBLISHED,
         isFeatured: productIndex < 6,
         sortOrder: (productIndex + 1) * 10,
         accentColor: product.tone,
@@ -1365,7 +1393,7 @@ async function seedLmsShell() {
         title: blueprint.course.title,
         shortDescription: blueprint.course.shortDescription,
         description: blueprint.course.description,
-        publishStatus: item.publishStatus ?? PUBLISHED,
+        publishStatus: PUBLISHED,
         estimatedDurationMinutes: blueprint.course.estimatedDurationMinutes
       }
     });
@@ -1412,7 +1440,7 @@ async function seedLmsShell() {
             description: lessonBlueprint.description,
             lessonType: lessonBlueprint.lessonType,
             sortOrder: (lessonIndex + 1) * 10,
-            publishStatus: item.publishStatus ?? PUBLISHED,
+            publishStatus: PUBLISHED,
             durationSeconds: lessonBlueprint.durationSeconds,
             isPreview: lessonIndex === 0,
             videoAssetId: videoAsset?.id

@@ -135,7 +135,7 @@ async function syncProduct(product: PackageProduct, categoryId: string, sortOrde
         productId: savedProduct.id,
         title: feature.title,
         description: feature.description ?? "",
-        iconKey: feature.iconKey ?? null,
+        iconKey: "iconKey" in feature ? feature.iconKey ?? null : null,
         sortOrder: (index + 1) * 10
       }))
     });

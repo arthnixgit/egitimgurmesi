@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
+// Resolve from this file rather than process.cwd() so the spec passes whether it
+// is run from the repository root or from the apps/web workspace.
+const here = dirname(fileURLToPath(import.meta.url));
 const routeSource = readFileSync(
-  join(process.cwd(), "apps", "web", "app", "ucretsiz-materyaller", "[slug]", "page.tsx"),
+  resolve(here, "../app/ucretsiz-materyaller/[slug]/page.tsx"),
   "utf8"
 );
 

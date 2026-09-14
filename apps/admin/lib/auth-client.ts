@@ -65,6 +65,31 @@ export type AdminNavigationItem = {
   children: AdminNavigationItem[];
 };
 
+/**
+ * Draft state attached to every website read response.
+ *
+ * `hasDraft` means the content being shown is an unpublished draft rather than
+ * what visitors currently see. `draftIsStale` means someone published a newer
+ * version after this draft was taken, so publishing it would overwrite their
+ * work. These fields are response-only: the serialize*Payload helpers below
+ * build write payloads field by field, so they are never sent back.
+ */
+export type AdminDraftState = {
+  draftStatus?: "DRAFT" | "PUBLISHED";
+  hasDraft?: boolean;
+  draftIsStale?: boolean;
+  draftUpdatedAt?: string | null;
+  draftUpdatedByStaffUserId?: string | null;
+};
+
+export type AdminWebsiteDraftSummary = {
+  entityType: string;
+  entityKey: string;
+  baseVersion: number;
+  updatedAt: string;
+  updatedByStaffUserId?: string | null;
+};
+
 export type AdminNavigationMenu = {
   id: string;
   key: string;
@@ -74,7 +99,7 @@ export type AdminNavigationMenu = {
   isActive: boolean;
   version?: number;
   items: AdminNavigationItem[];
-};
+} & AdminDraftState;
 
 export type AdminMarketingPageSection = {
   id?: string;
@@ -104,7 +129,7 @@ export type AdminMarketingPage = {
   metadata?: Record<string, unknown> | null;
   version?: number;
   sections: AdminMarketingPageSection[];
-};
+} & AdminDraftState;
 
 export type AdminStaffProfile = {
   id?: string;
@@ -136,7 +161,7 @@ export type AdminStaffProfileGroup = {
 export type AdminStaffProfilesDocument = {
   version?: number;
   groups: AdminStaffProfileGroup[];
-};
+} & AdminDraftState;
 
 export type AdminSuccessStory = {
   id?: string;
@@ -156,7 +181,7 @@ export type AdminSuccessStory = {
 export type AdminSuccessStoriesDocument = {
   version?: number;
   stories: AdminSuccessStory[];
-};
+} & AdminDraftState;
 
 export type AdminFreeMaterialItem = {
   id?: string;
@@ -239,7 +264,7 @@ export type AdminFreeMaterialsDocument = {
   version?: number;
   categories: AdminFreeMaterialCategory[];
   countdownPages: AdminCountdownPage[];
-};
+} & AdminDraftState;
 
 export type AdminSiteSettings = {
   id: string;
@@ -277,10 +302,9 @@ export type AdminSiteSettings = {
   version: number;
   publishedAt?: string | null;
   updatedAt?: string | null;
-  draftStatus?: "DRAFT";
   revalidateRoutes?: string[];
   revalidateTags?: string[];
-};
+} & AdminDraftState;
 
 export type AdminWebsiteRevision = {
   id: string;
@@ -710,6 +734,17 @@ export function moveAdminMaterialCard(itemIdOrSlug: string, direction: -1 | 1) {
       method: "PATCH",
       body: { direction }
     }
+  );
+}
+
+export async function fetchAdminWebsiteDrafts() {
+  return requestWithStaffToken<AdminWebsiteDraftSummary[]>("/admin-content/drafts");
+}
+
+export async function discardAdminWebsiteDraft(entityType: string, entityKey: string) {
+  return requestWithStaffToken<{ entityType: string; entityKey: string; discarded: boolean }>(
+    `/admin-content/drafts/${encodeURIComponent(entityType)}/${encodeURIComponent(entityKey)}`,
+    { method: "DELETE" }
   );
 }
 

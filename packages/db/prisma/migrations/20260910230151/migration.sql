@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "website_content_revisions_scope_entityType_entityKey_createdAt_" RENAME TO "website_content_revisions_scope_entityType_entityKey_create_idx";

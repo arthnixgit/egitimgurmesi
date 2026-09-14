@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/run-unit-tests.mjs ."
   },
   "dependencies": {
     "@ega/ui": "0.1.0",

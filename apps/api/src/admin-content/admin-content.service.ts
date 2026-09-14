@@ -65,6 +65,19 @@ const REQUIRED_QUICK_LINKS = [
   { label: "Öğrenci Girişi", href: "/giris" }
 ] as const;
 
+/**
+ * The website entities that support drafts, and the single key each uses.
+ * Marketing pages and navigation menus are keyed per record, so their keys are
+ * validated against the live rows instead of listed here.
+ */
+const SINGLETON_DRAFT_ENTITIES: Record<string, string> = {
+  SiteSetting: "default",
+  StaffProfilesDocument: "academic-staff",
+  SuccessStoriesDocument: "success-stories",
+  FreeMaterialsDocument: "free-materials"
+};
+const KEYED_DRAFT_ENTITIES = new Set(["NavigationMenu", "MarketingPage"]);
+
 const defaultSiteSettings = {
   id: "",
   key: "default",
@@ -195,8 +208,12 @@ export class AdminContentService {
     const settings = await this.prisma.siteSetting.findUnique({
       where: { key: "default" }
     });
+    const published = normalizeSiteSettings(settings);
 
-    return normalizeSiteSettings(settings);
+    return withDraftOverlay(
+      published,
+      await readDraftSnapshot<typeof published>(this.prisma, "SiteSetting", "default")
+    );
   }
 
   async saveSiteSettings(
@@ -215,6 +232,12 @@ export class AdminContentService {
     if (action === "draft") {
       const draft = normalizeSiteSettingsDraft(before, normalizedPayload);
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "SiteSetting",
+          entityKey: "default",
+          baseVersion: before?.version ?? 1,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "SiteSetting",
           entityKey: "default",
@@ -236,7 +259,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT",
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false,
         revalidateRoutes: [] as string[]
       };
     }
@@ -266,6 +291,7 @@ export class AdminContentService {
       });
 
       const normalized = normalizeSiteSettings(record);
+      await clearDraftSnapshot(tx, "SiteSetting", "default");
       await recordWebsiteRevision(tx, auth, {
         entityType: "SiteSetting",
         entityKey: "default",
@@ -290,9 +316,75 @@ export class AdminContentService {
 
     return {
       ...normalizeSiteSettings(saved),
+      draftStatus: "PUBLISHED" as const,
+      hasDraft: false,
+      draftIsStale: false,
       revalidateRoutes: [...PUBLIC_LAYOUT_REVALIDATION_ROUTES],
       revalidateTags: ["site-settings", "public-layout"]
     };
+  }
+
+  /**
+   * Summary of every unpublished draft, so the editor can show which areas have
+   * pending changes without loading each one.
+   */
+  async listDrafts(auth: AuthenticatedRequestContext) {
+    requireWebsiteRead(auth);
+
+    const drafts = await this.prisma.websiteContentDraft.findMany({
+      orderBy: { updatedAt: "desc" },
+      select: {
+        entityType: true,
+        entityKey: true,
+        baseVersion: true,
+        updatedAt: true,
+        updatedByStaffUserId: true
+      }
+    });
+
+    return drafts.map((draft) => ({
+      ...draft,
+      updatedAt: draft.updatedAt.toISOString()
+    }));
+  }
+
+  /**
+   * Throws away an unpublished draft and returns the area to its published
+   * state. The draft body is written to the audit log first, so a discard is
+   * recoverable by an administrator.
+   */
+  async discardDraft(entityType: string, entityKey: string, auth: AuthenticatedRequestContext) {
+    requireWebsiteManage(auth);
+
+    const expectedKey = SINGLETON_DRAFT_ENTITIES[entityType];
+    if (expectedKey === undefined && !KEYED_DRAFT_ENTITIES.has(entityType)) {
+      throw new BadRequestException("Bu içerik türü için taslak bulunmuyor.");
+    }
+    if (expectedKey !== undefined && entityKey !== expectedKey) {
+      throw new BadRequestException("Bu içerik türü için geçersiz taslak anahtarı.");
+    }
+
+    const draft = await this.prisma.websiteContentDraft.findUnique({
+      where: { entityType_entityKey: { entityType, entityKey } }
+    });
+
+    if (!draft) {
+      throw new NotFoundException("Bu alan için kaydedilmiş taslak bulunmuyor.");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await clearDraftSnapshot(tx, entityType, entityKey);
+      await recordAuditLog(tx, auth, {
+        action: "website.draft.discard",
+        entityType,
+        entityId: draft.id,
+        summary: `${entityType} (${entityKey}) taslağı silindi.`,
+        beforeData: draft.data,
+        afterData: null
+      });
+    });
+
+    return { entityType, entityKey, discarded: true };
   }
 
   async listRevisions(
@@ -410,11 +502,12 @@ export class AdminContentService {
       include: navigationInclude
     });
 
-    if (!menu) {
-      return createEmptyNavigationMenu(key);
-    }
+    const published = menu ? normalizeNavigationMenu(menu) : createEmptyNavigationMenu(key);
 
-    return normalizeNavigationMenu(menu);
+    return withDraftOverlay(
+      published,
+      await readDraftSnapshot<typeof published>(this.prisma, "NavigationMenu", key)
+    );
   }
 
   async saveNavigationMenu(
@@ -436,6 +529,12 @@ export class AdminContentService {
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "NavigationMenu",
+          entityKey: key,
+          baseVersion: draft.version,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "NavigationMenu",
           entityKey: key,
@@ -457,7 +556,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT"
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false
       };
     }
 
@@ -506,6 +607,7 @@ export class AdminContentService {
       }
 
       const normalized = normalizeNavigationMenu(saved);
+      await clearDraftSnapshot(tx, "NavigationMenu", key);
       await recordWebsiteRevision(tx, auth, {
         entityType: "NavigationMenu",
         entityKey: key,
@@ -538,12 +640,31 @@ export class AdminContentService {
   async listMarketingPages(auth: AuthenticatedRequestContext) {
     requireWebsiteRead(auth);
 
-    const pages = await this.prisma.marketingPage.findMany({
-      include: marketingPagesInclude,
-      orderBy: [{ pageType: "asc" }, { createdAt: "asc" }]
-    });
+    const [pages, drafts] = await Promise.all([
+      this.prisma.marketingPage.findMany({
+        include: marketingPagesInclude,
+        orderBy: [{ pageType: "asc" }, { createdAt: "asc" }]
+      }),
+      this.prisma.websiteContentDraft.findMany({ where: { entityType: "MarketingPage" } })
+    ]);
+    const draftsByKey = new Map(drafts.map((draft) => [draft.entityKey, draft]));
 
-    return pages.map(normalizeMarketingPage);
+    return pages.map((page) => {
+      const published = normalizeMarketingPage(page);
+      const draft = draftsByKey.get(published.key);
+
+      return withDraftOverlay(
+        published,
+        draft
+          ? {
+              data: draft.data as typeof published,
+              baseVersion: draft.baseVersion,
+              updatedAt: draft.updatedAt,
+              updatedByStaffUserId: draft.updatedByStaffUserId
+            }
+          : null
+      );
+    });
   }
 
   async saveMarketingPage(
@@ -564,6 +685,12 @@ export class AdminContentService {
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "MarketingPage",
+          entityKey: key,
+          baseVersion: draft.version,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "MarketingPage",
           entityKey: key,
@@ -585,7 +712,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT"
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false
       };
     }
 
@@ -683,6 +812,7 @@ export class AdminContentService {
 
       const normalized = normalizeMarketingPage(saved);
       const route = `/${saved.slug === "home" ? "" : saved.slug}`;
+      await clearDraftSnapshot(tx, "MarketingPage", key);
       await recordWebsiteRevision(tx, auth, {
         entityType: "MarketingPage",
         entityKey: key,
@@ -720,7 +850,12 @@ export class AdminContentService {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
     });
 
-    return normalizeStaffProfilesDocument(groups);
+    const published = normalizeStaffProfilesDocument(groups);
+
+    return withDraftOverlay(
+      published,
+      await readDraftSnapshot<typeof published>(this.prisma, "StaffProfilesDocument", "academic-staff")
+    );
   }
 
   async saveStaffProfilesDocument(
@@ -740,6 +875,12 @@ export class AdminContentService {
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "StaffProfilesDocument",
+          entityKey: "academic-staff",
+          baseVersion: draft.version,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "StaffProfilesDocument",
           entityKey: "academic-staff",
@@ -761,7 +902,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT"
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false
       };
     }
 
@@ -860,6 +1003,7 @@ export class AdminContentService {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
       });
       const normalized = normalizeStaffProfilesDocument(savedGroups);
+      await clearDraftSnapshot(tx, "StaffProfilesDocument", "academic-staff");
       await recordWebsiteRevision(tx, auth, {
         entityType: "StaffProfilesDocument",
         entityKey: "academic-staff",
@@ -896,7 +1040,12 @@ export class AdminContentService {
       orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }]
     });
 
-    return normalizeSuccessStoriesDocument(stories);
+    const published = normalizeSuccessStoriesDocument(stories);
+
+    return withDraftOverlay(
+      published,
+      await readDraftSnapshot<typeof published>(this.prisma, "SuccessStoriesDocument", "success-stories")
+    );
   }
 
   async saveSuccessStoriesDocument(
@@ -915,6 +1064,12 @@ export class AdminContentService {
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "SuccessStoriesDocument",
+          entityKey: "success-stories",
+          baseVersion: draft.version,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "SuccessStoriesDocument",
           entityKey: "success-stories",
@@ -936,7 +1091,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT"
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false
       };
     }
 
@@ -997,6 +1154,7 @@ export class AdminContentService {
         orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }]
       });
       const normalized = normalizeSuccessStoriesDocument(savedStories);
+      await clearDraftSnapshot(tx, "SuccessStoriesDocument", "success-stories");
       await recordWebsiteRevision(tx, auth, {
         entityType: "SuccessStoriesDocument",
         entityKey: "success-stories",
@@ -1040,7 +1198,12 @@ export class AdminContentService {
       })
     ]);
 
-    return normalizeFreeMaterialsDocument(categories, countdownPages);
+    const published = normalizeFreeMaterialsDocument(categories, countdownPages);
+
+    return withDraftOverlay(
+      published,
+      await readDraftSnapshot<typeof published>(this.prisma, "FreeMaterialsDocument", "free-materials")
+    );
   }
 
   async saveFreeMaterialsDocument(
@@ -1071,6 +1234,12 @@ export class AdminContentService {
 
     if (action === "draft") {
       await this.prisma.$transaction(async (tx) => {
+        await saveDraftSnapshot(tx, auth, {
+          entityType: "FreeMaterialsDocument",
+          entityKey: "free-materials",
+          baseVersion: draft.version,
+          data: draft
+        });
         await recordWebsiteRevision(tx, auth, {
           entityType: "FreeMaterialsDocument",
           entityKey: "free-materials",
@@ -1092,7 +1261,9 @@ export class AdminContentService {
 
       return {
         ...draft,
-        draftStatus: "DRAFT"
+        draftStatus: "DRAFT" as const,
+        hasDraft: true,
+        draftIsStale: false
       };
     }
 
@@ -1212,6 +1383,7 @@ export class AdminContentService {
         })
       ]);
       const normalized = normalizeFreeMaterialsDocument(categories, countdownPages);
+      await clearDraftSnapshot(tx, "FreeMaterialsDocument", "free-materials");
       await recordWebsiteRevision(tx, auth, {
         entityType: "FreeMaterialsDocument",
         entityKey: "free-materials",
@@ -2508,6 +2680,116 @@ async function recordWebsiteRevision(
       createdByStaffUserId: auth.actorId ?? null
     }
   });
+}
+
+/**
+ * Website drafts.
+ *
+ * Every editable website entity has at most one draft, shared by the editing
+ * team and keyed the same way revisions are. Saving a draft stores the full
+ * editor snapshot; publishing writes the live records and clears the draft, so
+ * a published entity never has a stale draft shadowing it.
+ */
+type WebsiteDraftSnapshot<TData> = {
+  data: TData;
+  baseVersion: number;
+  updatedAt: Date;
+  updatedByStaffUserId: string | null;
+};
+
+async function readDraftSnapshot<TData>(
+  prisma: PrismaService,
+  entityType: string,
+  entityKey: string
+): Promise<WebsiteDraftSnapshot<TData> | null> {
+  const draft = await prisma.websiteContentDraft.findUnique({
+    where: { entityType_entityKey: { entityType, entityKey } }
+  });
+
+  if (!draft) {
+    return null;
+  }
+
+  return {
+    data: draft.data as TData,
+    baseVersion: draft.baseVersion,
+    updatedAt: draft.updatedAt,
+    updatedByStaffUserId: draft.updatedByStaffUserId
+  };
+}
+
+async function saveDraftSnapshot(
+  tx: TransactionClient,
+  auth: AuthenticatedRequestContext,
+  payload: {
+    entityType: string;
+    entityKey: string;
+    baseVersion: number;
+    data: unknown;
+  }
+) {
+  const data = payload.data as Prisma.InputJsonValue;
+
+  await tx.websiteContentDraft.upsert({
+    where: {
+      entityType_entityKey: {
+        entityType: payload.entityType,
+        entityKey: payload.entityKey
+      }
+    },
+    update: {
+      baseVersion: payload.baseVersion,
+      data,
+      updatedByStaffUserId: auth.actorId ?? null
+    },
+    create: {
+      entityType: payload.entityType,
+      entityKey: payload.entityKey,
+      baseVersion: payload.baseVersion,
+      data,
+      updatedByStaffUserId: auth.actorId ?? null
+    }
+  });
+}
+
+async function clearDraftSnapshot(tx: TransactionClient, entityType: string, entityKey: string) {
+  await tx.websiteContentDraft.deleteMany({
+    where: { entityType, entityKey }
+  });
+}
+
+/**
+ * Merges a stored draft over published content for the admin editor.
+ *
+ * `draftIsStale` marks a draft that was taken from an older published version,
+ * which happens when someone else publishes while a draft is open. The draft is
+ * still returned rather than discarded — losing an editor's work silently is
+ * the bug this whole mechanism exists to fix — but the editor is told so it can
+ * warn before publishing over the newer content.
+ */
+function withDraftOverlay<TPublished extends { version?: number }>(
+  published: TPublished,
+  draft: WebsiteDraftSnapshot<TPublished> | null
+) {
+  if (!draft) {
+    return {
+      ...published,
+      draftStatus: "PUBLISHED" as const,
+      hasDraft: false,
+      draftIsStale: false,
+      draftUpdatedAt: null as string | null,
+      draftUpdatedByStaffUserId: null as string | null
+    };
+  }
+
+  return {
+    ...draft.data,
+    draftStatus: "DRAFT" as const,
+    hasDraft: true,
+    draftIsStale: typeof published.version === "number" && draft.baseVersion !== published.version,
+    draftUpdatedAt: draft.updatedAt.toISOString(),
+    draftUpdatedByStaffUserId: draft.updatedByStaffUserId
+  };
 }
 
 async function recordAuditLog(

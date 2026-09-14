@@ -20,6 +20,15 @@
         "^typecheck"
       ],
       "outputs": []
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": []
+    },
+    "@ega/ui#build": {
+      "outputs": []
     }
   }
 }

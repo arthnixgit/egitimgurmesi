@@ -12,6 +12,7 @@
     "seed:lms-demo": "tsx prisma/seed-lms-demo.ts",
     "seed:beta": "tsx prisma/seed-beta.ts",
     "seed:public-website": "tsx prisma/seed-public-website.ts",
+    "seed:home-sections": "tsx prisma/seed-home-sections.ts",
     "rbac:upsert-scoped": "tsx prisma/upsert-scoped-rbac.ts",
     "rbac:restrict-global-catalog": "tsx prisma/restrict-global-catalog-rbac.ts",
     "rbac:enable-website-editor": "tsx prisma/enable-website-editor-rbac.ts",
@@ -21,7 +22,8 @@
     "studio": "prisma studio",
     "format": "prisma format",
     "validate": "prisma validate",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "node ../../scripts/run-unit-tests.mjs ."
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",

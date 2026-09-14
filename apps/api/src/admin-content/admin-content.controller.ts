@@ -56,6 +56,21 @@ export class AdminContentController {
     return this.adminContentService.saveSiteSettings(payload, auth, "publish");
   }
 
+  @Get("drafts")
+  listDrafts(@CurrentAuth() auth: AuthenticatedRequestContext) {
+    return this.adminContentService.listDrafts(auth);
+  }
+
+  @Delete("drafts/:entityType/:entityKey")
+  @RequirePermissions(PERMISSION_KEYS.websiteManage)
+  discardDraft(
+    @Param("entityType") entityType: string,
+    @Param("entityKey") entityKey: string,
+    @CurrentAuth() auth: AuthenticatedRequestContext
+  ) {
+    return this.adminContentService.discardDraft(entityType, entityKey, auth);
+  }
+
   @Get("revisions")
   getRevisions(
     @CurrentAuth() auth: AuthenticatedRequestContext,

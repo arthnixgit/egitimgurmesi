@@ -1,0 +1,77 @@
+# Line ending policy for egitim-gurmesi-akademi
+#
+# Why this file exists:
+# Development happens on Windows, deployment runs on Linux (PM2 + Nginx VPS).
+# Without a policy, every file was stored with one ending and checked out with
+# another, so `git diff` reported whole-file rewrites on 171 files
+# (76,002 insertions / 76,002 deletions) with zero real changes. That makes
+# code review impossible and makes merges likely to silently clobber work.
+#
+# Policy: the repository stores LF for every text file. Windows-only script
+# formats keep CRLF because their interpreters require it.
+
+# Default: detect text, normalize to LF in the repository and on checkout.
+* text=auto eol=lf
+
+# --- Source and config -------------------------------------------------------
+*.ts       text eol=lf
+*.tsx      text eol=lf
+*.js       text eol=lf
+*.mjs      text eol=lf
+*.cjs      text eol=lf
+*.json     text eol=lf
+*.jsonc    text eol=lf
+*.css      text eol=lf
+*.scss     text eol=lf
+*.html     text eol=lf
+*.md       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.toml     text eol=lf
+*.sql      text eol=lf
+*.prisma   text eol=lf
+*.conf     text eol=lf
+*.example  text eol=lf
+.env.*     text eol=lf
+Caddyfile  text eol=lf
+Dockerfile text eol=lf
+
+# --- Must stay LF (executed on the Linux VPS) --------------------------------
+*.sh       text eol=lf
+
+# --- Must stay CRLF (Windows interpreters require it) ------------------------
+*.bat      text eol=crlf
+*.cmd      text eol=crlf
+*.ps1      text eol=crlf
+
+# --- Binary: never normalize, never diff as text -----------------------------
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.webp     binary
+*.ico      binary
+*.pdf      binary
+*.zip      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+*.eot      binary
+*.mp4      binary
+*.webm     binary
+
+# SVG is text, but treat it as binary for diffing: generated paths produce
+# unreadable diffs and merge conflicts that cannot be resolved by hand.
+*.svg      text eol=lf -diff
+
+# --- Diff and merge hints ----------------------------------------------------
+package-lock.json  -diff merge=binary linguist-generated=true
+*.tsbuildinfo      -diff linguist-generated=true
+
+# Language-aware diff hunk headers make review of large files far easier.
+*.ts   diff=typescript
+*.tsx  diff=typescript
+*.js   diff=javascript
+*.css  diff=css
+*.md   diff=markdown

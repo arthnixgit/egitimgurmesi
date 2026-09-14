@@ -66,6 +66,11 @@ export type BuilderStatus = {
   message: string;
   error: string;
   previewTokenStatus: string;
+  /** A saved draft exists for the open area and is not yet published. */
+  hasDraft: boolean;
+  /** Someone published a newer version after this draft was taken. */
+  draftIsStale: boolean;
+  draftUpdatedAt: string | null;
 };
 
 export type WebsiteBuilderData = {
@@ -168,6 +173,7 @@ export type BuilderActions = {
   deleteMaterialCard: () => Promise<void>;
   moveMaterialCard: (direction: -1 | 1) => Promise<void>;
   saveCurrent: (action: SaveAction) => Promise<void>;
+  discardDraft: () => Promise<void>;
   requestPreviewToken: () => Promise<void>;
   loadRevisions: () => Promise<void>;
   restoreRevision: (revisionId: string) => Promise<void>;

@@ -1,3 +1,4 @@
+import { isRenderableSectionVariant } from "@ega/ui";
 import type { AdminMarketingPage, AdminMarketingPageSection } from "../../../lib/auth-client";
 import type { WebsiteArea } from "./builder-types";
 
@@ -40,89 +41,23 @@ export type WidgetDefinition = {
 };
 
 export const widgetRegistry: WidgetDefinition[] = [
-  widget("heading", "Başlık", "T", "Temel", "Sayfaya yeni bir başlık alanı ekler.", "heading", {
-    title: "Yeni başlık",
-    body: "Bu alanı doğrudan canvas üzerinde veya sağ panelden düzenleyin."
-  }),
-  widget("rich-text", "Metin", "P", "Temel", "Kısa açıklama veya paragraf alanı ekler.", "rich-text", {
-    title: "Metin alanı",
-    body: "Ziyaretçilere aktarılacak metni buraya yazın."
-  }),
-  widget("image", "Görsel", "IMG", "Temel", "Medya kütüphanesinden görsel seçilebilen alan ekler.", "image", {
-    title: "Görsel başlığı",
-    body: "Görsele eşlik eden kısa açıklama.",
-    payload: { mediaUrl: "", mediaAlt: "", objectFit: "cover", focalPoint: { x: 50, y: 50 } }
-  }),
-  widget("video", "Video", "VID", "Temel", "Güvenli video URL veya medya videosu içeren alan ekler.", "video", {
-    title: "Video başlığı",
-    body: "Videonun izleyiciye ne anlatacağını açıklayın.",
-    payload: { mediaUrl: "", mediaPosterUrl: "" }
-  }),
-  widget("button", "Buton", "BTN", "Temel", "Bir çağrı aksiyonu ekler.", "button", {
-    title: "Çağrı alanı",
-    body: "Kısa yönlendirme metni.",
-    payload: { buttonLabel: "İncele", buttonHref: "/" }
-  }),
-  widget("divider", "Ayırıcı", "DIV", "Temel", "Bölümler arasında görsel ayrım oluşturur.", "divider", {
-    title: "Ayırıcı",
-    body: ""
-  }),
-  widget("spacer", "Boşluk", "SPC", "Temel", "Kontrollü boşluk alanı ekler.", "spacer", {
-    title: "Boşluk",
-    body: "",
-    payload: { height: "medium" }
-  }),
-  widget("one-column", "Tek sütun", "1", "Düzen", "Tek kolonlu içerik konteyneri ekler.", "container", {
-    title: "Tek sütunlu bölüm",
-    body: "Bu bölümü içerikle doldurun.",
-    payload: { columns: 1 }
-  }),
-  widget("two-columns", "İki sütun", "2", "Düzen", "Yan yana iki kolonlu alan ekler.", "container", {
-    title: "İki sütunlu bölüm",
-    body: "Metin ve görseli birlikte sunun.",
-    payload: { columns: 2 }
-  }),
-  widget("three-columns", "Üç sütun", "3", "Düzen", "Üç kartlık açıklama alanı ekler.", "card-grid", {
-    title: "Üçlü kart alanı",
-    body: "Öne çıkan maddeleri kartlarla anlatın.",
-    payload: { columns: 3, items: [] }
-  }),
-  widget("card-grid", "Kart ızgarası", "GRID", "Düzen", "Sıralanabilir kart listesi ekler.", "card-grid", {
-    title: "Kart ızgarası",
-    body: "Kartları sağ panelden düzenleyin.",
-    payload: { items: [] }
-  }),
-  widget("hero", "Hero", "H", "Vitrin", "Sayfa üstü güçlü tanıtım alanı ekler.", "hero", {
-    eyebrow: "Öne çıkan",
-    title: "Yeni hero başlığı",
-    body: "Bu alan ziyaretçiye sayfanın ana mesajını verir.",
-    payload: { tone: "teal", buttonLabel: "Detayları Gör", buttonHref: "/" }
-  }),
-  widget("slider", "Slider", "SLD", "Vitrin", "Ana sayfa için yönetilebilir slider alanı ekler.", "showcase-hero", {
-    eyebrow: "Ana Sayfa",
-    title: "Yeni slider alanı",
-    body: "Slide listesini özel slider editöründen yönetin.",
-    payload: { slides: [] }
-  }),
-  widget("gallery", "Galeri", "GAL", "Vitrin", "Görsel galeri alanı ekler.", "gallery", {
-    title: "Galeri",
-    body: "Görselleri medya kütüphanesinden seçin.",
-    payload: { items: [] }
-  }),
-  widget("cta", "CTA alanı", "CTA", "Vitrin", "İletişim veya başvuru çağrı alanı ekler.", "cta", {
-    title: "Hızlıca iletişime geçin",
-    body: "Paket ve süreç hakkında destek alın.",
-    payload: { buttonLabel: "İletişime Geç", buttonHref: "#iletisim", tone: "amber" }
-  }),
-  widget("faq", "SSS", "FAQ", "İçerik", "Soru-cevap akordeonu ekler.", "faq", {
-    title: "Sık Sorulan Sorular",
-    body: "",
-    payload: { items: [{ question: "Soru", answer: "Yanıt" }] }
-  }),
-  widget("testimonial", "Testimonial", "TST", "İçerik", "Tek müşteri/öğrenci yorumu alanı ekler.", "testimonial", {
-    title: "Öğrenci yorumu",
-    body: "Kısa ve güven veren bir yorum ekleyin."
-  }),
+  lockedWidget("heading", "Başlık", "T", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("rich-text", "Metin", "P", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("image", "Görsel", "IMG", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("video", "Video", "VID", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("button", "Buton", "BTN", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("divider", "Ayırıcı", "DIV", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("spacer", "Boşluk", "SPC", "Temel", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("one-column", "Tek sütun", "1", "Düzen", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("two-columns", "İki sütun", "2", "Düzen", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("three-columns", "Üç sütun", "3", "Düzen", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("card-grid", "Kart ızgarası", "GRID", "Düzen", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("hero", "Hero", "H", "Vitrin", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("slider", "Slider", "SLD", "Vitrin", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("gallery", "Galeri", "GAL", "Vitrin", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("cta", "CTA alanı", "CTA", "Vitrin", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("faq", "SSS", "FAQ", "İçerik", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
+  lockedWidget("testimonial", "Testimonial", "TST", "İçerik", "Bu bileşenin public sitede henüz bir karşılığı yok; eklenirse yayında görünmez."),
   lockedWidget("site-logo", "Site logosu", "LOGO", "Global", "Logo ayarları marka panelinden yönetilir."),
   lockedWidget("navigation-menu", "Ana menü", "NAV", "Global", "Menü öğeleri Header ve Menü alanından yönetilir."),
   lockedWidget("footer", "Footer", "FTR", "Global", "Footer ve iletişim alanından yönetilir."),
@@ -171,6 +106,12 @@ export function createSectionFromWidget(widgetKey: string, order: number): Admin
     return null;
   }
 
+  // Last line of defence: never mint a section the public site cannot render,
+  // however the palette was configured.
+  if (!isRenderableSectionVariant(definition.defaultContent.variantKey ?? definition.type)) {
+    return null;
+  }
+
   const stablePart = `${widgetKey}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   return {
     sectionKey: stablePart,
@@ -185,44 +126,6 @@ export function createSectionFromWidget(widgetKey: string, order: number): Admin
     sortOrder: order,
     isActive: true,
     publishStatus: "DRAFT"
-  };
-}
-
-function widget(
-  key: string,
-  label: string,
-  icon: string,
-  category: WidgetCategory,
-  description: string,
-  type: string,
-  content: Partial<Pick<AdminMarketingPageSection, "eyebrow" | "title" | "body" | "variantKey" | "payload">>
-): WidgetDefinition {
-  return {
-    key,
-    type,
-    label,
-    icon,
-    category,
-    description,
-    allowedAreas: ["sayfalar"],
-    defaultContent: {
-      eyebrow: content.eyebrow ?? null,
-      title: content.title ?? label,
-      body: content.body ?? null,
-      variantKey: content.variantKey ?? type,
-      payload: content.payload ?? {}
-    },
-    defaultStyle: {
-      spacing: "normal",
-      width: "container",
-      tone: "teal"
-    },
-    inspectorFields: ["eyebrow", "title", "body", "media", "button", "tone", "visibility", "anchor"],
-    removable: true,
-    duplicable: true,
-    dynamic: false,
-    locked: false,
-    supportsResponsive: true
   };
 }
 
