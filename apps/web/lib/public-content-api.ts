@@ -1,6 +1,7 @@
 import type { AcademicStaffGroup } from "./academic-staff";
 import { academicStaffGroups } from "./academic-staff";
 import { resolveApiBaseUrl } from "./api-base-url";
+import { appendPreviewToken } from "./preview-mode";
 import type { ExamCountdownPage, ExamCountdownTarget, ResourceLink } from "./free-materials";
 import {
   examCountdownPages
@@ -431,8 +432,12 @@ export type SuccessStoryContent = {
   isFeatured: boolean;
 };
 
-async function requestJson<T>(path: string, init: Pick<RequestInit, "signal"> = {}) {
-  const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
+async function requestJson<T>(
+  path: string,
+  init: Pick<RequestInit, "signal"> = {},
+  previewToken?: string | null
+) {
+  const response = await fetch(`${resolveApiBaseUrl()}${appendPreviewToken(path, previewToken)}`, {
     signal: init.signal,
     cache: "no-store",
     headers: {
@@ -739,11 +744,13 @@ export async function getNavigationItems() {
 }
 
 export async function requestPublicSiteSettingsSnapshot(
-  options: { signal?: AbortSignal; rejectMalformed?: boolean } = {}
+  options: { signal?: AbortSignal; rejectMalformed?: boolean; previewToken?: string | null } = {}
 ) {
-  const settings = await requestJson<SiteSettingsResponse>("/public/site-settings", {
-    signal: options.signal
-  });
+  const settings = await requestJson<SiteSettingsResponse>(
+    "/public/site-settings",
+    { signal: options.signal },
+    options.previewToken
+  );
 
   if (options.rejectMalformed && !isAuthoritativePublicSiteSettingsResponse(settings)) {
     throw new Error("Malformed public site settings response.");
@@ -752,9 +759,9 @@ export async function requestPublicSiteSettingsSnapshot(
   return normalizePublicSiteSettings(settings);
 }
 
-export async function getPublicSiteSettings() {
+export async function getPublicSiteSettings(previewToken?: string | null) {
   try {
-    return await requestPublicSiteSettingsSnapshot();
+    return await requestPublicSiteSettingsSnapshot({ previewToken });
   } catch (error) {
     if (!shouldUsePublicContentFallback(error)) {
       throw error;
@@ -778,9 +785,13 @@ export async function getAcademicStaffGroups() {
   }
 }
 
-export async function getMarketingPageContent(slug: string) {
+export async function getMarketingPageContent(slug: string, previewToken?: string | null) {
   try {
-    const page = await requestJson<MarketingPageResponse>(`/public/pages/${encodeURIComponent(slug)}`);
+    const page = await requestJson<MarketingPageResponse>(
+      `/public/pages/${encodeURIComponent(slug)}`,
+      {},
+      previewToken
+    );
     return normalizeMarketingPage(page);
   } catch (error) {
     if (!shouldUsePublicContentFallback(error)) {

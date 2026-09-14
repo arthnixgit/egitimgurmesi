@@ -45,6 +45,8 @@ import {
   type AdminSuccessStoriesDocument,
   type AdminWebsiteRevision
 } from "../../lib/auth-client";
+import { buildPreviewUrl, pagePathForSlug, resolveSiteUrl } from "../../lib/site-url";
+import { useClientValue } from "../../lib/use-client-value";
 import { WebsiteBuilderShell } from "./components/website-builder-shell";
 import { cloneSnapshot, emptyHistory, pushHistory, redoHistory, undoHistory } from "./lib/builder-history";
 import type {
@@ -153,17 +155,21 @@ export function WebsiteBuilderClient() {
   const requestedArea = (searchParams.get("alan") || "genel") as WebsiteArea;
   const selectedArea = areas.some((area) => area.key === requestedArea) ? requestedArea : "genel";
 
-  const [staff, setStaff] = useState<StaffMe | null>(null);
+
   const [overview, setOverview] = useState<StaffOverview | null>(null);
   const [loadingShell, setLoadingShell] = useState(true);
   const [areaLoading, setAreaLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [previewTokenStatus, setPreviewTokenStatus] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [dirtyVersion, setDirtyVersion] = useState(0);
   const [areaReloadToken, setAreaReloadToken] = useState(0);
+  const [previewToken, setPreviewToken] = useState<{ token: string; expiresAt: number } | null>(null);
+  // Bumped after every save so the canvas iframe reloads instead of showing
+  // the draft as it was when the frame first mounted.
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const siteUrl = useClientValue(resolveSiteUrl, null);
   const [savedVersion, setSavedVersion] = useState(0);
   const [history, setHistory] = useState<BuilderHistory>(emptyHistory);
 
@@ -198,6 +204,22 @@ export function WebsiteBuilderClient() {
     selectedArea === "ana-sayfa-slideri"
       ? homePage
       : pages.find((page) => page.key === selectedPageKey) ?? pages[0] ?? null;
+  // Areas that map onto a real public page can be previewed in the canvas; the
+  // global areas (settings, menu, footer) are edited as forms and previewed on
+  // the homepage, where they are visible.
+  const previewablePageArea =
+    selectedArea === "sayfalar" ||
+    selectedArea === "ana-sayfa-slideri" ||
+    selectedArea === "genel" ||
+    selectedArea === "marka" ||
+    selectedArea === "header" ||
+    selectedArea === "footer";
+  const previewPath =
+    selectedArea === "sayfalar" && currentPage ? pagePathForSlug(currentPage.slug) : "/";
+  const previewUrl = previewablePageArea
+    ? buildPreviewUrl(siteUrl, previewPath, previewToken?.token ?? null, previewVersion)
+    : null;
+
   const currentSection =
     selectedArea === "ana-sayfa-slideri"
       ? currentPage?.sections.find(
@@ -298,7 +320,9 @@ export function WebsiteBuilderClient() {
           return;
         }
 
-        const [staffResponse, overviewResponse] = await Promise.all([
+        // fetchCurrentStaffUser is kept for its side effect: it rejects an
+        // invalid session before the builder renders anything.
+        const [, overviewResponse] = await Promise.all([
           fetchCurrentStaffUser(),
           fetchStaffOverview()
         ]);
@@ -307,7 +331,6 @@ export function WebsiteBuilderClient() {
           return;
         }
 
-        setStaff(staffResponse);
         setOverview(overviewResponse);
 
         // The left panel lists the site's pages in every area, but the page
@@ -350,6 +373,51 @@ export function WebsiteBuilderClient() {
       active = false;
     };
   }, [router]);
+
+  // Mint a token as soon as a previewable area is open so the canvas shows the
+  // draft rather than the published page. Without this the editor would show
+  // live content while claiming to preview unsaved work.
+  useEffect(() => {
+    if (loadingShell || !canReadWebsite || !previewablePageArea) {
+      return;
+    }
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    if (previewToken && previewToken.expiresAt - nowSeconds > 60) {
+      return;
+    }
+
+    // Minting is inlined rather than calling ensurePreviewToken, which is
+    // recreated every render and would either loop as a dependency or have to
+    // be hidden from the dependency list. This also lets the request be
+    // cancelled if the area changes while it is in flight.
+    let active = true;
+
+    fetchAdminPreviewToken()
+      .then((response) => {
+        if (active) {
+          setPreviewToken({ token: response.token, expiresAt: response.expiresAt });
+        }
+      })
+      .catch((requestError) => {
+        if (!active) {
+          return;
+        }
+
+        if (isStaffSessionError(requestError)) {
+          clearStaffTokens();
+          router.replace("/giris");
+          return;
+        }
+
+        setError(getAdminRequestErrorMessage(requestError));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canReadWebsite, loadingShell, previewablePageArea, previewToken, router]);
 
   useEffect(() => {
     if (loadingShell || !canReadWebsite) {
@@ -1329,6 +1397,7 @@ export function WebsiteBuilderClient() {
 
       const nextVersion = dirtyVersion;
       setSavedVersion(nextVersion);
+      refreshPreview();
       setLastSavedAt(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
       setMessage(action === "publish" ? "Yayınlandı. İlgili public rotalar yenilenecek." : "Taslak kaydedildi.");
     } catch (requestError) {
@@ -1346,13 +1415,55 @@ export function WebsiteBuilderClient() {
     }
   }
 
-  async function requestPreviewToken() {
+  /**
+   * Preview tokens are short-lived, so reuse one while it has comfortable life
+   * left and mint a fresh one otherwise. A minute of headroom keeps a token
+   * from expiring midway through loading the preview.
+   */
+  async function ensurePreviewToken() {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    if (previewToken && previewToken.expiresAt - nowSeconds > 60) {
+      return previewToken.token;
+    }
+
     try {
       const response = await fetchAdminPreviewToken();
-      setPreviewTokenStatus(`Önizleme oturumu hazır. Süre sonu: ${new Date(response.expiresAt * 1000).toLocaleTimeString("tr-TR")}`);
+      setPreviewToken({ token: response.token, expiresAt: response.expiresAt });
+      return response.token;
     } catch (requestError) {
+      if (isStaffSessionError(requestError)) {
+        clearStaffTokens();
+        router.replace("/giris");
+        return null;
+      }
       setError(getAdminRequestErrorMessage(requestError));
+      return null;
     }
+  }
+
+  /** "Önizle": opens the page being edited, rendered from the saved draft. */
+  async function requestPreviewToken() {
+    const token = await ensurePreviewToken();
+
+    if (!token) {
+      return;
+    }
+
+    const url = buildPreviewUrl(siteUrl, previewPath, token, previewVersion);
+
+    if (!url) {
+      setError(
+        "Public site adresi çözümlenemedi. NEXT_PUBLIC_SITE_URL değerini yönetim paneli ortamına ekleyin."
+      );
+      return;
+    }
+
+    window.open(url, "_blank", "noopener");
+  }
+
+  function refreshPreview() {
+    setPreviewVersion((current) => current + 1);
   }
 
   async function loadRevisions() {
@@ -1438,6 +1549,7 @@ export function WebsiteBuilderClient() {
       saveCurrent,
       discardDraft,
       requestPreviewToken,
+      refreshPreview,
       loadRevisions,
       restoreRevision,
       undo,
@@ -1489,7 +1601,10 @@ export function WebsiteBuilderClient() {
         lastSavedAt,
         message,
         error,
-        previewTokenStatus,
+        previewUrl,
+        // Derived rather than stored: an area that can be previewed but has no
+        // token yet is still preparing.
+        previewLoading: previewablePageArea && !previewToken,
         hasDraft: Boolean(resolveDraftState()?.hasDraft),
         draftIsStale: Boolean(resolveDraftState()?.draftIsStale),
         draftUpdatedAt: resolveDraftState()?.draftUpdatedAt ?? null

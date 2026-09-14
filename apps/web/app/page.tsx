@@ -23,6 +23,7 @@ import {
   type SuccessStoryContent,
   type MarketingPageContent
 } from "../lib/public-content-api";
+import { resolveClientPreviewToken } from "../lib/preview-mode";
 import {
   HOME_SECTION_KEYS,
   findHomeSection,
@@ -346,7 +347,11 @@ export default function HomePage() {
   useEffect(() => {
     let isCancelled = false;
 
-    void getMarketingPageContent("home").then((page) => {
+    // Preview is explicit: the token comes from the URL the admin opened, never
+    // from ambient state, so an ordinary visitor can never land in preview.
+    const previewToken = resolveClientPreviewToken();
+
+    void getMarketingPageContent("home", previewToken).then((page) => {
       if (!isCancelled) {
         setHomePageContent(page);
       }

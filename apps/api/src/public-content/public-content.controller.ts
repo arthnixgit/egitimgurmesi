@@ -8,8 +8,8 @@ export class PublicContentController {
 
   @Get("site-settings")
   @Header("Cache-Control", "no-store")
-  siteSettings(@Query("key") key?: string) {
-    return this.publicContentService.getSiteSettings(key ?? "default");
+  siteSettings(@Query("key") key?: string, @Query("preview") preview?: string) {
+    return this.publicContentService.getSiteSettings(key ?? "default", preview);
   }
 
   @Get("navigation")
@@ -20,8 +20,8 @@ export class PublicContentController {
 
   @Get("pages/:slug")
   @Header("Cache-Control", "no-store")
-  page(@Param("slug") slug: string) {
-    return this.publicContentService.getMarketingPage(slug);
+  page(@Param("slug") slug: string, @Query("preview") preview?: string) {
+    return this.publicContentService.getMarketingPage(slug, preview);
   }
 
   @Get("academic-staff")

@@ -92,7 +92,6 @@ export function WebsiteBuilderShell({
 
       {status.error ? <div className="admin-alert admin-alert--danger" role="alert">{status.error}</div> : null}
       {status.message ? <div className="admin-alert admin-alert--success" role="status">{status.message}</div> : null}
-      {status.previewTokenStatus ? <div className="admin-alert" role="status">{status.previewTokenStatus}</div> : null}
 
       {selection.selectedArea === "ucretsiz-materyaller" ? (
         <section className="admin-website-builder__materials-shell" data-mode={selection.responsiveMode}>
@@ -120,6 +119,8 @@ export function WebsiteBuilderShell({
             staffProfiles={data.staffProfiles}
             successStories={data.successStories}
             areaLoading={status.areaLoading}
+            previewUrl={status.previewUrl}
+            previewLoading={status.previewLoading}
             actions={actions}
           />
           <BuilderInspector

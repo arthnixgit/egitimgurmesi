@@ -9988,3 +9988,58 @@ textarea {
   gap: 12px;
   margin-top: 22px;
 }
+
+/* Preview mode banner --------------------------------------------------------
+   Shown only when the page is rendering unpublished draft content, so a
+   preview URL can never be mistaken for the live site. */
+
+.ega-preview-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  background: #102f55;
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.ega-preview-banner__dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f5a623;
+}
+
+.ega-preview-banner__text {
+  min-width: 0;
+}
+
+.ega-preview-banner__exit {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ega-preview-banner__exit:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 600px) {
+  .ega-preview-banner {
+    padding: 10px 12px;
+    font-size: 0.84rem;
+  }
+}

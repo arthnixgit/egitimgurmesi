@@ -181,4 +181,25 @@ export class PublicContentRepository {
       include: countdownPageInclude
     });
   }
+
+  /**
+   * Preview lookup: no publish filters, because the point of a preview is to
+   * see a page and its sections before anything is published.
+   */
+  getMarketingPageBySlugForPreview(slug: string) {
+    return this.prisma.marketingPage.findFirst({
+      where: { slug },
+      include: {
+        sections: {
+          orderBy: { sortOrder: "asc" }
+        }
+      }
+    });
+  }
+
+  getWebsiteDraft(entityType: string, entityKey: string) {
+    return this.prisma.websiteContentDraft.findUnique({
+      where: { entityType_entityKey: { entityType, entityKey } }
+    });
+  }
 }
