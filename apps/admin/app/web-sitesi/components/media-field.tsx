@@ -12,6 +12,7 @@ import {
   validateClientMediaFile
 } from "../lib/builder-media";
 import type { MediaFieldIntent } from "../lib/builder-types";
+import { AssetImage } from "./asset-image";
 import { MediaPickerDialog } from "./media-picker-dialog";
 
 export function MediaField({
@@ -88,7 +89,11 @@ export function MediaField({
       }}
     >
       <div className="admin-media-field__preview">
-        {isImagePreview ? <img src={previewUrl} alt={altText || intent.label} /> : <span>{intent.kind}</span>}
+        {isImagePreview ? (
+          <AssetImage src={previewUrl} alt={altText || intent.label} />
+        ) : (
+          <span>{intent.kind}</span>
+        )}
       </div>
 
       <div className="admin-media-field__body">

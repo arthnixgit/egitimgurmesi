@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { resolveSiteUrl } from "../../../lib/site-url";
+import { useClientValue } from "../../../lib/use-client-value";
 import type { AdminMarketingPage } from "../../../lib/auth-client";
 import type { BuilderActions, BuilderStatus, ResponsiveMode, WebsiteArea, WebsiteSelection } from "../lib/builder-types";
 import { pageLabel } from "../lib/section-registry";
@@ -50,6 +51,10 @@ export function BuilderToolbar({
   canRedo: boolean;
   actions: BuilderActions;
 }) {
+  // window is unavailable during server rendering, so the live-site URL is
+  // read as a client-only value rather than assigned from an effect.
+  const siteUrl = useClientValue(resolveSiteUrl, null);
+
   const currentPage =
     selection.selectedArea === "ana-sayfa-slideri"
       ? pages.find((page) => page.key === "home") ?? null
@@ -118,14 +123,6 @@ export function BuilderToolbar({
             </button>
           ))}
         </div>
-        <label className="admin-builder-toolbar__zoom">
-          <span>Zoom</span>
-          <select aria-label="Canvas zoom">
-            <option>%100</option>
-            <option>%90</option>
-            <option>%75</option>
-          </select>
-        </label>
       </div>
 
       <div className="admin-builder-toolbar__right">
@@ -169,9 +166,16 @@ export function BuilderToolbar({
         >
           Geçmiş
         </button>
-        <Link className="admin-button--ghost" href="/" target="_blank">
+        <a
+          className="admin-button--ghost"
+          href={siteUrl ?? "#"}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={siteUrl ? undefined : true}
+          title={siteUrl ?? "Public site adresi çözümlenemedi"}
+        >
           Canlı Sayfa
-        </Link>
+        </a>
       </div>
     </div>
   );

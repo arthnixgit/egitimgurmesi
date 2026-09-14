@@ -65,12 +65,14 @@ export type BuilderStatus = {
   lastSavedAt: string | null;
   message: string;
   error: string;
-  previewTokenStatus: string;
   /** A saved draft exists for the open area and is not yet published. */
   hasDraft: boolean;
   /** Someone published a newer version after this draft was taken. */
   draftIsStale: boolean;
   draftUpdatedAt: string | null;
+  /** URL the canvas iframe and the Önizle button open; null until resolved. */
+  previewUrl: string | null;
+  previewLoading: boolean;
 };
 
 export type WebsiteBuilderData = {
@@ -175,6 +177,7 @@ export type BuilderActions = {
   saveCurrent: (action: SaveAction) => Promise<void>;
   discardDraft: () => Promise<void>;
   requestPreviewToken: () => Promise<void>;
+  refreshPreview: () => void;
   loadRevisions: () => Promise<void>;
   restoreRevision: (revisionId: string) => Promise<void>;
   undo: () => void;

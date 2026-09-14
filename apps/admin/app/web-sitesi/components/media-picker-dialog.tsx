@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAdminMedia, type AdminMediaAsset, type AdminMediaKind } from "../../../lib/media-client";
 import { formatBytes, mediaKindLabel } from "../lib/builder-media";
+import { AssetImage } from "./asset-image";
 
 export function MediaPickerDialog({
   open,
@@ -134,7 +135,7 @@ export function MediaPickerDialog({
 function AssetPreview({ asset }: { asset: AdminMediaAsset }) {
   const url = asset.thumbnailUrl || asset.publicUrl || asset.url || "";
   if (asset.kind === "IMAGE" || asset.kind === "BRANDING") {
-    return url ? <img src={url} alt={asset.altText || asset.title} /> : <span>IMG</span>;
+    return url ? <AssetImage src={url} alt={asset.altText || asset.title} /> : <span>IMG</span>;
   }
 
   if (asset.kind === "DOCUMENT") {

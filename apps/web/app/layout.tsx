@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { FloatingInstagramLink } from "../components/floating-instagram-link";
 import { FloatingWhatsAppLink } from "../components/floating-whatsapp-link";
+import { PreviewBanner } from "../components/preview-banner";
 import { PublicNavigationProvider } from "../components/public-navigation-provider";
 import { PublicSiteSettingsProvider } from "../components/public-site-settings-provider";
 import { StudentSessionManager } from "../components/student-session-manager";
@@ -62,6 +63,7 @@ export default async function RootLayout({
       <body>
         <PublicNavigationProvider initialSnapshot={navigationSnapshot}>
           <PublicSiteSettingsProvider initialSettings={siteSettings}>
+            <PreviewBanner />
             {children}
             <StudentSessionManager />
             <FloatingInstagramLink />

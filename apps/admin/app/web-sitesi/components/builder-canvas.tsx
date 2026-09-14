@@ -13,6 +13,7 @@ import type {
 } from "../../../lib/auth-client";
 import type { BuilderActions, ResponsiveMode, SectionField, WebsiteArea, WebsiteSelection } from "../lib/builder-types";
 import { HOME_SLIDER_SECTION_KEY, normalizeHomeSliderPayload, pageLabel, readableSectionLabel } from "../lib/section-registry";
+import { AssetImage } from "./asset-image";
 import { EditableSectionFrame, InlineTextControl } from "./editable-section-frame";
 
 export function BuilderCanvas({
@@ -28,6 +29,8 @@ export function BuilderCanvas({
   staffProfiles,
   successStories,
   areaLoading,
+  previewUrl,
+  previewLoading,
   actions
 }: {
   selectedArea: WebsiteArea;
@@ -42,12 +45,22 @@ export function BuilderCanvas({
   staffProfiles: AdminStaffProfilesDocument;
   successStories: AdminSuccessStoriesDocument;
   areaLoading: boolean;
+  previewUrl: string | null;
+  previewLoading: boolean;
   actions: BuilderActions;
 }) {
   return (
     <section className="admin-website-builder__canvas" aria-label="Canlı düzenleme canvas alanı">
       {areaLoading ? <div className="admin-empty-state">Alan yükleniyor...</div> : null}
-      {!areaLoading ? (
+      {!areaLoading && previewUrl ? (
+        <LivePreviewFrame
+          url={previewUrl}
+          loading={previewLoading}
+          mode={selection.responsiveMode}
+          onRefresh={actions.refreshPreview}
+        />
+      ) : null}
+      {!areaLoading && !previewUrl ? (
         <div
           className="admin-website-builder__preview-frame"
           data-mode={selection.responsiveMode}
@@ -308,7 +321,11 @@ function NavigationPreview({ navigation, settings }: { navigation: AdminNavigati
   return (
     <div className="admin-website-builder__site-preview">
       <div className="admin-website-builder__preview-nav">
-        <img src={settings.logoPrimaryUrl || "/branding/ega-logo-official.png"} alt={settings.logoAltText || settings.siteName} />
+        <AssetImage
+          src={settings.logoPrimaryUrl}
+          fallbackSrc="/branding/ega-logo-official.png"
+          alt={settings.logoAltText || settings.siteName}
+        />
         <nav aria-label="Önizleme menüsü">
           {navigation.items.map((item) => (
             <a key={item.itemKey} href={item.href}>{item.label}</a>
@@ -323,7 +340,11 @@ function FooterPreview({ settings }: { settings: AdminSiteSettings }) {
   return (
     <footer className="admin-website-builder__footer-preview">
       <div>
-        <img src={settings.logoFooterUrl || "/branding/ega-logo-official.png"} alt={settings.logoAltText || settings.siteName} />
+        <AssetImage
+          src={settings.logoFooterUrl}
+          fallbackSrc="/branding/ega-logo-official.png"
+          alt={settings.logoAltText || settings.siteName}
+        />
         <p>{settings.footerBrandDescription}</p>
       </div>
       <nav aria-label="Hızlı erişim önizlemesi">
@@ -373,4 +394,51 @@ function iconLabel(iconKey: string | null | undefined, isDownload: boolean) {
     return "SIM";
   }
   return isDownload ? "PDF" : "LNK";
+}
+
+/**
+ * The canvas as the real website.
+ *
+ * This replaced a hand-written approximation: every section except the hero
+ * slider used to render as a grey box with a title and a paragraph, so what an
+ * editor saw while editing had no relationship to what visitors saw, and the
+ * Desktop/Tablet/Mobil switch resized the approximation rather than the site.
+ * The frame loads the public site with a preview token, so the canvas is the
+ * page — including the draft that has not been published yet.
+ */
+function LivePreviewFrame({
+  url,
+  loading,
+  mode,
+  onRefresh
+}: {
+  url: string;
+  loading: boolean;
+  mode: ResponsiveMode;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="admin-live-preview" data-mode={mode}>
+      <div className="admin-live-preview__bar">
+        <span className="admin-live-preview__status" role="status">
+          {loading ? "Önizleme hazırlanıyor..." : "Yayınlanmamış taslak gösteriliyor"}
+        </span>
+        <button type="button" className="admin-button--compact" onClick={onRefresh}>
+          Yenile
+        </button>
+      </div>
+      <div className="admin-live-preview__viewport">
+        <iframe
+          key={url}
+          className="admin-live-preview__frame"
+          src={url}
+          title="Web sitesi önizlemesi"
+          loading="lazy"
+          // Runs the site normally, but cannot navigate the admin panel out
+          // from under the editor.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      </div>
+    </div>
+  );
 }

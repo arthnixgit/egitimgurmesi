@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createPreviewToken } from "../preview/preview-token";
 import { AuditActorType, ContentStatus, FreeMaterialItemType, PERMISSION_KEYS, Prisma } from "@ega/db";
 import {
   BadRequestException,
@@ -477,21 +477,9 @@ export class AdminContentService {
   createPreviewToken(auth: AuthenticatedRequestContext) {
     requireWebsiteRead(auth);
 
-    const expiresAt = Math.floor(Date.now() / 1000) + 15 * 60;
-    const body = Buffer.from(
-      JSON.stringify({
-        actorId: auth.actorId,
-        scope: "global-website-preview",
-        exp: expiresAt,
-        nonce: randomUUID()
-      })
-    ).toString("base64url");
-    const signature = createHmac("sha256", appEnv.authSecret()).update(body).digest("base64url");
-
-    return {
-      token: `${body}.${signature}`,
-      expiresAt
-    };
+    // Minting and verification live together in ../preview/preview-token so the
+    // two halves cannot drift apart.
+    return createPreviewToken(appEnv.authSecret(), auth.actorId ?? null);
   }
 
   async getNavigationMenu(key: string, auth: AuthenticatedRequestContext) {
