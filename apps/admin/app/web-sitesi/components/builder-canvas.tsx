@@ -13,6 +13,7 @@ import type {
 } from "../../../lib/auth-client";
 import type { BuilderActions, ResponsiveMode, SectionField, WebsiteArea, WebsiteSelection } from "../lib/builder-types";
 import { HOME_SLIDER_SECTION_KEY, normalizeHomeSliderPayload, pageLabel, readableSectionLabel } from "../lib/section-registry";
+import { AssetImage } from "./asset-image";
 import { EditableSectionFrame, InlineTextControl } from "./editable-section-frame";
 
 export function BuilderCanvas({
@@ -320,7 +321,11 @@ function NavigationPreview({ navigation, settings }: { navigation: AdminNavigati
   return (
     <div className="admin-website-builder__site-preview">
       <div className="admin-website-builder__preview-nav">
-        <img src={settings.logoPrimaryUrl || "/branding/ega-logo-official.png"} alt={settings.logoAltText || settings.siteName} />
+        <AssetImage
+          src={settings.logoPrimaryUrl}
+          fallbackSrc="/branding/ega-logo-official.png"
+          alt={settings.logoAltText || settings.siteName}
+        />
         <nav aria-label="Önizleme menüsü">
           {navigation.items.map((item) => (
             <a key={item.itemKey} href={item.href}>{item.label}</a>
@@ -335,7 +340,11 @@ function FooterPreview({ settings }: { settings: AdminSiteSettings }) {
   return (
     <footer className="admin-website-builder__footer-preview">
       <div>
-        <img src={settings.logoFooterUrl || "/branding/ega-logo-official.png"} alt={settings.logoAltText || settings.siteName} />
+        <AssetImage
+          src={settings.logoFooterUrl}
+          fallbackSrc="/branding/ega-logo-official.png"
+          alt={settings.logoAltText || settings.siteName}
+        />
         <p>{settings.footerBrandDescription}</p>
       </div>
       <nav aria-label="Hızlı erişim önizlemesi">

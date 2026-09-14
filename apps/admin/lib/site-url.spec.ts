@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPreviewUrl, pagePathForSlug, resolveSiteUrlFrom } from "./site-url";
+import { buildPreviewUrl, pagePathForSlug, resolveAssetUrlFrom, resolveSiteUrlFrom } from "./site-url";
 
 describe("public site URL resolution", () => {
   it("prefers an explicitly configured origin", () => {
@@ -75,5 +75,49 @@ describe("preview URLs", () => {
 
   it("returns null when the site URL is unknown", () => {
     assert.equal(buildPreviewUrl(null, "/", "tok", 1), null);
+  });
+});
+
+describe("asset URL resolution for admin-side previews", () => {
+  const site = "https://egitimgurmesi.com";
+
+  it("resolves site-relative content paths against the public origin", () => {
+    // The bug: admin.egitimgurmesi.com/homepage/showcase-plan.png -> 404,
+    // because the file is a static asset of the web app, not the admin app.
+    assert.equal(
+      resolveAssetUrlFrom(site, "/homepage/showcase-plan.png"),
+      "https://egitimgurmesi.com/homepage/showcase-plan.png"
+    );
+  });
+
+  it("treats a path without a leading slash as site-relative too", () => {
+    assert.equal(resolveAssetUrlFrom(site, "homepage/a.png"), "https://egitimgurmesi.com/homepage/a.png");
+  });
+
+  it("collapses duplicate separators rather than emitting a double slash", () => {
+    assert.equal(resolveAssetUrlFrom(site, "///homepage/a.png"), "https://egitimgurmesi.com/homepage/a.png");
+  });
+
+  it("leaves uploaded media URLs untouched", () => {
+    const uploaded = "https://api.egitimgurmesi.com/v1/media/2026/09/logo.png";
+
+    assert.equal(resolveAssetUrlFrom(site, uploaded), uploaded);
+  });
+
+  it("leaves data and blob previews untouched", () => {
+    // Local upload previews must not be rewritten into a 404.
+    assert.equal(resolveAssetUrlFrom(site, "data:image/png;base64,AAA"), "data:image/png;base64,AAA");
+    assert.equal(resolveAssetUrlFrom(site, "blob:https://admin.x.com/abc"), "blob:https://admin.x.com/abc");
+    assert.equal(resolveAssetUrlFrom(site, "//cdn.x.com/a.png"), "//cdn.x.com/a.png");
+  });
+
+  it("returns the path unchanged on the server, so hydration matches", () => {
+    assert.equal(resolveAssetUrlFrom(null, "/homepage/a.png"), "/homepage/a.png");
+  });
+
+  it("normalises empty input to an empty string", () => {
+    for (const value of [null, undefined, "", "   "]) {
+      assert.equal(resolveAssetUrlFrom(site, value), "");
+    }
   });
 });

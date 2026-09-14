@@ -5,6 +5,13 @@
       "dependsOn": [
         "^build"
       ],
+      "env": [
+        "NEXT_PUBLIC_*",
+        "NODE_ENV",
+        "INTERNAL_API_BASE_URL",
+        "API_APP_URL",
+        "NEXT_STATIC_EXPORT"
+      ],
       "outputs": [
         ".next/**",
         "dist/**",

@@ -9,6 +9,7 @@ import {
   writeHomeSliderPayload
 } from "../lib/section-registry";
 import { validateSlider } from "../lib/builder-validation";
+import { AssetImage } from "./asset-image";
 import { MediaField } from "./media-field";
 
 export function HomepageSliderEditor({
@@ -126,7 +127,7 @@ export function HomepageSliderEditor({
             <span className="admin-slider-thumb__handle" aria-hidden="true">::</span>
             <span className="admin-slider-thumb__preview" aria-hidden="true">
               {slide.mediaType === "IMAGE" && slide.mediaUrl ? (
-                <img src={slide.mobileMediaUrl || slide.mediaUrl} alt="" />
+                <AssetImage src={slide.mobileMediaUrl || slide.mediaUrl} alt="" />
               ) : (
                 <span>{slide.mediaType === "VIDEO" ? "VID" : "IMG"}</span>
               )}

@@ -56,6 +56,43 @@ export function resolveSiteUrl(): string | null {
   );
 }
 
+/**
+ * Resolves an image/media path for display inside the admin panel.
+ *
+ * Content authored for the public website stores site-relative paths such as
+ * "/homepage/showcase-plan.png", which are static files in apps/web/public.
+ * The admin panel is served from a different origin (admin.egitimgurmesi.com),
+ * so rendering those paths verbatim asks the admin app for a file it has never
+ * had and yields a 404 — broken thumbnails in every settings panel while the
+ * same images load correctly inside the preview iframe.
+ *
+ * Absolute URLs (uploaded media served from MEDIA_PUBLIC_BASE_URL), data/blob
+ * URLs (local upload previews) and protocol-relative URLs are already
+ * unambiguous and are returned untouched.
+ */
+export function resolveAssetUrlFrom(siteUrl: string | null, src: string | null | undefined): string {
+  const trimmed = (src ?? "").trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  // A protocol-relative URL is exactly two slashes followed by a host. Three or
+  // more is a malformed site path, not an origin, and must still be resolved.
+  if (/^https?:\/\//i.test(trimmed) || /^\/\/[^/]/.test(trimmed) || /^(data|blob):/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (!siteUrl) {
+    // Server render, or an origin we cannot honestly determine. Returning the
+    // path unchanged keeps the server and client markup identical; the client
+    // snapshot resolves it once the origin is known.
+    return trimmed;
+  }
+
+  return `${siteUrl}/${trimmed.replace(/^\/+/, "")}`;
+}
+
 /** The public path a marketing page is served from. */
 export function pagePathForSlug(slug: string | null | undefined) {
   const trimmed = (slug ?? "").trim().replace(/^\/+|\/+$/g, "");
