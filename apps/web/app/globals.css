@@ -8567,8 +8567,18 @@ textarea {
 .ega-showcase-hero__cta-row {
   display: flex;
   flex-wrap: wrap;
+  /* The copybox is a grid with align-content: stretch inside a hero that has a
+     min-height, so spare vertical space is handed to this row. Without these,
+     the anchors inherit the default align-items: stretch and grow into
+     full-height ovals — which only showed once a slide actually had a CTA. */
+  align-items: center;
+  align-content: center;
   gap: 10px;
   margin-top: 6px;
+}
+
+.ega-showcase-hero__cta {
+  flex: 0 0 auto;
 }
 
 .ega-showcase-hero__cta {
