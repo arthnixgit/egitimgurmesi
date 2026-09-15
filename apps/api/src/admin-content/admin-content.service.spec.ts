@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { AuthActorType, ContentStatus, FreeMaterialItemType, PERMISSION_KEYS, ROLE_KEYS } from "@ega/db";
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
 import type { AuthenticatedRequestContext } from "../auth/auth.types";
-import { AdminContentService } from "./admin-content.service";
+import { AdminContentService, statusForPublish } from "./admin-content.service";
 import type {
   SaveFreeMaterialsDocumentDto,
   SaveNavigationMenuDto,
@@ -817,3 +817,26 @@ const instructorAuth: AuthenticatedRequestContext = {
   permissionKeys: [PERMISSION_KEYS.cmsManage],
   isSuperAdmin: false
 };
+
+describe("publishing resolves status rather than echoing the client's", () => {
+  it("publishes content the editor still has marked as a draft", () => {
+    // The defect: the admin client posts each entity's current publishStatus,
+    // so pressing "Yayınla" on a DRAFT page re-saved it as DRAFT and the live
+    // site never changed.
+    assert.equal(statusForPublish(ContentStatus.DRAFT), ContentStatus.PUBLISHED);
+  });
+
+  it("publishes a section that has no status yet", () => {
+    // Sections added in the panel arrive without one.
+    assert.equal(statusForPublish(undefined), ContentStatus.PUBLISHED);
+    assert.equal(statusForPublish(null), ContentStatus.PUBLISHED);
+  });
+
+  it("keeps already-published content published", () => {
+    assert.equal(statusForPublish(ContentStatus.PUBLISHED), ContentStatus.PUBLISHED);
+  });
+
+  it("does not resurrect content that was deliberately archived", () => {
+    assert.equal(statusForPublish(ContentStatus.ARCHIVED), ContentStatus.ARCHIVED);
+  });
+});

@@ -198,6 +198,25 @@ type CountdownPageWithChildren = Prisma.CountdownPageGetPayload<{
 type SiteSettingRecord = Prisma.SiteSettingGetPayload<object>;
 type WebsiteRevisionRecord = Prisma.WebsiteContentRevisionGetPayload<object>;
 
+/**
+ * The status an entity takes when the editor presses "Yayınla".
+ *
+ * The publish path used to write back whatever status the client sent, and
+ * the client sends each entity's *current* status. So publishing a DRAFT page
+ * re-saved it as DRAFT, and a section added in the admin panel — created as
+ * DRAFT — stayed invisible to visitors no matter how many times the page was
+ * published. The editor then reported "Yayındaki içerikle aynı", which was
+ * true of the draft snapshot and completely misleading about the live site.
+ *
+ * Publishing means published. Visibility is expressed by `isActive`, not by
+ * publishStatus, so forcing PUBLISHED here does not override anyone's intent
+ * to hide a section. An explicit ARCHIVED is preserved, since that is a
+ * deliberate retirement rather than a status the client echoed back.
+ */
+export function statusForPublish(incoming?: ContentStatus | null) {
+  return incoming === ContentStatus.ARCHIVED ? ContentStatus.ARCHIVED : ContentStatus.PUBLISHED;
+}
+
 @Injectable()
 export class AdminContentService {
   constructor(private readonly prisma: PrismaService) {}
@@ -715,7 +734,7 @@ export class AdminContentService {
           excerpt: sanitizeNullableText(payload.excerpt),
           description: sanitizeNullableText(payload.description),
           pageType: payload.pageType,
-          publishStatus: payload.publishStatus ?? ContentStatus.PUBLISHED,
+          publishStatus: statusForPublish(payload.publishStatus),
           seoTitle: sanitizeNullableText(payload.seoTitle),
           seoDescription: sanitizeNullableText(payload.seoDescription),
           heroImageUrl: normalizeOptionalContentUrl(payload.heroImageUrl),
@@ -731,7 +750,7 @@ export class AdminContentService {
           excerpt: sanitizeNullableText(payload.excerpt),
           description: sanitizeNullableText(payload.description),
           pageType: payload.pageType,
-          publishStatus: payload.publishStatus ?? ContentStatus.PUBLISHED,
+          publishStatus: statusForPublish(payload.publishStatus),
           seoTitle: sanitizeNullableText(payload.seoTitle),
           seoDescription: sanitizeNullableText(payload.seoDescription),
           heroImageUrl: normalizeOptionalContentUrl(payload.heroImageUrl),
@@ -759,7 +778,7 @@ export class AdminContentService {
             payload: toNullableJsonInput(section.payload),
             sortOrder: section.sortOrder ?? (index + 1) * 10,
             isActive: section.isActive ?? true,
-            publishStatus: section.publishStatus ?? ContentStatus.PUBLISHED
+            publishStatus: statusForPublish(section.publishStatus)
           },
           create: {
             pageId: record.id,
@@ -771,7 +790,7 @@ export class AdminContentService {
             payload: toNullableJsonInput(section.payload),
             sortOrder: section.sortOrder ?? (index + 1) * 10,
             isActive: section.isActive ?? true,
-            publishStatus: section.publishStatus ?? ContentStatus.PUBLISHED
+            publishStatus: statusForPublish(section.publishStatus)
           }
         });
       }
@@ -915,7 +934,7 @@ export class AdminContentService {
             introVideoPosterUrl: normalizeOptionalContentUrl(group.introVideoPosterUrl),
             introVideoTitle: sanitizeNullableText(group.introVideoTitle),
             sortOrder: group.sortOrder ?? (groupIndex + 1) * 10,
-            publishStatus: group.publishStatus ?? ContentStatus.PUBLISHED,
+            publishStatus: statusForPublish(group.publishStatus),
             version: {
               increment: 1
             }
@@ -930,7 +949,7 @@ export class AdminContentService {
             introVideoPosterUrl: normalizeOptionalContentUrl(group.introVideoPosterUrl),
             introVideoTitle: sanitizeNullableText(group.introVideoTitle),
             sortOrder: group.sortOrder ?? (groupIndex + 1) * 10,
-            publishStatus: group.publishStatus ?? ContentStatus.PUBLISHED
+            publishStatus: statusForPublish(group.publishStatus)
           }
         });
 
@@ -948,7 +967,7 @@ export class AdminContentService {
               biography: sanitizeNullableText(profile.biography),
               photoUrl: normalizeOptionalContentUrl(profile.photoUrl),
               sortOrder: profile.sortOrder ?? (profileIndex + 1) * 10,
-              publishStatus: profile.publishStatus ?? ContentStatus.PUBLISHED
+              publishStatus: statusForPublish(profile.publishStatus)
             },
             create: {
               groupId: groupRecord.id,
@@ -959,7 +978,7 @@ export class AdminContentService {
               biography: sanitizeNullableText(profile.biography),
               photoUrl: normalizeOptionalContentUrl(profile.photoUrl),
               sortOrder: profile.sortOrder ?? (profileIndex + 1) * 10,
-              publishStatus: profile.publishStatus ?? ContentStatus.PUBLISHED
+              publishStatus: statusForPublish(profile.publishStatus)
             }
           });
         }
@@ -1106,7 +1125,7 @@ export class AdminContentService {
             avatarUrl: normalizeOptionalContentUrl(story.avatarUrl),
             isFeatured: story.isFeatured ?? false,
             sortOrder: story.sortOrder ?? (index + 1) * 10,
-            publishStatus: story.publishStatus ?? ContentStatus.PUBLISHED,
+            publishStatus: statusForPublish(story.publishStatus),
             version: {
               increment: 1
             }
@@ -1122,7 +1141,7 @@ export class AdminContentService {
             avatarUrl: normalizeOptionalContentUrl(story.avatarUrl),
             isFeatured: story.isFeatured ?? false,
             sortOrder: story.sortOrder ?? (index + 1) * 10,
-            publishStatus: story.publishStatus ?? ContentStatus.PUBLISHED
+            publishStatus: statusForPublish(story.publishStatus)
           }
         });
       }
@@ -1270,7 +1289,7 @@ export class AdminContentService {
           label: sanitizePlainText(category.label),
           description: sanitizeNullableText(category.description),
           sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
-          publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED
+          publishStatus: statusForPublish(category.publishStatus)
         };
         const categoryRecord = category.id
           ? await tx.freeMaterialCategory.update({
@@ -1329,7 +1348,7 @@ export class AdminContentService {
               opensInNewTab: normalizedItem.opensInNewTab,
               sortOrder: normalizedItem.sortOrder,
               isFeatured: normalizedItem.isFeatured,
-              publishStatus: normalizedItem.publishStatus,
+              publishStatus: statusForPublish(normalizedItem.publishStatus),
               countdownPageId: normalizedItem.countdownPageSlug
                 ? countdownIdBySlug.get(normalizedItem.countdownPageSlug) ?? null
                 : null
@@ -1938,7 +1957,7 @@ async function upsertCountdownPage(tx: TransactionClient, page: SaveCountdownPag
       updatedLabel: sanitizeNullableText(page.updatedLabel),
       videoTitle: sanitizePlainText(page.videoTitle),
       videoNote: sanitizePlainText(page.videoNote),
-      publishStatus: page.publishStatus ?? ContentStatus.PUBLISHED,
+      publishStatus: statusForPublish(page.publishStatus),
       version: {
         increment: 1
       }
@@ -1951,7 +1970,7 @@ async function upsertCountdownPage(tx: TransactionClient, page: SaveCountdownPag
       updatedLabel: sanitizeNullableText(page.updatedLabel),
       videoTitle: sanitizePlainText(page.videoTitle),
       videoNote: sanitizePlainText(page.videoNote),
-      publishStatus: page.publishStatus ?? ContentStatus.PUBLISHED
+      publishStatus: statusForPublish(page.publishStatus)
     }
   });
 

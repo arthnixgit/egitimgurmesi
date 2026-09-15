@@ -833,7 +833,12 @@ export function WebsiteBuilderClient() {
     updateSections((sections) =>
       sections.map((section) =>
         section.sectionKey === sectionKey
-          ? { ...section, isActive: !(section.isActive ?? true), publishStatus: section.isActive === false ? "DRAFT" : section.publishStatus }
+          ? // Show/hide is `isActive` alone. This used to also stamp
+            // publishStatus: "DRAFT" when un-hiding a section, which meant a
+            // section could be hidden but never brought back — it returned to
+            // the canvas and stayed invisible to visitors through every
+            // subsequent publish.
+            { ...section, isActive: !(section.isActive ?? true) }
           : section
       )
     );
