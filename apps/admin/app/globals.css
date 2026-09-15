@@ -6715,11 +6715,16 @@ select.admin-input,
 .admin-website-builder__preview-frame .ega-showcase-hero__cta-row {
   display: flex;
   flex-wrap: wrap;
+  /* Matches the public stylesheet: without these the CTA anchors stretch to
+     fill whatever spare height the copybox grid hands this row. */
+  align-items: center;
+  align-content: center;
   gap: 8px;
   margin-top: 12px;
 }
 
 .admin-website-builder__preview-frame .ega-showcase-hero__cta {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;

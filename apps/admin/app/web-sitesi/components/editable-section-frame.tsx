@@ -5,6 +5,17 @@ import type { AdminMarketingPageSection } from "../../../lib/auth-client";
 import type { BuilderActions, SectionField } from "../lib/builder-types";
 import { getSectionDefinition, readableSectionLabel } from "../lib/section-registry";
 
+/**
+ * Whether a keystroke should activate the section frame.
+ *
+ * Enter and Space activate a focusable widget — but only when that widget is
+ * what the user is actually typing into. A keystroke that started in a nested
+ * input, textarea or button belongs to that control.
+ */
+export function shouldActivateFrame(key: string, targetIsFrameItself: boolean) {
+  return targetIsFrameItself && (key === "Enter" || key === " ");
+}
+
 export function EditableSectionFrame({
   section,
   selected,
@@ -35,10 +46,16 @@ export function EditableSectionFrame({
         actions.dispatchSelection({ type: "select-section", sectionKey: section.sectionKey });
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          actions.dispatchSelection({ type: "select-section", sectionKey: section.sectionKey });
+        // Only when the frame itself has focus. Keydown bubbles, so without
+        // this guard every space typed into the inline title editor — and every
+        // Enter in a body field — was cancelled here before the input saw it,
+        // making it impossible to write more than one word.
+        if (!shouldActivateFrame(event.key, event.target === event.currentTarget)) {
+          return;
         }
+
+        event.preventDefault();
+        actions.dispatchSelection({ type: "select-section", sectionKey: section.sectionKey });
       }}
     >
       <div className="admin-editable-frame__chrome">
