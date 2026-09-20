@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { ButtonLink, HomeShowcaseHero, SectionHeading, type HomeShowcaseSlide } from "@ega/ui";
+import {
+  ButtonLink,
+  HomeShowcaseHero,
+  SectionAnchor,
+  SectionHeading,
+  sectionStyleProps,
+  type HomeShowcaseSlide
+} from "@ega/ui";
 import { PackageCard as CatalogPackageCard } from "../components/package-card";
 import { PublicFooter } from "../components/public-footer";
 import { PublicNavbar } from "../components/public-navbar";
@@ -299,14 +306,14 @@ export default function HomePage() {
   const [showcasePaused, setShowcasePaused] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
   const showcaseSection = homePageContent?.sections.find((section) => section.sectionKey === "showcase-hero");
-  const logoRail = readLogoRail(findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.logoRail));
-  const videoShowcase = readVideoShowcase(
-    findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.videoShowcase)
-  );
-  const featureSection = readFeatureHighlights(
-    findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.featureHighlights)
-  );
-  const contactCta = readContactCta(findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.contactCta));
+  const logoRailSection = findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.logoRail);
+  const videoShowcaseSection = findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.videoShowcase);
+  const featureHighlightsSection = findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.featureHighlights);
+  const contactCtaSection = findHomeSection(homePageContent?.sections, HOME_SECTION_KEYS.contactCta);
+  const logoRail = readLogoRail(logoRailSection);
+  const videoShowcase = readVideoShowcase(videoShowcaseSection);
+  const featureSection = readFeatureHighlights(featureHighlightsSection);
+  const contactCta = readContactCta(contactCtaSection);
   const packageSurfaceSection = homePageContent?.sections.find((section) => section.sectionKey === "package-surface");
 
   const showcaseSlidesWithContent = normalizeShowcaseSlides(showcaseSection?.payload, showcaseSlides, {
@@ -410,7 +417,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="ega-logo-rail-section">
+      <section className="ega-logo-rail-section" {...sectionStyleProps(logoRailSection?.payload)}>
+        <SectionAnchor payload={logoRailSection?.payload} />
         <div className="ega-logo-rail">
           <div className="ega-logo-rail__track">
             {[...logoRail.items, ...logoRail.items].map((item, index) => (
@@ -428,8 +436,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="ega-section ega-container" id="paketler">
+      <section className="ega-section ega-container" id="paketler" {...sectionStyleProps(packageSurfaceSection?.payload)}>
+        <SectionAnchor payload={packageSurfaceSection?.payload} />
         <SectionHeading
+          eyebrow={packageSurfaceSection?.eyebrow || undefined}
           title={packageSurfaceSection?.title ?? "Sana En Uygun Paketi Seç"}
           description={packageSurfaceSection?.body ?? undefined}
         />
@@ -479,8 +489,13 @@ export default function HomePage() {
 
       {successStories.length > 0 ? <SuccessShowcase stories={successStories} /> : null}
 
-      <section className="ega-section ega-container" id="videolar">
-        <SectionHeading title={videoShowcase.title} description={videoShowcase.description} />
+      <section className="ega-section ega-container" id="videolar" {...sectionStyleProps(videoShowcaseSection?.payload)}>
+        <SectionAnchor payload={videoShowcaseSection?.payload} />
+        <SectionHeading
+          eyebrow={videoShowcaseSection?.eyebrow || undefined}
+          title={videoShowcase.title}
+          description={videoShowcase.description}
+        />
 
         <div className="ega-video-grid">
           {videoShowcase.items.map((video) => (
@@ -489,8 +504,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="ega-section ega-container" id="neler-var">
-        <SectionHeading title={featureSection.title} description={featureSection.description} />
+      <section className="ega-section ega-container" id="neler-var" {...sectionStyleProps(featureHighlightsSection?.payload)}>
+        <SectionAnchor payload={featureHighlightsSection?.payload} />
+        <SectionHeading
+          eyebrow={featureHighlightsSection?.eyebrow || undefined}
+          title={featureSection.title}
+          description={featureSection.description}
+        />
 
         <div className="ega-feature-layout">
           <div className="ega-feature-band" aria-label="Bekleyen deneyim başlıkları">
@@ -529,7 +549,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="ega-section ega-container ega-cta-section" id="iletisim">
+      <section className="ega-section ega-container ega-cta-section" id="iletisim" {...sectionStyleProps(contactCtaSection?.payload)}>
+        <SectionAnchor payload={contactCtaSection?.payload} />
         <div className="ega-cta-panel">
           <div className="ega-cta-panel__brand-logo">
             <img src={siteSettings.logoLightUrl} alt={siteSettings.logoAltText} />

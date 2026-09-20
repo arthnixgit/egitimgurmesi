@@ -1,5 +1,6 @@
 import type { HomeShowcaseSlide } from "@ega/ui";
 import type { SliderSettings } from "./builder-types";
+import { normalizeSectionAnchorId } from "@ega/ui";
 
 export type BuilderValidationResult = {
   ok: boolean;
@@ -93,11 +94,11 @@ export function isSafeDestination(value: string) {
   }
 }
 
+/**
+ * Delegates to the shared contract so the id the panel stores is exactly the id
+ * the public page renders. Two copies of this rule drifted apart once already,
+ * and both of them ate Turkish letters.
+ */
 export function normalizeAnchorId(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+  return normalizeSectionAnchorId(value) ?? "";
 }

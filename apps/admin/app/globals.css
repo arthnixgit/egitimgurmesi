@@ -7121,3 +7121,35 @@ select.admin-input,
     min-height: 420px;
   }
 }
+
+/* Colour picker for free-material cards. Replaces a free-text box whose value
+   the API silently coerced to "blue" and the site never rendered. */
+.admin-tone-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-tone-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(16, 41, 73, 0.16);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.admin-tone-swatch:hover {
+  transform: translateY(-1px);
+}
+
+.admin-tone-swatch:focus-visible {
+  outline: 3px solid #1f5fa8;
+  outline-offset: 2px;
+}
+
+.admin-tone-swatch[data-selected="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #09243f;
+}

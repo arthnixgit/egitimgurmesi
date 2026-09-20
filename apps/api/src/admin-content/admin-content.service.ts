@@ -208,10 +208,15 @@ type WebsiteRevisionRecord = Prisma.WebsiteContentRevisionGetPayload<object>;
  * published. The editor then reported "Yayındaki içerikle aynı", which was
  * true of the draft snapshot and completely misleading about the live site.
  *
- * Publishing means published. Visibility is expressed by `isActive`, not by
- * publishStatus, so forcing PUBLISHED here does not override anyone's intent
- * to hide a section. An explicit ARCHIVED is preserved, since that is a
- * deliberate retirement rather than a status the client echoed back.
+ * Publishing means published. For pages and sections, visibility is expressed
+ * by `isActive`, and nothing in the panel sets publishStatus deliberately — so
+ * forcing PUBLISHED here overrides no one's intent. An explicit ARCHIVED is
+ * preserved, since that is a deliberate retirement rather than an echo.
+ *
+ * Free-material categories and items are deliberately NOT passed through this.
+ * They are the one area with a per-card "Taslak olarak kaydet" control, so
+ * forcing them would publish content an editor had just held back — which is
+ * exactly what happened the first time this shipped.
  */
 export function statusForPublish(incoming?: ContentStatus | null) {
   return incoming === ContentStatus.ARCHIVED ? ContentStatus.ARCHIVED : ContentStatus.PUBLISHED;
@@ -1289,7 +1294,9 @@ export class AdminContentService {
           label: sanitizePlainText(category.label),
           description: sanitizeNullableText(category.description),
           sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
-          publishStatus: statusForPublish(category.publishStatus)
+          // Not statusForPublish: the panel has an explicit per-category
+          // status control, so a deliberate draft must survive a publish.
+          publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED
         };
         const categoryRecord = category.id
           ? await tx.freeMaterialCategory.update({
@@ -1348,7 +1355,9 @@ export class AdminContentService {
               opensInNewTab: normalizedItem.opensInNewTab,
               sortOrder: normalizedItem.sortOrder,
               isFeatured: normalizedItem.isFeatured,
-              publishStatus: statusForPublish(normalizedItem.publishStatus),
+              // Not statusForPublish: "Taslak olarak kaydet" on a card is a
+              // deliberate decision, and a global publish must not undo it.
+              publishStatus: normalizedItem.publishStatus,
               countdownPageId: normalizedItem.countdownPageSlug
                 ? countdownIdBySlug.get(normalizedItem.countdownPageSlug) ?? null
                 : null
@@ -2543,7 +2552,15 @@ function normalizeFreeMaterialsPayload(
         sortOrder: category.sortOrder ?? (categoryIndex + 1) * 10,
         publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED,
         items: category.items.map((item, itemIndex) =>
-          normalizeFreeMaterialItemInput(item, key, itemIndex, { requirePublishReady, countdownSlugs })
+          normalizeFreeMaterialItemInput(item, key, itemIndex, {
+            // Only hold an item to publish requirements when it is actually
+            // being published. A card deliberately left as a draft is usually
+            // a draft *because* it is incomplete — demanding a file from it
+            // made one unfinished card block publishing everything else.
+            requirePublishReady:
+              requirePublishReady && (item.publishStatus ?? ContentStatus.PUBLISHED) === ContentStatus.PUBLISHED,
+            countdownSlugs
+          })
         )
       };
     }),
@@ -2617,7 +2634,13 @@ function normalizeFreeMaterialItemInput(
   );
 
   if (options.requirePublishReady && !destination.ok) {
-    throw new BadRequestException(destination.message);
+    // Name the card. Publishing validates every item in the document, so a
+    // bare message leaves an editor hunting through dozens of cards to find
+    // which one blocked the publish — and there is no way to tell from the
+    // panel at all.
+    throw new BadRequestException(
+      `"${title || slug}" kartı (${categoryKey}) yayınlanamıyor: ${destination.message}`
+    );
   }
 
   return {

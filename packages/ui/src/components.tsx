@@ -1,4 +1,5 @@
 import React, { type MouseEvent, type ReactNode } from "react";
+import { readSectionAnchorId } from "./section-style";
 
 type SectionHeadingProps = {
   eyebrow?: string;
@@ -191,4 +192,21 @@ export function QuoteCard({ quote, caption, icon }: QuoteCardProps) {
       <span className="ega-quote-card__caption">{caption}</span>
     </article>
   );
+}
+
+/**
+ * An extra in-page link target for a section's custom anchor.
+ *
+ * Rendered as a child rather than as the section's own id, because several
+ * sections already carry a hardcoded id the site menu links to. This way a
+ * customer-typed anchor works without breaking navigation that already exists.
+ */
+export function SectionAnchor({ payload }: { payload: unknown }) {
+  const anchorId = readSectionAnchorId(payload);
+
+  if (!anchorId) {
+    return null;
+  }
+
+  return <span id={anchorId} aria-hidden="true" className="ega-section-anchor" />;
 }

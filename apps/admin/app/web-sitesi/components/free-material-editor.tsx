@@ -6,6 +6,12 @@ import type {
   AdminFreeMaterialItem,
   AdminFreeMaterialsDocument
 } from "../../../lib/auth-client";
+import {
+  MATERIAL_TONES,
+  MATERIAL_TONE_LABELS,
+  MATERIAL_TONE_SWATCHES,
+  readMaterialTone
+} from "@ega/ui";
 import type { BuilderActions } from "../lib/builder-types";
 import { MediaField } from "./media-field";
 
@@ -377,10 +383,29 @@ function MaterialItemEditor({
             <span>İkon</span>
             <input value={item.iconKey ?? ""} onChange={(event) => actions.updateMaterialItem({ iconKey: event.target.value })} />
           </label>
-          <label className="admin-builder-field">
-            <span>Ton</span>
-            <input value={item.tone ?? ""} onChange={(event) => actions.updateMaterialItem({ tone: event.target.value })} />
-          </label>
+          <div className="admin-builder-field">
+            <span>Kart rengi</span>
+            <div className="admin-tone-picker" role="radiogroup" aria-label="Kart rengi">
+              {MATERIAL_TONES.map((tone) => {
+                const selected = readMaterialTone(item.tone) === tone;
+
+                return (
+                  <button
+                    key={tone}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={MATERIAL_TONE_LABELS[tone]}
+                    title={MATERIAL_TONE_LABELS[tone]}
+                    className="admin-tone-swatch"
+                    data-selected={selected}
+                    style={{ background: MATERIAL_TONE_SWATCHES[tone] }}
+                    onClick={() => actions.updateMaterialItem({ tone })}
+                  />
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
 

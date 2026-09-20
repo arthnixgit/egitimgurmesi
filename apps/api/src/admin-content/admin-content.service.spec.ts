@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it } from "node:test";
 import { AuthActorType, ContentStatus, FreeMaterialItemType, PERMISSION_KEYS, ROLE_KEYS } from "@ega/db";
 import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
@@ -128,6 +130,32 @@ describe("AdminContentService free-material validation", () => {
 
     assert.equal((result as { draftStatus?: string }).draftStatus, "DRAFT");
     assert.equal(harness.state.revisions[0].action, "website.free-materials.save-draft");
+  });
+
+  it("does not hold an incomplete card to publish rules when it is left as a draft", async () => {
+    // An editor marks a card "Taslak olarak kaydet" precisely because it is not
+    // finished. Validating it anyway made one unfinished card reject the whole
+    // publish with a 400, so nothing could be published at all.
+    const { service } = createFreeMaterialsHarness();
+
+    // The harness only mocks the rejection path, so the write that follows
+    // fails — what matters is that it gets past validation at all.
+    await assert.rejects(
+      () =>
+        service.saveFreeMaterialsDocument(
+          freeMaterialsPayload({ publishStatus: ContentStatus.DRAFT }),
+          branchAdminAuth,
+          "publish"
+        ),
+      (error: Error) => {
+        assert.equal(
+          error instanceof BadRequestException,
+          false,
+          `validation rejected a draft card: ${error.message}`
+        );
+        return true;
+      }
+    );
   });
 
   it("blocks publishing downloadable material without a file or HTTPS URL", async () => {
@@ -770,7 +798,12 @@ async function assertBadRequest(call: () => Promise<unknown>, message: string) {
   await assert.rejects(call, (error: unknown) => {
     assert.ok(error instanceof BadRequestException);
     assert.equal(error.getStatus(), 400);
-    assert.equal(error.message, message);
+    // Contains, not equals: a publish error must also name the card that
+    // caused it, and asserting equality would forbid that.
+    assert.ok(
+      error.message.includes(message),
+      `expected the failure to explain "${message}", got "${error.message}"`
+    );
     return true;
   });
 }
@@ -838,5 +871,53 @@ describe("publishing resolves status rather than echoing the client's", () => {
 
   it("does not resurrect content that was deliberately archived", () => {
     assert.equal(statusForPublish(ContentStatus.ARCHIVED), ContentStatus.ARCHIVED);
+  });
+});
+
+describe("which areas publishing may override", () => {
+  it("publishes a page or section the editor left marked as draft", () => {
+    // Sections have no per-section status control — hiding one sets isActive —
+    // so a DRAFT there is only ever the client echoing back what it was given.
+    assert.equal(statusForPublish(ContentStatus.DRAFT), ContentStatus.PUBLISHED);
+  });
+
+  it("is never applied to free-material categories or cards", () => {
+    // Those have an explicit "Taslak olarak kaydet" control. Forcing them
+    // published a card an editor had just held back, on the first deploy of
+    // this helper, so the two material write sites must stay unforced.
+    const source = readFileSync(join(__dirname, "admin-content.service.ts"), "utf8");
+
+    for (const forced of [
+      "statusForPublish(category.publishStatus)",
+      "statusForPublish(normalizedItem.publishStatus)"
+    ]) {
+      assert.equal(source.includes(forced), false, `${forced} would override a deliberate draft`);
+    }
+
+    // And the status the editor chose is still what gets written.
+    assert.ok(source.includes("publishStatus: normalizedItem.publishStatus,"));
+    assert.ok(source.includes("publishStatus: category.publishStatus ?? ContentStatus.PUBLISHED"));
+  });
+});
+
+describe("a publish failure says which card caused it", () => {
+  it("names the card and its category, not just the reason", async () => {
+    // Publishing validates every item in the document. A bare reason left an
+    // editor hunting through dozens of cards with no way to tell which one
+    // blocked the publish — it cost an afternoon to find by hand once.
+    const { service } = createFreeMaterialsHarness();
+
+    await assert.rejects(
+      () => service.saveFreeMaterialsDocument(freeMaterialsPayload({ title: "AYT Tekrar Çizelgesi" }), branchAdminAuth, "publish"),
+      (error: Error) => {
+        assert.ok(error.message.includes("AYT Tekrar Çizelgesi"), `card not named: ${error.message}`);
+        assert.ok(error.message.includes("pdf-documents"), `category not named: ${error.message}`);
+        assert.ok(
+          error.message.includes("indirilebilir bir dosya"),
+          `reason lost: ${error.message}`
+        );
+        return true;
+      }
+    );
   });
 });

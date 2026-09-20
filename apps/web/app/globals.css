@@ -10053,3 +10053,318 @@ textarea {
     font-size: 0.84rem;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Section design controls (admin "Tasarım" tab)
+
+   The panel has always offered Renk tonu / Hizalama / Boşluk and the public
+   site read none of them, so those controls changed nothing. These rules are
+   the missing half. They are scoped to [data-ega-section], which only markup
+   that opts in carries, and every default matches what the section rendered
+   before the contract existed — so sections authored earlier are untouched.
+   --------------------------------------------------------------------------- */
+
+[data-ega-section] {
+  --ega-section-accent: var(--ega-teal-500, #0d7a86);
+}
+
+[data-ega-section][data-tone="blue"] {
+  --ega-section-accent: var(--ega-blue-500, #1f5fa8);
+}
+
+[data-ega-section][data-tone="amber"] {
+  --ega-section-accent: #ffbf52;
+}
+
+[data-ega-section][data-align="center"] {
+  text-align: center;
+}
+
+[data-ega-section][data-align="center"] .ega-section-heading,
+[data-ega-section][data-align="center"] .ega-section-heading * {
+  margin-inline: auto;
+}
+
+[data-ega-section][data-align="right"] {
+  text-align: right;
+}
+
+[data-ega-section][data-align="right"] .ega-section-heading,
+[data-ega-section][data-align="right"] .ega-section-heading * {
+  margin-inline-start: auto;
+}
+
+[data-ega-section][data-spacing="tight"] {
+  padding-block: clamp(22px, 3vw, 40px);
+}
+
+[data-ega-section][data-spacing="relaxed"] {
+  padding-block: clamp(64px, 8vw, 118px);
+}
+
+/* The tone has to be visible or it is another control that does nothing. It
+   drives the accent rule under a section heading. */
+[data-ega-section] .ega-section-heading h2::after,
+[data-ega-section] .ega-section-eyebrow::before {
+  background: var(--ega-section-accent);
+}
+
+.ega-section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--ega-section-accent, #0d7a86);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ega-section-eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+/* ---------------------------------------------------------------------------
+   Free materials explorer
+
+   Two stacks of fully coloured cards flanking the detail pane. One DOM order
+   drives both layouts: above 1080px the three children are three grid columns,
+   below it the stacks collapse to display:contents so every card falls into one
+   reading-order column with the detail expanding under the tapped card.
+
+   The palette is the nine tones the API already accepted and nothing rendered.
+   --------------------------------------------------------------------------- */
+
+[data-tone="blue"] { --ega-tone: #1f5fa8; --ega-tone-deep: #17477d; --ega-tone-soft: #e8f0fa; }
+[data-tone="teal"] { --ega-tone: #0d7a86; --ega-tone-deep: #095a63; --ega-tone-soft: #e2f3f4; }
+[data-tone="navy"] { --ega-tone: #102949; --ega-tone-deep: #0a1b31; --ega-tone-soft: #e5e9f0; }
+[data-tone="violet"] { --ega-tone: #6b4bb8; --ega-tone-deep: #503690; --ega-tone-soft: #efeafa; }
+[data-tone="green"] { --ega-tone: #2f8f5b; --ega-tone-deep: #226b44; --ega-tone-soft: #e5f4ea; }
+[data-tone="amber"] { --ega-tone: #d9832b; --ega-tone-deep: #b0661b; --ega-tone-soft: #fdf1e0; }
+[data-tone="gold"] { --ega-tone: #b8891a; --ega-tone-deep: #8f6a13; --ega-tone-soft: #fbf3dc; }
+[data-tone="orange"] { --ega-tone: #d9662b; --ega-tone-deep: #ad4e1e; --ega-tone-soft: #fcebe2; }
+[data-tone="pink"] { --ega-tone: #c2427c; --ega-tone-deep: #9a3161; --ega-tone-soft: #fbe8f0; }
+
+.ega-materials-explorer {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+  /* The heading above has no bottom margin of its own, and the selected card
+     paints a 6px ring outside its box — together those put the first card on
+     top of the section description. */
+  margin-top: 26px;
+  padding: 8px;
+}
+
+.ega-materials-explorer__stack {
+  display: contents;
+}
+
+.ega-materials-explorer__row {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (min-width: 1080px) {
+  .ega-materials-explorer {
+    grid-template-columns: minmax(230px, 1fr) minmax(380px, 1.5fr) minmax(230px, 1fr);
+    gap: 22px;
+  }
+
+  .ega-materials-explorer__stack {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+    min-width: 0;
+  }
+}
+
+/* Every card carries its colour. The selected one is marked by a ring and a
+   lift, since being coloured is no longer what distinguishes it. */
+.ega-materials-explorer__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--ega-tone), var(--ega-tone-deep));
+  color: #fff;
+  text-align: start;
+  cursor: pointer;
+  opacity: 0.86;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--ega-tone) 26%, transparent);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.ega-materials-explorer__item:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ega-materials-explorer__item:focus-visible {
+  outline: 3px solid #09243f;
+  outline-offset: 3px;
+}
+
+.ega-materials-explorer__item[data-active="true"] {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 6px var(--ega-tone),
+    0 18px 34px color-mix(in srgb, var(--ega-tone) 38%, transparent);
+}
+
+.ega-materials-explorer__item-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ega-materials-explorer__item-text strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.ega-materials-explorer__item-text small {
+  font-size: 0.76rem;
+  opacity: 0.82;
+}
+
+/* One detail pane at a time: between the stacks when there are three columns,
+   inline under the tapped card when there is one. */
+.ega-materials-explorer__inline {
+  display: block;
+}
+
+.ega-materials-explorer__stage {
+  display: none;
+  min-width: 0;
+}
+
+@media (min-width: 1080px) {
+  .ega-materials-explorer__inline {
+    display: none;
+  }
+
+  .ega-materials-explorer__stage {
+    display: block;
+    position: sticky;
+    top: 96px;
+  }
+}
+
+.ega-material-stage {
+  display: grid;
+  gap: 20px;
+  padding: 22px;
+  border-radius: 26px;
+  background: #fff;
+  border: 1px solid rgba(16, 41, 73, 0.08);
+  box-shadow: 0 20px 44px rgba(16, 41, 73, 0.08);
+}
+
+@media (min-width: 720px) {
+  .ega-material-stage {
+    grid-template-columns: minmax(180px, 260px) 1fr;
+    gap: 24px;
+    padding: 26px;
+    align-items: center;
+  }
+}
+
+.ega-material-stage__media {
+  min-width: 0;
+}
+
+.ega-material-stage__cover,
+.ega-material-stage__placeholder {
+  width: 100%;
+  border-radius: 22px;
+  aspect-ratio: 4 / 5;
+  max-width: 100%;
+}
+
+.ega-material-stage__cover {
+  object-fit: cover;
+  display: block;
+}
+
+.ega-material-stage__placeholder {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 22px;
+  background: linear-gradient(150deg, var(--ega-tone), var(--ega-tone-deep));
+  color: #fff;
+}
+
+.ega-material-stage__badge {
+  justify-self: start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ega-material-stage__placeholder strong {
+  font-size: 1.28rem;
+  line-height: 1.25;
+}
+
+.ega-material-stage__index {
+  align-self: end;
+  font-size: 2.6rem;
+  font-weight: 900;
+  opacity: 0.32;
+}
+
+.ega-material-stage__copy {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ega-material-stage__kicker {
+  color: var(--ega-tone, #1f5fa8);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ega-material-stage__copy h3 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  line-height: 1.18;
+}
+
+.ega-material-stage__copy p {
+  margin: 0;
+  color: rgba(9, 36, 63, 0.76);
+  line-height: 1.7;
+}
+
+.ega-material-stage__file {
+  color: rgba(9, 36, 63, 0.58);
+  font-size: 0.82rem;
+}
+
+.ega-material-stage__action {
+  justify-self: start;
+  margin-top: 4px;
+}

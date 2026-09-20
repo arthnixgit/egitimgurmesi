@@ -1,15 +1,23 @@
-import {
-  FreeMaterialsDirectoryShowcase,
-  type FreeMaterialsDirectoryCategory
-} from "../../components/free-materials-directory-showcase";
+import { SectionHeading } from "@ega/ui";
+import { FreeMaterialsExplorer } from "../../components/free-materials-explorer";
 import {
   FREE_MATERIALS_EMPTY_MESSAGE,
   FREE_MATERIALS_UNAVAILABLE_MESSAGE,
   FreeMaterialsState
 } from "../../components/free-materials-state";
 import { PublicPageLayout } from "../../components/public-page-layout";
+import { flattenMaterials } from "../../lib/material-column";
 import { getFreeMaterialsContent } from "../../lib/public-content-api";
 
+/**
+ * Every published material as one column of colour-coded rows, with the detail
+ * — summary, file information and the download link — in a pane beside it.
+ *
+ * The page previously listed categories, so reaching a single PDF took two
+ * clicks and the materials themselves were never visible at a glance. This is
+ * the layout the page originally had, restored at the customer's request and
+ * built on the same band-and-stage shape as the homepage feature section.
+ */
 export default async function FreeMaterialsPage() {
   const content = await getFreeMaterialsContent();
 
@@ -23,23 +31,9 @@ export default async function FreeMaterialsPage() {
     );
   }
 
-  const categories = content.categories
-    .map((category, index): FreeMaterialsDirectoryCategory => ({
-      id: category.key,
-      title: category.label,
-      badge: "Ücretsiz",
-      summary:
-        category.description ??
-        `${category.items.length} yayında materyal bu başlık altında yönetiliyor.`,
-      href: routeForCategory(category.key, category.items[0]?.href ?? "/ucretsiz-materyaller"),
-      buttonLabel: "İçerikleri Aç",
-      opensInNewTab: false,
-      links: category.items,
-      tone: toneForCategory(category.key, index),
-      previewLabel: category.label
-    }));
+  const materials = flattenMaterials(content.categories);
 
-  if (categories.length === 0) {
+  if (materials.length === 0) {
     return (
       <PublicPageLayout>
         <section className="ega-section ega-container">
@@ -51,45 +45,15 @@ export default async function FreeMaterialsPage() {
 
   return (
     <PublicPageLayout>
-      <section className="ega-section ega-section--free-directory">
-        <FreeMaterialsDirectoryShowcase categories={categories} />
+      <section className="ega-section ega-container">
+        <SectionHeading
+          eyebrow="Ücretsiz"
+          title="Ücretsiz Materyaller"
+          description="Bir materyal seç; özeti, dosya bilgisi ve indirme bağlantısı yanında açılır."
+        />
+
+        <FreeMaterialsExplorer materials={materials} />
       </section>
     </PublicPageLayout>
   );
-}
-
-function routeForCategory(key: string, fallback: string) {
-  const routes: Record<string, string> = {
-    "pdf-documents": "/ucretsiz-materyaller/pdf-dokumanlar",
-    "useful-links": "/ucretsiz-materyaller/faydali-linkler",
-    "guidance-content": "/ucretsiz-materyaller/blog"
-  };
-
-  return routes[key] ?? fallback;
-}
-
-function toneForCategory(
-  key: string,
-  index: number
-): FreeMaterialsDirectoryCategory["tone"] {
-  const tones: FreeMaterialsDirectoryCategory["tone"][] = [
-    "amber",
-    "blue",
-    "teal",
-    "violet",
-    "green",
-    "orange",
-    "pink",
-    "navy",
-    "gold"
-  ];
-  const mapped: Partial<Record<string, FreeMaterialsDirectoryCategory["tone"]>> = {
-    "free-tools": "amber",
-    "useful-links": "pink",
-    "pdf-documents": "navy",
-    "guidance-content": "orange",
-    "speed-reading": "green"
-  };
-
-  return mapped[key] ?? tones[index % tones.length];
 }

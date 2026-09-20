@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDeploymentStatus, type DeploymentStatus } from "../lib/deploy-client";
 import { fetchStaffOverview } from "../lib/auth-client";
+import { resolveSiteUrl } from "../lib/site-url";
+import { useClientValue } from "../lib/use-client-value";
 import { AdminSessionManager } from "./admin-session-manager";
 import {
   getPrimaryRoleLabel,
@@ -214,6 +216,12 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
     };
   }, [isUnframed, pathname]);
 
+  // Read through useClientValue rather than branching on `typeof window`.
+  // The branch rendered href="#" on the server and the real URL on the client,
+  // which React reports as a hydration mismatch and then refuses to patch up —
+  // leaving part of the admin tree unhydrated and its controls unreliable.
+  const websiteUrl = useClientValue(resolveSiteUrl, null);
+
   const visibleModules = useMemo(() => {
     const modules = adminModules.filter((module) => module.visibleFor(overview));
     return modules.length ? modules : adminModules.filter((module) => module.group === "Kontrol Merkezi");
@@ -226,7 +234,6 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
   const activeModule = visibleModules.find((module) =>
     module.href === "/" ? pathname === "/" : pathname?.startsWith(module.href)
   );
-  const websiteUrl = resolveWebsiteUrl();
   const groupedModules = groupModules(visibleModules);
 
   return (
@@ -305,7 +312,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
           <span>Gerekli kayıtları kaydet.</span>
         </div>
 
-        <a className="admin-app-sidebar__site-link" href={websiteUrl} target="_blank" rel="noreferrer">
+        <a className="admin-app-sidebar__site-link" href={websiteUrl ?? "#"} target="_blank" rel="noreferrer">
           Web sitesini aç
         </a>
       </aside>
@@ -364,26 +371,3 @@ function groupModules(modules: AdminModule[]) {
   );
 }
 
-function resolveWebsiteUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-  if (configured) {
-    return configured.replace(/\/+$/, "");
-  }
-
-  if (typeof window === "undefined") {
-    return "#";
-  }
-
-  const { protocol, hostname } = window.location;
-
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://localhost:3000";
-  }
-
-  if (hostname.startsWith("admin.")) {
-    return `${protocol}//${hostname.replace(/^admin\./, "")}`;
-  }
-
-  return `${protocol}//${hostname}`;
-}
