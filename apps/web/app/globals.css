@@ -10156,7 +10156,8 @@ textarea {
   align-items: start;
   /* The heading above has no bottom margin of its own, and the selected card
      paints a 6px ring outside its box — together those put the first card on
-     top of the section description. */
+     top of the section description. The padding also stops the rings being
+     clipped by any ancestor that scrolls. */
   margin-top: 26px;
   padding: 8px;
 }
@@ -10173,7 +10174,7 @@ textarea {
 
 @media (min-width: 1080px) {
   .ega-materials-explorer {
-    grid-template-columns: minmax(230px, 1fr) minmax(380px, 1.5fr) minmax(230px, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr);
     gap: 22px;
   }
 
@@ -10277,7 +10278,11 @@ textarea {
 
 @media (min-width: 720px) {
   .ega-material-stage {
-    grid-template-columns: minmax(180px, 260px) 1fr;
+    /* minmax(0, ...) on both tracks, not 1fr. A bare `1fr` is minmax(auto, 1fr),
+       and `auto` resolves to min-content — so the copy track refused to shrink
+       below its longest word and pushed the whole pane over the cards beside
+       it. Titles here are long, uppercase and Turkish; they will hit this. */
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
     gap: 24px;
     padding: 26px;
     align-items: center;
@@ -10334,9 +10339,79 @@ textarea {
 }
 
 .ega-material-stage__copy {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
+}
+
+/* The summary scrolls; the heading and the download button do not. Without
+   this a long summary set the height of the whole row, so the pane grew to
+   several screens and the action fell below the fold. */
+.ega-material-stage__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ega-tone) 45%, transparent) transparent;
+}
+
+.ega-material-stage__body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ega-material-stage__body::-webkit-scrollbar-track {
+  background: rgba(16, 41, 73, 0.06);
+  border-radius: 999px;
+}
+
+.ega-material-stage__body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ega-tone) 45%, transparent);
+}
+
+.ega-material-stage__body::-webkit-scrollbar-thumb:hover {
+  background: var(--ega-tone);
+}
+
+.ega-material-stage__body > * + * {
+  margin-top: 12px;
+}
+
+/* A stable height for the pane, so switching cards does not make the page
+   jump. Capped against the viewport so it never exceeds the screen. */
+@media (min-width: 1080px) {
+  .ega-materials-explorer__stage .ega-material-stage {
+    height: clamp(420px, calc(100vh - 220px), 560px);
+    /* stretch, not center: the copy column needs a definite height before the
+       body inside it can scroll. Centred grid items size to their content, so
+       a long summary simply grew past the pane and took the button with it. */
+    align-items: stretch;
+  }
+
+  .ega-materials-explorer__stage .ega-material-stage__copy {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .ega-materials-explorer__stage .ega-material-stage__media,
+  .ega-materials-explorer__stage .ega-material-stage__cover,
+  .ega-materials-explorer__stage .ega-material-stage__placeholder {
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+}
+
+/* Long unbroken words — file names especially — wrap rather than overflow. */
+.ega-material-stage__copy h3,
+.ega-material-stage__copy p,
+.ega-material-stage__file,
+.ega-material-stage__kicker,
+.ega-material-stage__placeholder strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ega-material-stage__kicker {

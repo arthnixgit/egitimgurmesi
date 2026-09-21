@@ -174,8 +174,14 @@ function MaterialDetail({
       <div className="ega-material-stage__copy">
         <span className="ega-material-stage__kicker">{material.categoryLabel}</span>
         <h3>{material.title}</h3>
-        <p>{material.summary}</p>
-        {fileLine ? <small className="ega-material-stage__file">{fileLine}</small> : null}
+
+        {/* Scrolls on its own so a long summary cannot stretch the pane, and
+            the download button below stays in view instead of being pushed
+            off the bottom by the text. */}
+        <div className="ega-material-stage__body">
+          <p>{material.summary}</p>
+          {fileLine ? <small className="ega-material-stage__file">{fileLine}</small> : null}
+        </div>
 
         <a
           className="ega-button ega-material-stage__action"
