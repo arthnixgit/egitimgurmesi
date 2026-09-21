@@ -7,7 +7,9 @@ import {
   normalizePublicSiteSettings,
   type PublicSiteSettings
 } from "../lib/contact";
+import { SITE_PRESENTATION_PROPERTIES, sitePresentationStyle } from "@ega/ui";
 import { requestPublicSiteSettingsSnapshot } from "../lib/public-content-api";
+import { resolveClientPreviewToken } from "../lib/preview-mode";
 
 export const PUBLIC_SITE_SETTINGS_REFRESH_EVENT = "ega:public-site-settings-refresh";
 const PUBLIC_SITE_SETTINGS_REFRESH_STALE_MS = 30_000;
@@ -48,7 +50,12 @@ export function PublicSiteSettingsProvider({
     refreshRequestIdRef.current = requestId;
     refreshControllerRef.current = controller;
 
-    void requestPublicSiteSettingsSnapshot({ signal: controller.signal, rejectMalformed: true })
+    void requestPublicSiteSettingsSnapshot({
+      signal: controller.signal,
+      rejectMalformed: true,
+      // In the admin's preview frame, show the unpublished draft settings.
+      previewToken: resolveClientPreviewToken()
+    })
       .then((nextSettings) => {
         if (requestId !== refreshRequestIdRef.current || !isValidPublicSiteSettingsSnapshot(nextSettings)) {
           return;
@@ -71,6 +78,34 @@ export function PublicSiteSettingsProvider({
         }
       });
   }, []);
+
+  // The layout renders the published settings on the server, and preview
+  // tokens only exist in the browser URL. Without this, draft logo size and
+  // typography would never show in the admin's preview frame.
+  useEffect(() => {
+    if (resolveClientPreviewToken()) {
+      refreshSettings();
+    }
+  }, [refreshSettings]);
+
+  // Keep the root custom properties in step with the settings the page holds,
+  // so a refresh (or a preview draft) restyles the page without a reload. The
+  // server already rendered the same values on <html>, so this is a no-op on
+  // first load.
+  useEffect(() => {
+    const root = document.documentElement;
+    const style = sitePresentationStyle(settings);
+
+    for (const property of SITE_PRESENTATION_PROPERTIES) {
+      const value = style[property];
+
+      if (value) {
+        root.style.setProperty(property, value);
+      } else {
+        root.style.removeProperty(property);
+      }
+    }
+  }, [settings]);
 
   useEffect(() => {
     const handleRefresh = () => refreshSettings();

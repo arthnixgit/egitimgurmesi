@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ButtonLink } from "@ega/ui";
+import { ButtonLink, shouldShowNavbarWordmark } from "@ega/ui";
 import {
   fetchCurrentUser,
   hasUserTokens,
@@ -171,7 +171,14 @@ export function PublicNavbar({
 
   useEffect(() => {
     applyNavigationSnapshot(authoritativeSnapshot, "server-snapshot");
-  }, [applyNavigationSnapshot, authoritativeSnapshot]);
+
+    // The server could not load the real menu (API unreachable during render,
+    // or it served its own fallback). The fallback has no dropdowns, so fetch
+    // the real one now instead of waiting a minute for the stale timer.
+    if (authoritativeSnapshot.source === "fallback") {
+      refreshNavigationSnapshot("server-fallback-recovery", { replaceInFlight: true });
+    }
+  }, [applyNavigationSnapshot, authoritativeSnapshot, refreshNavigationSnapshot]);
 
   useEffect(() => {
     if (pathname === lastPathnameRef.current) {
@@ -289,7 +296,7 @@ export function PublicNavbar({
   return (
     <header className="ega-header">
       <div className="ega-header__inner">
-        <Link className="ega-brand" href="/" aria-label="Eğitim Gurmesi Akademi ana sayfa">
+        <Link className="ega-brand" href="/" aria-label={`${siteSettings.siteName} ana sayfa`}>
           <BrandLogoImage
             src={siteSettings.logoPrimaryUrl}
             fallbackSrc={fallbackSiteSettings.logoPrimaryUrl}
@@ -310,9 +317,13 @@ export function PublicNavbar({
             priority
             source="compact"
           />
-          <div className="ega-brand__copy">
-            <strong>Eğitim Gurmesi Akademi</strong>
-          </div>
+          {/* Optional since the customer asked to be able to drop it; the text is
+              the site name from Genel Ayarlar instead of a hardcoded string. */}
+          {shouldShowNavbarWordmark(siteSettings) ? (
+            <div className="ega-brand__copy">
+              <strong>{siteSettings.siteName}</strong>
+            </div>
+          ) : null}
         </Link>
 
         <button
@@ -355,6 +366,9 @@ export function PublicNavbar({
 
             const columns = item.megaMenuColumns;
             const isOpen = openMegaMenuId === item.id;
+            // Sub-items with no links of their own (menus authored in the panel)
+            // read as a plain vertical dropdown rather than a row of tabs.
+            const layout = columns.some((column) => column.items?.length) ? "mega" : "list";
             const activeColumn =
               columns.find((column) => column.id === activeMegaColumnId) ?? null;
 
@@ -394,6 +408,7 @@ export function PublicNavbar({
                 <div
                   className="ega-nav__mega-panel"
                   data-open={isOpen}
+                  data-layout={layout}
                   onPointerEnter={clearCloseTimer}
                 >
                   <div className="ega-nav__mega-strip">
@@ -418,26 +433,28 @@ export function PublicNavbar({
                             {column.label}
                           </a>
 
-                          <div className="ega-nav__mega-submenu" data-open={isActive}>
-                            <div className="ega-nav__mega-submenu-head">
-                              <span>{item.label}</span>
-                              <strong>{column.label}</strong>
-                            </div>
+                          {column.items?.length ? (
+                            <div className="ega-nav__mega-submenu" data-open={isActive}>
+                              <div className="ega-nav__mega-submenu-head">
+                                <span>{item.label}</span>
+                                <strong>{column.label}</strong>
+                              </div>
 
-                            <div className="ega-nav__mega-submenu-links">
-                              {column.items?.map((subItem) => (
-                                <a
-                                  key={subItem.id}
-                                  href={subItem.href}
-                                  className="ega-nav__mega-submenu-link"
-                                  target={subItem.target}
-                                  rel={subItem.target === "_blank" ? "noreferrer" : undefined}
-                                >
-                                  {subItem.label}
-                                </a>
-                              ))}
+                              <div className="ega-nav__mega-submenu-links">
+                                {column.items.map((subItem) => (
+                                  <a
+                                    key={subItem.id}
+                                    href={subItem.href}
+                                    className="ega-nav__mega-submenu-link"
+                                    target={subItem.target}
+                                    rel={subItem.target === "_blank" ? "noreferrer" : undefined}
+                                  >
+                                    {subItem.label}
+                                  </a>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          ) : null}
                         </div>
                       );
                     })}

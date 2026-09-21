@@ -44,6 +44,7 @@ export type AdminCatalogVariant = {
   title: string;
   sku: string;
   billingLabel?: string | null;
+  priceNote?: string | null;
   price: string;
   compareAtPrice?: string | null;
   currency?: string;
@@ -69,6 +70,7 @@ export type SaveAdminCatalogVariantPayload = {
   title: string;
   sku: string;
   billingLabel?: string | null;
+  priceNote?: string | null;
   price: string;
   compareAtPrice?: string | null;
   currency?: string;

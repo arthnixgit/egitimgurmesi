@@ -2562,6 +2562,22 @@ function ProductForm({
                   />
                 </div>
                 <div className="admin-field">
+                  <label htmlFor={`variant-price-note-${index}`}>Fiyat Notu</label>
+                  <input
+                    id={`variant-price-note-${index}`}
+                    className="admin-input"
+                    maxLength={40}
+                    placeholder="Örn. İlk ay %20 indirimli"
+                    value={variant.priceNote ?? ""}
+                    onChange={(event) =>
+                      updateVariant(index, { ...variant, priceNote: event.target.value })
+                    }
+                  />
+                  <small>
+                    Kartta fiyatın yanında görünür. 3–5 kelime, en fazla 40 karakter ({(variant.priceNote ?? "").length}/40).
+                  </small>
+                </div>
+                <div className="admin-field">
                   <label>Fiyat</label>
                   <input
                     className="admin-input"
@@ -3233,6 +3249,7 @@ function createEmptyVariant(): AdminCatalogVariant {
     title: "",
     sku: "",
     billingLabel: "",
+    priceNote: "",
     price: "0.00",
     compareAtPrice: "",
     currency: "TRY",

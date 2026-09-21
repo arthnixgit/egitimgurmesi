@@ -11,6 +11,7 @@ import type {
   AdminStaffProfilesDocument,
   AdminSuccessStoriesDocument
 } from "../../../lib/auth-client";
+import { isSiteSettingsArea } from "../lib/builder-types";
 import type { BuilderActions, ResponsiveMode, SectionField, WebsiteArea, WebsiteSelection } from "../lib/builder-types";
 import { HOME_SLIDER_SECTION_KEY, normalizeHomeSliderPayload, pageLabel, readableSectionLabel } from "../lib/section-registry";
 import { AssetImage } from "./asset-image";
@@ -106,7 +107,7 @@ function renderCanvasContent(data: {
   successStories: AdminSuccessStoriesDocument;
   actions: BuilderActions;
 }) {
-  if (["genel", "marka", "footer"].includes(data.selectedArea)) {
+  if (isSiteSettingsArea(data.selectedArea)) {
     return <FooterPreview settings={data.settings} />;
   }
 
@@ -138,16 +139,37 @@ function renderCanvasContent(data: {
 
   if (data.selectedArea === "akademik-kadro") {
     return (
-      <div className="admin-website-builder__site-preview">
+      <div className="admin-website-builder__site-preview admin-staff-preview">
         <h2>Akademik Kadro</h2>
-        <div className="admin-website-builder__material-grid">
-          {data.staffProfiles.groups.flatMap((group) => group.profiles).map((profile) => (
-            <article key={profile.slug} className="admin-website-builder__mini-card">
-              <strong>{profile.fullName}</strong>
-              <span>{profile.title}</span>
-            </article>
+        {data.staffProfiles.groups
+          .filter((group) => group.publishStatus !== "ARCHIVED")
+          .map((group) => (
+            <section key={group.key} className="admin-staff-preview__group">
+              <h3>{group.label || "Başlıksız grup"}</h3>
+              <div className="admin-staff-preview__grid">
+                {group.profiles
+                  .filter((profile) => profile.publishStatus !== "ARCHIVED")
+                  .map((profile) => (
+                    <article key={profile.slug} className="admin-staff-preview__card">
+                      {profile.photoUrl ? (
+                        <AssetImage src={profile.photoUrl} alt="" />
+                      ) : (
+                        <span className="admin-staff-preview__initials" aria-hidden="true">
+                          {profile.fullName
+                            .split(" ")
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((part) => part[0]?.toLocaleUpperCase("tr-TR") ?? "")
+                            .join("") || "?"}
+                        </span>
+                      )}
+                      <strong>{profile.fullName || "İsimsiz kişi"}</strong>
+                      <span>{profile.title || "Unvan girilmedi"}</span>
+                    </article>
+                  ))}
+              </div>
+            </section>
           ))}
-        </div>
       </div>
     );
   }

@@ -17,6 +17,7 @@ import type { AdminMediaAsset, AdminMediaKind } from "../../../lib/media-client"
 export type WebsiteArea =
   | "genel"
   | "marka"
+  | "tipografi"
   | "header"
   | "footer"
   | "sayfalar"
@@ -26,6 +27,16 @@ export type WebsiteArea =
   | "basari-hikayeleri"
   | "medya"
   | "gecmis";
+
+/**
+ * Areas backed by the single site-settings record: they load, save, draft and
+ * publish together.
+ */
+export const SITE_SETTINGS_AREAS: readonly WebsiteArea[] = ["genel", "marka", "tipografi", "footer"];
+
+export function isSiteSettingsArea(area: WebsiteArea) {
+  return SITE_SETTINGS_AREAS.includes(area);
+}
 
 export type ResponsiveMode = "desktop" | "tablet" | "mobile";
 export type LeftPanelMode = "sayfalar" | "bolumler" | "bilesenler";

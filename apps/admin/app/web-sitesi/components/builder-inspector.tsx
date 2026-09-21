@@ -27,6 +27,8 @@ import { getSectionListSpec } from "../lib/section-content-schema";
 import { HomepageSliderEditor } from "./homepage-slider-editor";
 import { FreeMaterialEditor } from "./free-material-editor";
 import { RevisionPanel } from "./revision-panel";
+import { NavbarBrandControls, TypographyPanel } from "./presentation-panels";
+import { StaffPanel } from "./staff-editor";
 
 export function BuilderInspector({
   data,
@@ -71,6 +73,7 @@ export function BuilderInspector({
 
       {selection.selectedArea === "genel" ? <GeneralSettingsPanel settings={data.settings} actions={actions} /> : null}
       {selection.selectedArea === "marka" ? <BrandSettingsPanel settings={data.settings} actions={actions} /> : null}
+      {selection.selectedArea === "tipografi" ? <TypographyPanel settings={data.settings} actions={actions} /> : null}
       {selection.selectedArea === "footer" ? <FooterSettingsPanel settings={data.settings} actions={actions} /> : null}
       {selection.selectedArea === "header" ? <NavigationPanel navigation={data.navigation} actions={actions} /> : null}
       {selection.selectedArea === "sayfalar" || selection.selectedArea === "ana-sayfa-slideri" ? (
@@ -103,7 +106,7 @@ export function BuilderInspector({
         />
       ) : null}
       {selection.selectedArea === "akademik-kadro" ? (
-        <StaffPanel document={data.staffProfiles} setDocument={setStaffProfiles} />
+        <StaffPanel document={data.staffProfiles} setDocument={setStaffProfiles} actions={actions} />
       ) : null}
       {selection.selectedArea === "basari-hikayeleri" ? (
         <SuccessStoriesPanel document={data.successStories} setDocument={setSuccessStories} actions={actions} />
@@ -228,6 +231,7 @@ function BrandSettingsPanel({ settings, actions }: { settings: AdminSiteSettings
 
   return (
     <div className="admin-brand-grid">
+      <NavbarBrandControls settings={settings} actions={actions} />
       {fields.map((field) => (
         <section key={field.key} className="admin-brand-card">
           <div className="admin-brand-card__meta">
@@ -351,8 +355,9 @@ function NavigationPanel({ navigation, actions }: { navigation: AdminNavigationM
   return (
     <div className="admin-website-builder__form">
       <div className="admin-alert" role="status">
-        Paketlerimiz alt başlıkları katalogdan gelir; kategori adı, sırası, görünürlüğü ve hedefi
-        Super Admin tarafından <a href="/ticaret">/ticaret</a> alanından yönetilir.
+        Bir menü öğesine alt öğe eklediğinizde, sitede fareyle üzerine gelindiğinde açılan bir açılır menü olur.
+        Paketlerimiz alt başlıkları katalogdan gelir (<a href="/ticaret">/ticaret</a>); katalogda aktif kategori
+        yoksa buraya eklediğiniz alt öğeler gösterilir.
       </div>
       <button className="admin-button--ghost" type="button" onClick={actions.addNavigationItem}>Yeni Menü Öğesi</button>
       {navigation.items.map((item, index) => (
@@ -374,8 +379,114 @@ function NavigationPanel({ navigation, actions }: { navigation: AdminNavigationM
             <input type="checkbox" checked={item.isActive ?? true} onChange={(event) => actions.updateNavigationItem(index, { isActive: event.target.checked })} />
             Aktif
           </label>
+          <NavigationChildrenEditor
+            parent={item}
+            onChange={(children) => actions.updateNavigationItem(index, { children })}
+          />
         </fieldset>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Sub-items of one menu entry: these become its hover dropdown on the site.
+ * Only one level is offered — deeper nesting does not fit a header menu and
+ * the public API rejects it.
+ */
+function NavigationChildrenEditor({
+  parent,
+  onChange
+}: {
+  parent: AdminNavigationItem;
+  onChange: (children: AdminNavigationItem[]) => void;
+}) {
+  // Legacy "packages-…" rows mirror old catalog categories; the site never
+  // shows them, so editing them here would only mislead.
+  const children = parent.children ?? [];
+  const visible = children
+    .map((child, index) => ({ child, index }))
+    .filter(({ child }) => !child.itemKey.startsWith("packages-"));
+
+  function update(index: number, patch: Partial<AdminNavigationItem>) {
+    onChange(children.map((child, childIndex) => (childIndex === index ? { ...child, ...patch } : child)));
+  }
+
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= children.length) {
+      return;
+    }
+    const next = [...children];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next.map((child, childIndex) => ({ ...child, sortOrder: (childIndex + 1) * 10 })));
+  }
+
+  return (
+    <div className="admin-nav-children">
+      <strong>Açılır menü (alt öğeler)</strong>
+      {visible.length === 0 ? (
+        <small className="admin-brand-card__state">Alt öğe yok; bu öğe sitede düz bağlantı olarak görünür.</small>
+      ) : null}
+      {visible.map(({ child, index }) => (
+        <div key={`${child.itemKey}-${index}`} className="admin-nav-children__row">
+          <input
+            aria-label={`${parent.label} alt öğe ${index + 1} etiketi`}
+            placeholder="Etiket"
+            value={child.label}
+            onChange={(event) => update(index, { label: event.target.value })}
+          />
+          <input
+            aria-label={`${parent.label} alt öğe ${index + 1} bağlantısı`}
+            placeholder="/sayfa-adresi"
+            value={child.href}
+            onChange={(event) => update(index, { href: event.target.value })}
+          />
+          <div className="admin-nav-children__actions">
+            <button type="button" className="admin-icon-button" aria-label="Yukarı taşı" onClick={() => move(index, -1)} disabled={index === 0}>
+              ↑
+            </button>
+            <button
+              type="button"
+              className="admin-icon-button"
+              aria-label="Aşağı taşı"
+              onClick={() => move(index, 1)}
+              disabled={index === children.length - 1}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              className="admin-icon-button"
+              aria-label="Alt öğeyi kaldır"
+              onClick={() => onChange(children.filter((_, childIndex) => childIndex !== index))}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="admin-button--compact admin-button--ghost"
+        onClick={() =>
+          onChange([
+            ...children,
+            {
+              itemKey: `menu-${Date.now().toString(36)}`,
+              label: "Yeni alt öğe",
+              href: parent.href || "/",
+              description: null,
+              target: null,
+              sortOrder: (children.length + 1) * 10,
+              isActive: true,
+              children: []
+            }
+          ])
+        }
+      >
+        + Alt öğe ekle
+      </button>
     </div>
   );
 }
@@ -572,39 +683,6 @@ function SectionMediaControl({ section, actions }: { section: AdminMarketingPage
   );
 }
 
-function StaffPanel({
-  document,
-  setDocument
-}: {
-  document: AdminStaffProfilesDocument;
-  setDocument: Dispatch<SetStateAction<AdminStaffProfilesDocument>>;
-}) {
-  const firstGroup = document.groups[0];
-  return (
-    <div className="admin-website-builder__form">
-      <p className="admin-website-builder__hint">Kadro grupları yapılandırılmış alanlarla yönetilir; özel kod kabul edilmez.</p>
-      {firstGroup ? (
-        <label className="admin-builder-field">
-          <span>İlk grup başlığı</span>
-          <input
-            value={firstGroup.label}
-            onChange={(event) =>
-              setDocument((current) => ({
-                ...current,
-                groups: current.groups.map((group, index) =>
-                  index === 0 ? { ...group, label: event.target.value } : group
-                )
-              }))
-            }
-          />
-        </label>
-      ) : (
-        <p className="admin-empty-state">Kadro grubu bulunmuyor.</p>
-      )}
-    </div>
-  );
-}
-
 function SuccessStoriesPanel({
   document,
   setDocument,
@@ -659,6 +737,7 @@ function SuccessStoriesPanel({
       highlight: "",
       story: "",
       avatarUrl: "",
+      scoreReportImageUrl: "",
       sortOrder: (document.stories.length + 1) * 10,
       isFeatured: false,
       publishStatus: "DRAFT"
@@ -815,15 +894,28 @@ function SuccessStoriesPanel({
             </div>
           </div>
 
-          <div className="admin-success-preview">
-            {selectedStory.avatarUrl ? (
-              <AssetImage src={selectedStory.avatarUrl} alt={`${selectedStory.studentName} görseli`} />
-            ) : null}
-            <div>
-              <strong>{selectedStory.studentName || "Öğrenci adı"}</strong>
-              <span>{selectedStory.examLabel || "Sınav / Yıl"}</span>
-              <p>{selectedStory.highlight || selectedStory.resultTitle || "Kısa vurgu"}</p>
-            </div>
+          {/* Mirrors the public result card: logo, bold score, score-report photo. */}
+          <div className="admin-result-card-preview" aria-label="Sonuç kartı önizlemesi">
+            <AssetImage
+              className="admin-result-card-preview__logo"
+              src={selectedStory.avatarUrl || null}
+              fallbackSrc="/branding/ega-logo-official.png"
+              alt=""
+            />
+            <span className="admin-result-card-preview__meta">
+              {[selectedStory.examLabel, selectedStory.city].filter(Boolean).join(" · ") || "Sınav / Şehir"}
+            </span>
+            <strong className="admin-result-card-preview__score">{selectedStory.resultTitle || "Puan / Sonuç"}</strong>
+            <span className="admin-result-card-preview__name">{selectedStory.studentName || "Öğrenci adı"}</span>
+            {selectedStory.scoreReportImageUrl ? (
+              <AssetImage
+                className="admin-result-card-preview__report"
+                src={selectedStory.scoreReportImageUrl}
+                alt={`${selectedStory.studentName} sonuç belgesi`}
+              />
+            ) : (
+              <span className="admin-result-card-preview__placeholder">Sonuç belgesi fotoğrafı burada görünür</span>
+            )}
           </div>
 
           <div className="admin-form-grid">
@@ -844,8 +936,12 @@ function SuccessStoriesPanel({
               <input value={selectedStory.examLabel ?? ""} onChange={(event) => commitStory(selectedStory.slug, { examLabel: event.target.value })} />
             </label>
             <label className="admin-builder-field">
-              <span>Sonuç Başlığı</span>
-              <input value={selectedStory.resultTitle} onChange={(event) => commitStory(selectedStory.slug, { resultTitle: event.target.value })} />
+              <span>Puan / Sonuç (kartta büyük ve kalın)</span>
+              <input
+                value={selectedStory.resultTitle}
+                placeholder="Örn. 492,5 veya Türkiye 12.si"
+                onChange={(event) => commitStory(selectedStory.slug, { resultTitle: event.target.value })}
+              />
             </label>
             <label className="admin-builder-field">
               <span>Sıra</span>
@@ -853,20 +949,34 @@ function SuccessStoriesPanel({
             </label>
           </div>
 
+          <MediaField
+            intent={{
+              kind: "IMAGE",
+              label: "Sonuç belgesi fotoğrafı",
+              description: "Öğrencinin sonuç belgesinin fotoğrafı veya ekran görüntüsü. Kartın alt bölümünde gösterilir.",
+              recommendedDimensions: "1200x1600 px",
+              recommendedAspectRatio: "3:4",
+              allowExternalUrl: true
+            }}
+            value={selectedStory.scoreReportImageUrl ?? ""}
+            altText={selectedStory.studentName ? `${selectedStory.studentName} sonuç belgesi` : "Sonuç belgesi"}
+            onChange={(scoreReportImageUrl) => commitStory(selectedStory.slug, { scoreReportImageUrl })}
+          />
+
           <label className="admin-builder-field">
-            <span>Kısa Vurgu</span>
+            <span>Kısa Vurgu (isteğe bağlı)</span>
             <textarea value={selectedStory.highlight} onChange={(event) => commitStory(selectedStory.slug, { highlight: event.target.value })} />
           </label>
           <label className="admin-builder-field">
-            <span>Başarı Hikayesi</span>
+            <span>Başarı Hikayesi (isteğe bağlı)</span>
             <textarea value={selectedStory.story ?? ""} onChange={(event) => commitStory(selectedStory.slug, { story: event.target.value })} />
           </label>
 
           <MediaField
             intent={{
               kind: "IMAGE",
-              label: "Öğrenci Görseli",
-              description: "Dosya yükleyin veya Medya Kütüphanesinden seçin.",
+              label: "Kart logosu / öğrenci görseli",
+              description: "Kartın üstünde büyük gösterilir. Boş bırakılırsa site logosu kullanılır.",
               recommendedDimensions: "640x640 px",
               recommendedAspectRatio: "1:1",
               allowExternalUrl: true

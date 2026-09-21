@@ -49,6 +49,7 @@ export type PackageProduct = {
   subtitle: string;
   description?: string;
   price: string;
+  priceNote?: string | null;
   compareAtPrice?: string | null;
   hasInstallments?: boolean;
   installmentLabel?: string | null;

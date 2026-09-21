@@ -291,6 +291,11 @@ export class SaveSuccessStoryDto {
   @IsString()
   avatarUrl?: string;
 
+  /** Photo of the student's score report, shown on the result card. */
+  @IsOptional()
+  @IsString()
+  scoreReportImageUrl?: string | null;
+
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
@@ -666,4 +671,31 @@ export class SaveSiteSettingsDto {
   @IsOptional()
   @IsString()
   defaultSeoDescription?: string | null;
+
+  // Presentation. Ranges and the font list are enforced (clamped/whitelisted)
+  // in site-presentation.ts rather than rejected here, so an out-of-range
+  // slider value never blocks a publish.
+  @IsOptional()
+  @IsInt()
+  navbarLogoHeight?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  showNavbarWordmark?: boolean | null;
+
+  @IsOptional()
+  @IsString()
+  fontFamily?: string | null;
+
+  @IsOptional()
+  @IsString()
+  headingFontFamily?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  headingScale?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  bodyScale?: number | null;
 }

@@ -43,6 +43,13 @@ export type PublicSiteSettings = {
   copyrightText: string;
   defaultSeoTitle?: string | null;
   defaultSeoDescription?: string | null;
+  /** Presentation (Logo ve Marka, Tipografi). Resolved by @ega/ui site-presentation. */
+  navbarLogoHeight?: number | null;
+  showNavbarWordmark?: boolean | null;
+  fontFamily?: string | null;
+  headingFontFamily?: string | null;
+  headingScale?: number | null;
+  bodyScale?: number | null;
 };
 
 export const fallbackSiteSettings: PublicSiteSettings = {
@@ -74,7 +81,13 @@ export const fallbackSiteSettings: PublicSiteSettings = {
   socialLinks: [],
   copyrightText: "© Eğitim Gurmesi Akademi. Tüm hakları saklıdır.",
   defaultSeoTitle: "Eğitim Gurmesi Akademi",
-  defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları."
+  defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.",
+  navbarLogoHeight: null,
+  showNavbarWordmark: true,
+  fontFamily: null,
+  headingFontFamily: null,
+  headingScale: null,
+  bodyScale: null
 };
 
 export function buildWhatsAppHref(

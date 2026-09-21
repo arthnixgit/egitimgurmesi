@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested
 } from "class-validator";
@@ -97,6 +98,12 @@ export class SaveProductVariantDto {
   @IsOptional()
   @IsString()
   billingLabel?: string;
+
+  /** Short note beside the price on the package card, e.g. "İlk ay %20 indirimli". */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40, { message: "Fiyat notu en fazla 40 karakter olabilir." })
+  priceNote?: string | null;
 
   @IsString()
   price!: string;
