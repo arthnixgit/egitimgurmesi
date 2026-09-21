@@ -20,6 +20,27 @@
   --ega-radius-md: 18px;
   --ega-radius-sm: 14px;
   --ega-max-width: 1220px;
+  /*
+   * Typography scale, set from the admin panel (Web Sitesi → Tipografi) as
+   * inline custom properties on <html>. Every font-size in this file is
+   * multiplied by one of these, so 1 means "exactly as designed":
+   *   --ega-heading-scale  headings and anything set in the display font
+   *   --ega-body-scale     everything else
+   * --ega-text-scale is the body scale, switched to the heading scale inside
+   * h1–h6 so a heading's inner spans follow the heading.
+   */
+  --ega-body-scale: 1;
+  --ega-heading-scale: 1;
+  --ega-text-scale: var(--ega-body-scale);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  --ega-text-scale: var(--ega-heading-scale);
 }
 
 .ega-operational-panel {
@@ -47,7 +68,7 @@
 .ega-operational-grid h3 {
   margin: 0;
   color: var(--ega-blue-950);
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-text-scale, 1));
 }
 
 .ega-operational-list {
@@ -104,7 +125,7 @@
 
   .ega-success-switcher__head h2,
   .ega-success-story-shell__head h2 {
-    font-size: clamp(1.8rem, 9vw, 2.4rem);
+    font-size: calc(clamp(1.8rem, 9vw, 2.4rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-success-story-shell__head {
@@ -161,7 +182,7 @@
   }
 
   .ega-success-video-stage__body strong {
-    font-size: clamp(2rem, 12vw, 3rem);
+    font-size: calc(clamp(2rem, 12vw, 3rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-success-poster-card {
@@ -186,6 +207,8 @@ body {
   min-height: 100vh;
   color: var(--ega-ink);
   font-family: var(--font-body);
+  /* Text with no size of its own inherits this, so it follows the body scale. */
+  font-size: calc(1rem * var(--ega-body-scale, 1));
   line-height: 1.58;
   letter-spacing: -0.012em;
   -webkit-font-smoothing: antialiased;
@@ -260,7 +283,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 78px;
+  min-height: max(78px, calc(var(--ega-navbar-logo-height, 0px) + 20px));
 }
 
 .ega-brand {
@@ -269,15 +292,17 @@ textarea {
   gap: 10px;
   min-width: 0;
   flex: 0 1 auto;
-  max-width: min(42vw, 260px);
+  /* Grows with the logo height chosen in the admin panel (Logo ve Marka). */
+  max-width: min(42vw, max(260px, calc(var(--ega-navbar-logo-height, 52px) * 3.6 + 70px)));
 }
 
 .ega-brand__logo {
   display: block;
   width: auto;
-  height: auto;
-  max-width: min(190px, 100%);
-  max-height: 52px;
+  /* --ega-navbar-logo-height is set from the admin panel; unset keeps the design default. */
+  height: var(--ega-navbar-logo-height, auto);
+  max-width: min(max(190px, calc(var(--ega-navbar-logo-height, 52px) * 3.6)), 100%);
+  max-height: var(--ega-navbar-logo-height, 52px);
   object-fit: contain;
   object-position: center;
   flex: 0 0 auto;
@@ -301,14 +326,14 @@ textarea {
 
 .ega-brand__copy strong {
   font-family: var(--font-display);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-heading-scale, 1));
   line-height: 1.05;
   letter-spacing: 0;
 }
 
 .ega-brand__copy span {
   color: var(--ega-muted);
-  font-size: 0.77rem;
+  font-size: calc(0.77rem * var(--ega-text-scale, 1));
   line-height: 1.3;
 }
 
@@ -352,7 +377,7 @@ textarea {
   gap: 4px;
   flex: 1 1 auto;
   color: #637693;
-  font-size: 0.93rem;
+  font-size: calc(0.93rem * var(--ega-text-scale, 1));
 }
 
 .ega-nav[data-scroll-settling="true"] {
@@ -419,7 +444,7 @@ textarea {
 }
 
 .ega-nav__chevron {
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--ega-text-scale, 1));
   transition: transform 180ms ease;
 }
 
@@ -460,6 +485,37 @@ textarea {
   gap: 8px;
 }
 
+/*
+ * A dropdown whose sub-items have no links of their own (menus authored in the
+ * admin's Header ve Menü editor): a compact vertical list under the trigger
+ * instead of the full-width catalog panel.
+ */
+.ega-nav__mega-panel[data-layout="list"] {
+  min-width: 240px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 10px;
+}
+
+.ega-nav__mega-panel[data-layout="list"] .ega-nav__mega-strip {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.ega-nav__mega-panel[data-layout="list"] .ega-nav__mega-group {
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.ega-nav__mega-panel[data-layout="list"] .ega-nav__mega-tab {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 46px;
+  white-space: normal;
+  text-align: left;
+}
+
 .ega-nav__mega-group {
   position: relative;
   flex: 0 0 auto;
@@ -477,7 +533,7 @@ textarea {
   border-radius: 18px;
   background: rgba(247, 251, 255, 0.94);
   color: var(--ega-blue-900);
-  font-size: 0.89rem;
+  font-size: calc(0.89rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -535,7 +591,7 @@ textarea {
 
 .ega-nav__mega-submenu-head span {
   color: #7a8ea7;
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -544,7 +600,7 @@ textarea {
 .ega-nav__mega-submenu-head strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.14rem;
+  font-size: calc(1.14rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
 }
 
@@ -609,7 +665,7 @@ textarea {
   padding: 0 20px;
   border-radius: 999px;
   border: 1px solid transparent;
-  font-size: 0.97rem;
+  font-size: calc(0.97rem * var(--ega-text-scale, 1));
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.015em;
@@ -648,7 +704,7 @@ textarea {
   width: fit-content;
   padding: 8px 14px;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: calc(0.74rem * var(--ega-text-scale, 1));
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -726,7 +782,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.35rem, 1.85vw, 1.85rem);
+  font-size: calc(clamp(1.35rem, 1.85vw, 1.85rem) * var(--ega-heading-scale, 1));
   line-height: 1.14;
   letter-spacing: -0.028em;
   text-wrap: balance;
@@ -753,7 +809,7 @@ textarea {
   max-height: 4.6em;
   margin: 18px 0 14px;
   font-family: var(--font-display);
-  font-size: clamp(2.65rem, 4.2vw, 4.18rem);
+  font-size: calc(clamp(2.65rem, 4.2vw, 4.18rem) * var(--ega-heading-scale, 1));
   line-height: 0.92;
   letter-spacing: -0.05em;
   text-wrap: balance;
@@ -767,7 +823,7 @@ textarea {
   margin: 0;
   max-width: 56ch;
   color: #5f728c;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.68;
   min-height: 6.72em;
   max-height: 6.72em;
@@ -802,7 +858,7 @@ textarea {
 .ega-hero__quick-stat strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--ega-heading-scale, 1));
   color: var(--ega-blue-900);
 }
 
@@ -858,7 +914,7 @@ textarea {
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -920,21 +976,21 @@ textarea {
 .ega-slide-shell__photo-mini span {
   display: block;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--ega-text-scale, 1));
 }
 
 .ega-slide-shell__photo-card strong {
   display: block;
   margin: 10px 0 8px;
   font-family: var(--font-display);
-  font-size: 1.42rem;
+  font-size: calc(1.42rem * var(--ega-heading-scale, 1));
   line-height: 1.1;
 }
 
 .ega-slide-shell__photo-card small {
   display: block;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   line-height: 1.62;
 }
 
@@ -947,7 +1003,7 @@ textarea {
 .ega-slide-shell__photo-mini strong {
   display: block;
   margin-top: 8px;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -972,7 +1028,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
@@ -1013,19 +1069,19 @@ textarea {
 
 .ega-slide-shell__thumb span {
   color: var(--ega-muted);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   line-height: 1.35;
 }
 
 .ega-slide-shell__thumb strong {
   color: var(--ega-blue-900);
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
   line-height: 1.24;
 }
 
 .ega-slide-shell__thumb small {
   color: #7588a2;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -1169,7 +1225,7 @@ textarea {
   max-height: none;
   margin: 0;
   color: #ffffff;
-  font-size: clamp(2.25rem, 4vw, 4.35rem);
+  font-size: calc(clamp(2.25rem, 4vw, 4.35rem) * var(--ega-text-scale, 1));
   line-height: 0.96;
   letter-spacing: -0.055em;
   text-shadow: 0 18px 42px rgba(5, 18, 38, 0.35);
@@ -1183,7 +1239,7 @@ textarea {
   max-height: none;
   margin: 0;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.72;
   text-shadow: 0 14px 26px rgba(5, 18, 38, 0.28);
   overflow: visible;
@@ -1234,7 +1290,7 @@ textarea {
 
 .ega-showcase-hero__indicator-count {
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1323,7 +1379,7 @@ textarea {
   border-radius: 999px;
   color: #7f4800;
   background: rgba(255, 184, 82, 0.2);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -1341,7 +1397,7 @@ textarea {
   max-width: 16ch;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.95rem, 3vw, 3rem);
+  font-size: calc(clamp(1.95rem, 3vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.04em;
 }
@@ -1370,7 +1426,7 @@ textarea {
   color: var(--ega-blue-900);
   background: rgba(255, 255, 255, 0.74);
   border: 1px solid rgba(11, 52, 102, 0.08);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
@@ -1427,14 +1483,14 @@ textarea {
 }
 
 .ega-hero-gallery__poster-head span {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .ega-hero-gallery__poster-head strong {
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
 }
 
 .ega-hero-gallery__poster-grid {
@@ -1465,13 +1521,13 @@ textarea {
 
 .ega-hero-gallery__poster-card span {
   color: #6d8099;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
 .ega-hero-gallery__poster-card strong {
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-heading-scale, 1));
   line-height: 1.2;
 }
 
@@ -1522,13 +1578,13 @@ textarea {
 
 .ega-hero-gallery__thumb span {
   color: #7588a2;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   line-height: 1.35;
 }
 
 .ega-hero-gallery__thumb strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.34;
 }
 
@@ -1543,7 +1599,7 @@ textarea {
 .ega-section-heading__title {
   margin: 12px 0 6px;
   font-family: var(--font-display);
-  font-size: clamp(1.55rem, 2.35vw, 2.35rem);
+  font-size: calc(clamp(1.55rem, 2.35vw, 2.35rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.038em;
   text-wrap: balance;
@@ -1554,7 +1610,7 @@ textarea {
   color: var(--ega-muted);
   max-width: 76ch;
   line-height: 1.56;
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
 }
 
 .ega-guarantee-ribbon {
@@ -1579,7 +1635,7 @@ textarea {
   height: 58px;
   border-radius: 999px;
   color: #fff;
-  font-size: 1.3rem;
+  font-size: calc(1.3rem * var(--ega-text-scale, 1));
   font-weight: 900;
   background:
     radial-gradient(circle at 30% 28%, rgba(255, 247, 196, 0.98), rgba(255, 221, 125, 0.88) 24%, transparent 25%),
@@ -1618,7 +1674,7 @@ textarea {
   justify-content: center;
   min-height: 58px;
   font-family: var(--font-display);
-  font-size: clamp(0.96rem, 1.18vw, 1.18rem);
+  font-size: calc(clamp(0.96rem, 1.18vw, 1.18rem) * var(--ega-heading-scale, 1));
   line-height: 1.12;
   letter-spacing: -0.03em;
   text-align: center;
@@ -1654,7 +1710,7 @@ textarea {
   margin: 14px 0 12px;
   max-width: 12ch;
   font-family: var(--font-display);
-  font-size: clamp(2.3rem, 4vw, 3.9rem);
+  font-size: calc(clamp(2.3rem, 4vw, 3.9rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
 }
@@ -1678,7 +1734,7 @@ textarea {
 
 .ega-page-banner__panel span {
   color: var(--ega-muted);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1686,7 +1742,7 @@ textarea {
 
 .ega-page-banner__panel strong {
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-size: calc(clamp(1.8rem, 3vw, 2.8rem) * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
 }
@@ -1718,7 +1774,7 @@ textarea {
 
 .ega-coaching-topline__inner strong {
   color: #ffffff;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -1736,7 +1792,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
   color: #4b7bb1;
-  font-size: 0.94rem;
+  font-size: calc(0.94rem * var(--ega-text-scale, 1));
   font-weight: 700;
   box-shadow: 0 10px 20px rgba(37, 92, 137, 0.12);
 }
@@ -1785,7 +1841,7 @@ textarea {
   margin: 18px 0 18px;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(3.1rem, 6vw, 5.4rem);
+  font-size: calc(clamp(3.1rem, 6vw, 5.4rem) * var(--ega-heading-scale, 1));
   line-height: 0.9;
   letter-spacing: -0.055em;
 }
@@ -1812,14 +1868,14 @@ textarea {
 .ega-coaching-hero__copy p {
   margin: 0;
   color: #375378;
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-text-scale, 1));
   line-height: 1.7;
 }
 
 .ega-coaching-hero__copy b {
   margin-top: 12px;
   color: #1e4d8b;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.66;
 }
 
@@ -1853,7 +1909,7 @@ textarea {
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 228, 0.98));
   color: #9c6804;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1.5;
   box-shadow: 0 16px 34px rgba(171, 118, 19, 0.12);
@@ -1874,7 +1930,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
   color: #4b82bf;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(22, 69, 111, 0.08);
 }
@@ -1939,7 +1995,7 @@ textarea {
 .ega-coaching-hero__scene-mini span {
   display: block;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
 }
 
 .ega-coaching-hero__scene-card strong {
@@ -1947,7 +2003,7 @@ textarea {
   margin: 12px 0 12px;
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: 1.92rem;
+  font-size: calc(1.92rem * var(--ega-heading-scale, 1));
   line-height: 1.04;
 }
 
@@ -1969,7 +2025,7 @@ textarea {
   display: block;
   margin-top: 10px;
   color: #ffffff;
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-text-scale, 1));
   line-height: 1.4;
 }
 
@@ -2027,13 +2083,13 @@ textarea {
 
 .ega-coaching-hero__floating-badge span {
   color: #5f84ad;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
 .ega-coaching-hero__floating-badge strong {
   color: var(--ega-blue-900);
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   line-height: 1.35;
 }
 
@@ -2070,7 +2126,7 @@ textarea {
 
 .ega-coaching-lane span {
   color: #6d86a3;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2079,7 +2135,7 @@ textarea {
 .ega-coaching-lane strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.36rem;
+  font-size: calc(1.36rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
 }
 
@@ -2120,7 +2176,7 @@ textarea {
   margin: 14px 0 12px;
   max-width: 11ch;
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 4vw, 4rem);
+  font-size: calc(clamp(2.4rem, 4vw, 4rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
 }
@@ -2144,7 +2200,7 @@ textarea {
 
 .ega-staff-page-hero__panel span {
   color: var(--ega-muted);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2153,7 +2209,7 @@ textarea {
 .ega-staff-page-hero__panel strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.9rem, 3vw, 2.9rem);
+  font-size: calc(clamp(1.9rem, 3vw, 2.9rem) * var(--ega-heading-scale, 1));
   line-height: 1;
 }
 
@@ -2216,7 +2272,7 @@ textarea {
   padding: 7px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2224,7 +2280,7 @@ textarea {
 
 .ega-staff-video-box__placeholder strong {
   font-family: var(--font-display);
-  font-size: clamp(1.12rem, 2vw, 1.45rem);
+  font-size: calc(clamp(1.12rem, 2vw, 1.45rem) * var(--ega-heading-scale, 1));
   line-height: 1.06;
 }
 
@@ -2232,7 +2288,7 @@ textarea {
   margin: 0;
   max-width: 34ch;
   color: rgba(255, 255, 255, 0.84);
-  font-size: 0.94rem;
+  font-size: calc(0.94rem * var(--ega-text-scale, 1));
   line-height: 1.58;
 }
 
@@ -2243,7 +2299,7 @@ textarea {
 .ega-staff-showcase__head h2 {
   margin: 14px 0 10px;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.6vw, 3.08rem);
+  font-size: calc(clamp(2rem, 3.6vw, 3.08rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
@@ -2355,7 +2411,7 @@ textarea {
 .ega-staff-card__photo--placeholder span {
   color: #ffffff;
   font-family: var(--font-display);
-  font-size: 3.1rem;
+  font-size: calc(3.1rem * var(--ega-heading-scale, 1));
   line-height: 1;
   letter-spacing: -0.05em;
 }
@@ -2369,7 +2425,7 @@ textarea {
 .ega-staff-card__body strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.28rem;
+  font-size: calc(1.28rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
 }
 
@@ -2381,7 +2437,7 @@ textarea {
 
 .ega-staff-card__body small {
   color: var(--ega-muted);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2461,7 +2517,7 @@ textarea {
 
 .ega-section--packages-directory .ega-section-heading__title {
   max-width: none;
-  font-size: clamp(2.15rem, 3.2vw, 3.1rem);
+  font-size: calc(clamp(2.15rem, 3.2vw, 3.1rem) * var(--ega-text-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
   text-wrap: nowrap;
@@ -2548,12 +2604,12 @@ textarea {
 }
 
 .ega-filter-option strong {
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
 }
 
 .ega-filter-option span {
   color: #60799a;
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
 }
 
 .ega-filter-option--compact {
@@ -2564,12 +2620,12 @@ textarea {
 }
 
 .ega-filter-option--compact strong {
-  font-size: 0.94rem;
+  font-size: calc(0.94rem * var(--ega-text-scale, 1));
   line-height: 1.18;
 }
 
 .ega-filter-option--compact span {
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   line-height: 1.32;
 }
 
@@ -2585,7 +2641,7 @@ textarea {
 
 .ega-filter-summary strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-why-gurmesi {
@@ -2603,7 +2659,7 @@ textarea {
 .ega-why-gurmesi__head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-size: calc(clamp(2rem, 3vw, 2.8rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
   color: var(--ega-blue-900);
@@ -2649,7 +2705,7 @@ textarea {
 .ega-why-gurmesi__row--head .ega-why-gurmesi__cell {
   min-height: 64px;
   align-items: center;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -2673,7 +2729,7 @@ textarea {
   height: 24px;
   border-radius: 999px;
   flex: 0 0 auto;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
   font-weight: 900;
   line-height: 1;
 }
@@ -2824,7 +2880,7 @@ textarea {
 .ega-product-video__cover strong {
   font-family: var(--font-display);
   max-width: 100%;
-  font-size: clamp(0.96rem, 1.4vw, 1.16rem);
+  font-size: calc(clamp(0.96rem, 1.4vw, 1.16rem) * var(--ega-heading-scale, 1));
   line-height: 1.08;
   overflow: hidden;
   display: -webkit-box;
@@ -2840,7 +2896,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   color: var(--ega-blue-900);
-  font-size: 1.12rem;
+  font-size: calc(1.12rem * var(--ega-text-scale, 1));
   box-shadow: 0 14px 30px rgba(8, 33, 63, 0.24);
   transition:
     transform 180ms ease,
@@ -2872,7 +2928,7 @@ textarea {
   padding: 7px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 0.73rem;
+  font-size: calc(0.73rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2881,7 +2937,7 @@ textarea {
 .ega-product-video__placeholder strong {
   font-family: var(--font-display);
   max-width: 100%;
-  font-size: clamp(0.96rem, 1.4vw, 1.16rem);
+  font-size: calc(clamp(0.96rem, 1.4vw, 1.16rem) * var(--ega-heading-scale, 1));
   line-height: 1.08;
   overflow: hidden;
   display: -webkit-box;
@@ -2893,7 +2949,7 @@ textarea {
   margin: 0;
   max-width: 34ch;
   color: rgba(255, 255, 255, 0.84);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   line-height: 1.55;
 }
 
@@ -2913,7 +2969,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -2922,7 +2978,7 @@ textarea {
   max-width: 100%;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.06rem;
+  font-size: calc(1.06rem * var(--ega-heading-scale, 1));
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
@@ -2938,17 +2994,29 @@ textarea {
 
 .ega-pack-card__compare-price {
   color: rgba(239, 68, 68, 0.92);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1;
   text-decoration: line-through;
   text-decoration-thickness: 2px;
 }
 
+.ega-pack-card__price-note {
+  max-width: 22ch;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 158, 44, 0.14);
+  color: #9a5a0c;
+  font-size: calc(0.72rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .ega-pack-card__installment {
   max-width: 100%;
   color: var(--ega-muted);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1.15;
 }
@@ -2957,7 +3025,7 @@ textarea {
   min-width: 0;
   margin: 16px 0 9px;
   font-family: var(--font-display);
-  font-size: 1.28rem;
+  font-size: calc(1.28rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
   letter-spacing: 0;
   min-height: 2.16em;
@@ -2972,7 +3040,7 @@ textarea {
   min-width: 0;
   margin: 0;
   color: var(--ega-muted);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   line-height: 1.5;
   min-height: 3em;
   overflow-wrap: anywhere;
@@ -2999,7 +3067,7 @@ textarea {
 
 .ega-pack-card__spec span {
   color: var(--ega-muted);
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -3007,7 +3075,7 @@ textarea {
 
 .ega-pack-card__spec strong {
   color: var(--ega-blue-900);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -3024,13 +3092,13 @@ textarea {
   position: relative;
   padding-left: 22px;
   color: var(--ega-blue-900);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   line-height: 1.44;
 }
 
 .ega-pack-card__features li strong {
   display: block;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   line-height: 1.34;
   letter-spacing: 0;
   overflow-wrap: anywhere;
@@ -3040,7 +3108,7 @@ textarea {
   display: block;
   margin-top: 4px;
   color: var(--ega-muted);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -3050,7 +3118,7 @@ textarea {
   left: 0;
   top: 2px;
   color: #56b6d8;
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   font-weight: 900;
 }
 
@@ -3104,14 +3172,14 @@ textarea {
   display: block;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.4vw, 3rem);
+  font-size: calc(clamp(2rem, 3.4vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 0.96;
 }
 
 .ega-metric-card__label {
   margin: 16px 0 10px;
   font-family: var(--font-display);
-  font-size: 1.28rem;
+  font-size: calc(1.28rem * var(--ega-heading-scale, 1));
   line-height: 1.12;
 }
 
@@ -3186,7 +3254,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -3201,7 +3269,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--ega-blue-900);
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--ega-text-scale, 1));
   cursor: pointer;
   transition:
     transform 180ms ease,
@@ -3256,13 +3324,13 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   color: var(--ega-muted);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
 }
 
 .ega-video-card__body h3 {
   margin: 14px 0 10px;
   font-family: var(--font-display);
-  font-size: 1.16rem;
+  font-size: calc(1.16rem * var(--ega-heading-scale, 1));
   line-height: 1.24;
   min-height: 2.55em;
   overflow: hidden;
@@ -3413,7 +3481,7 @@ textarea {
   padding: 10px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -3421,14 +3489,14 @@ textarea {
 
 .ega-experience-stage__placeholder strong {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  font-size: calc(clamp(1.5rem, 2.4vw, 2.1rem) * var(--ega-heading-scale, 1));
   line-height: 1.04;
 }
 
 .ega-experience-stage__placeholder span {
   max-width: 30ch;
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.96rem;
+  font-size: calc(0.96rem * var(--ega-text-scale, 1));
   line-height: 1.62;
 }
 
@@ -3442,7 +3510,7 @@ textarea {
 .ega-experience-stage__copy h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.2vw, 3rem);
+  font-size: calc(clamp(2rem, 3.2vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.04em;
 }
@@ -3451,7 +3519,7 @@ textarea {
   margin: 0;
   max-width: 44ch;
   color: var(--ega-muted);
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   line-height: 1.78;
 }
 
@@ -3492,14 +3560,14 @@ textarea {
 
 .ega-success-banner-panel__stats strong {
   font-family: var(--font-display);
-  font-size: 1.7rem;
+  font-size: calc(1.7rem * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
 }
 
 .ega-success-banner-panel__stats span {
   color: var(--ega-muted);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -3527,7 +3595,7 @@ textarea {
 .ega-success-switcher__head h2 {
   margin: 16px 0 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: calc(clamp(2rem, 3vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.035em;
   color: var(--ega-blue-900);
@@ -3566,7 +3634,7 @@ textarea {
 
 .ega-success-tab span {
   color: var(--ega-muted);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3574,7 +3642,7 @@ textarea {
 
 .ega-success-tab strong {
   font-family: var(--font-display);
-  font-size: 1.28rem;
+  font-size: calc(1.28rem * var(--ega-heading-scale, 1));
   line-height: 1.1;
 }
 
@@ -3614,7 +3682,7 @@ textarea {
 .ega-success-results__head h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: calc(2rem * var(--ega-heading-scale, 1));
   line-height: 1.02;
   color: var(--ega-blue-900);
 }
@@ -3643,13 +3711,13 @@ textarea {
 
 .ega-success-metric strong {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: calc(2rem * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
 }
 
 .ega-success-metric span {
-  font-size: 0.96rem;
+  font-size: calc(0.96rem * var(--ega-text-scale, 1));
   font-weight: 800;
   color: var(--ega-blue-900);
 }
@@ -3657,7 +3725,7 @@ textarea {
 .ega-success-metric p {
   margin: 0;
   color: var(--ega-muted);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   line-height: 1.55;
 }
 
@@ -3696,7 +3764,7 @@ textarea {
 
 .ega-success-result-card__topline strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-success-result-card__topline span {
@@ -3707,7 +3775,7 @@ textarea {
   border-radius: 999px;
   background: rgba(29, 184, 178, 0.14);
   color: #0f7f80;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -3717,7 +3785,7 @@ textarea {
 }
 
 .ega-success-result-card h4 {
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   line-height: 1.45;
   color: var(--ega-ink);
 }
@@ -3740,7 +3808,7 @@ textarea {
 .ega-success-story-shell__head h2 {
   margin: 14px 0 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: calc(clamp(2rem, 3vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.035em;
   color: var(--ega-blue-900);
@@ -3758,7 +3826,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   color: var(--ega-blue-900);
-  font-size: 1.2rem;
+  font-size: calc(1.2rem * var(--ega-text-scale, 1));
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
@@ -3787,7 +3855,7 @@ textarea {
 }
 
 .ega-success-quote-card__result strong {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3795,7 +3863,7 @@ textarea {
 }
 
 .ega-success-quote-card__result span {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--ega-text-scale, 1));
   line-height: 1.6;
   color: #ffffff;
 }
@@ -3814,7 +3882,7 @@ textarea {
 
 .ega-success-story-panel__row > span {
   color: var(--ega-muted);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3823,7 +3891,7 @@ textarea {
 .ega-success-story-panel__row > strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: calc(1.35rem * var(--ega-heading-scale, 1));
   line-height: 1.15;
 }
 
@@ -3841,7 +3909,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.07);
   color: var(--ega-blue-900);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
@@ -3894,7 +3962,7 @@ textarea {
 
 .ega-success-hero-card__stats strong {
   font-family: var(--font-display);
-  font-size: 1.8rem;
+  font-size: calc(1.8rem * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
 }
@@ -3919,7 +3987,7 @@ textarea {
 .ega-success-section-head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.4vw, 3.2rem);
+  font-size: calc(clamp(2rem, 3.4vw, 3.2rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.04em;
   color: var(--ega-blue-900);
@@ -3957,7 +4025,7 @@ textarea {
 
 .ega-success-track-tab span {
   color: var(--ega-muted);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3965,7 +4033,7 @@ textarea {
 
 .ega-success-track-tab strong {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
   color: var(--ega-blue-900);
 }
@@ -4003,7 +4071,7 @@ textarea {
 
 .ega-success-metric-card strong {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: calc(2rem * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
 }
@@ -4039,7 +4107,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
   color: var(--ega-blue-900);
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--ega-text-scale, 1));
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
@@ -4120,7 +4188,7 @@ textarea {
 }
 
 .ega-success-play-button strong {
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -4134,7 +4202,7 @@ textarea {
 
 .ega-success-video-stage__body > span {
   color: rgba(255, 255, 255, 0.76);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4142,7 +4210,7 @@ textarea {
 
 .ega-success-video-stage__body strong {
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 4vw, 4.2rem);
+  font-size: calc(clamp(2.4rem, 4vw, 4.2rem) * var(--ega-heading-scale, 1));
   line-height: 0.94;
   letter-spacing: -0.05em;
 }
@@ -4152,7 +4220,7 @@ textarea {
   max-width: 56ch;
   color: rgba(255, 255, 255, 0.9);
   line-height: 1.8;
-  font-size: 1.04rem;
+  font-size: calc(1.04rem * var(--ega-text-scale, 1));
 }
 
 .ega-success-video-meta {
@@ -4164,7 +4232,7 @@ textarea {
 .ega-success-video-meta h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: calc(2rem * var(--ega-heading-scale, 1));
   line-height: 1.02;
   color: var(--ega-blue-900);
 }
@@ -4189,7 +4257,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.07);
   color: var(--ega-blue-900);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
@@ -4238,7 +4306,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: calc(1.2rem * var(--ega-text-scale, 1));
 }
 
 .ega-success-video-thumb__poster span {
@@ -4250,7 +4318,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 24, 40, 0.42);
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -4262,7 +4330,7 @@ textarea {
 
 .ega-success-video-thumb__copy strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-success-video-thumb__copy p {
@@ -4287,13 +4355,15 @@ textarea {
   justify-content: center;
   gap: 10px;
   color: var(--ega-blue-900);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
 .ega-success-poster-card__brand img {
-  width: 56px;
-  height: auto;
+  width: auto;
+  max-width: min(240px, 80%);
+  height: 88px;
+  object-fit: contain;
 }
 
 .ega-success-poster-card__hero {
@@ -4305,21 +4375,23 @@ textarea {
 
 .ega-success-poster-card__hero span {
   color: var(--ega-muted);
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
 .ega-success-poster-card__hero strong {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 6vw, 5rem);
-  line-height: 0.9;
+  font-size: calc(clamp(2.4rem, 5vw, 3.8rem) * var(--ega-heading-scale, 1));
+  font-weight: 900;
+  line-height: 0.95;
   color: #102c53;
+  overflow-wrap: anywhere;
 }
 
 .ega-success-poster-card__hero p {
   margin: 0;
   color: var(--ega-blue-900);
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--ega-text-scale, 1));
   font-weight: 700;
   line-height: 1.45;
 }
@@ -4341,12 +4413,34 @@ textarea {
 
 .ega-success-poster-card__sheet-head strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-success-poster-card__sheet-head span {
   color: var(--ega-muted);
   line-height: 1.55;
+}
+
+/* The student's score report, shown under the score. */
+.ega-success-poster-card__report {
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 18px;
+  background: #f4f8fb;
+}
+
+.ega-success-poster-card__report img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  transition: transform 200ms ease;
+}
+
+.ega-success-poster-card__report:hover img,
+.ega-success-poster-card__report:focus-visible img {
+  transform: scale(1.02);
 }
 
 .ega-success-score-table {
@@ -4402,15 +4496,17 @@ textarea {
 
 .ega-success-poster-thumb__frame span {
   color: var(--ega-muted);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
 .ega-success-poster-thumb__frame strong {
   font-family: var(--font-display);
-  font-size: 2.4rem;
-  line-height: 0.92;
+  font-size: calc(clamp(1.6rem, 2.6vw, 2.2rem) * var(--ega-heading-scale, 1));
+  font-weight: 900;
+  line-height: 0.98;
   color: var(--ega-blue-900);
+  overflow-wrap: anywhere;
 }
 
 .ega-success-poster-thumb__frame p {
@@ -4478,7 +4574,7 @@ textarea {
 .ega-detail-main__body > h2 {
   margin: 0 0 14px;
   font-family: var(--font-display);
-  font-size: clamp(1.65rem, 2.7vw, 2.7rem);
+  font-size: calc(clamp(1.65rem, 2.7vw, 2.7rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.045em;
 }
@@ -4487,7 +4583,7 @@ textarea {
   margin: 24px 0 12px;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.15rem, 1.5vw, 1.45rem);
+  font-size: calc(clamp(1.15rem, 1.5vw, 1.45rem) * var(--ega-heading-scale, 1));
   line-height: 1.12;
   letter-spacing: -0.025em;
 }
@@ -4532,7 +4628,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -4540,7 +4636,7 @@ textarea {
 .ega-resource-card h3 {
   margin: 18px 0 12px;
   font-family: var(--font-display);
-  font-size: 1.34rem;
+  font-size: calc(1.34rem * var(--ega-heading-scale, 1));
   line-height: 1.14;
   min-height: 2.4em;
   overflow: hidden;
@@ -4574,7 +4670,7 @@ textarea {
 .ega-deneme-hero-card h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-size: calc(clamp(2rem, 3vw, 2.8rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   color: var(--ega-blue-900);
 }
@@ -4623,7 +4719,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -4632,7 +4728,7 @@ textarea {
 .ega-free-closest-exam__head strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  font-size: calc(clamp(1.7rem, 3vw, 2.5rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
 }
 
@@ -4699,7 +4795,7 @@ textarea {
   display: inline-block;
   color: #f7fbff;
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-size: calc(clamp(2.4rem, 5vw, 4rem) * var(--ega-heading-scale, 1));
   font-weight: 800;
   line-height: 0.85;
   letter-spacing: -0.06em;
@@ -4736,7 +4832,7 @@ textarea {
 
 .ega-free-flip-card__label {
   color: var(--ega-blue-900);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4759,7 +4855,7 @@ textarea {
   max-width: 11ch;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2.6rem, 5vw, 4.6rem);
+  font-size: calc(clamp(2.6rem, 5vw, 4.6rem) * var(--ega-heading-scale, 1));
   line-height: 0.96;
   letter-spacing: -0.05em;
 }
@@ -4768,7 +4864,7 @@ textarea {
   max-width: 74ch;
   margin: 0;
   color: var(--ega-muted);
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   line-height: 1.78;
 }
 
@@ -4788,7 +4884,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 184, 82, 0.22);
   color: #8a4b00;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -4798,7 +4894,7 @@ textarea {
   margin: 14px 0 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.9rem, 3.3vw, 3rem);
+  font-size: calc(clamp(1.9rem, 3.3vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
@@ -4888,7 +4984,7 @@ textarea {
   border-radius: 14px;
   background: rgba(11, 52, 102, 0.1);
   color: var(--ega-blue-900);
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 900;
   letter-spacing: 0;
 }
@@ -4903,14 +4999,14 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 .ega-free-tool-card__top small {
   color: #7a8ea7;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -4920,7 +5016,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.48rem;
+  font-size: calc(1.48rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -4985,14 +5081,14 @@ textarea {
 
 .ega-free-tool-card__countdown-head strong {
   font-family: var(--font-display);
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-heading-scale, 1));
   line-height: 1.04;
 }
 
 .ega-free-tool-card__countdown-head span,
 .ega-free-tool-card__waiting p {
   color: rgba(255, 255, 255, 0.78);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   line-height: 1.6;
 }
 
@@ -5015,13 +5111,13 @@ textarea {
 
 .ega-free-tool-card__metric strong {
   font-family: var(--font-display);
-  font-size: 1.34rem;
+  font-size: calc(1.34rem * var(--ega-heading-scale, 1));
   line-height: 1;
 }
 
 .ega-free-tool-card__metric span {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -5036,7 +5132,7 @@ textarea {
 
 .ega-free-tool-card__waiting strong {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-heading-scale, 1));
   line-height: 1.04;
 }
 
@@ -5058,7 +5154,7 @@ textarea {
 }
 
 .ega-free-link-card--compact h3 {
-  font-size: 1.22rem;
+  font-size: calc(1.22rem * var(--ega-text-scale, 1));
 }
 
 .ega-free-columns {
@@ -5109,7 +5205,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   color: #3c6a8f;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 700;
   box-shadow: 0 12px 24px rgba(8, 33, 63, 0.08);
 }
@@ -5137,7 +5233,7 @@ textarea {
 .ega-free-directory-head h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.2rem, 4vw, 4rem);
+  font-size: calc(clamp(2.2rem, 4vw, 4rem) * var(--ega-heading-scale, 1));
   line-height: 1;
   letter-spacing: 0;
   color: var(--ega-blue-900);
@@ -5188,14 +5284,14 @@ textarea {
 
 .ega-free-directory-category strong {
   min-width: 0;
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
 .ega-free-directory-category span {
   color: #5f768f;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -5236,7 +5332,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.65rem, 2.4vw, 2.4rem);
+  font-size: calc(clamp(1.65rem, 2.4vw, 2.4rem) * var(--ega-heading-scale, 1));
   line-height: 1.08;
   letter-spacing: 0;
 }
@@ -5258,7 +5354,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   font-weight: 900;
 }
 
@@ -5289,7 +5385,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  font-size: calc(clamp(1.7rem, 3vw, 2.4rem) * var(--ega-heading-scale, 1));
   line-height: 1.08;
   letter-spacing: 0;
 }
@@ -5346,7 +5442,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 900;
 }
 
@@ -5356,7 +5452,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  font-size: calc(clamp(1.8rem, 3vw, 2.65rem) * var(--ega-heading-scale, 1));
   line-height: 1;
   letter-spacing: -0.04em;
 }
@@ -5461,13 +5557,13 @@ textarea {
 
 .ega-score-subject__title strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-score-subject__title span,
 .ega-score-subject__warning {
   color: var(--ega-muted);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
 }
 
 .ega-score-subject__warning {
@@ -5491,7 +5587,7 @@ textarea {
 .ega-score-subject__inputs label span,
 .ega-score-subject__net span {
   color: #5e7696;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
   font-weight: 900;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -5520,7 +5616,7 @@ textarea {
 .ega-score-subject__net strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: calc(1.4rem * var(--ega-heading-scale, 1));
   line-height: 1;
 }
 
@@ -5543,7 +5639,7 @@ textarea {
 
 .ega-score-result-card__score span,
 .ega-score-result-card__stats span {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -5551,7 +5647,7 @@ textarea {
 
 .ega-score-result-card__score strong {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 6vw, 4.4rem);
+  font-size: calc(clamp(3rem, 6vw, 4.4rem) * var(--ega-heading-scale, 1));
   line-height: 0.9;
 }
 
@@ -5572,7 +5668,7 @@ textarea {
 .ega-score-result-card__stats strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1.45rem;
+  font-size: calc(1.45rem * var(--ega-heading-scale, 1));
 }
 
 .ega-score-result-card__alert {
@@ -5718,7 +5814,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2.7rem, 5vw, 4.8rem);
+  font-size: calc(clamp(2.7rem, 5vw, 4.8rem) * var(--ega-heading-scale, 1));
   line-height: 0.94;
   letter-spacing: -0.05em;
   text-wrap: balance;
@@ -5728,7 +5824,7 @@ textarea {
   max-width: 78ch;
   margin: 0;
   color: var(--ega-muted);
-  font-size: 1.04rem;
+  font-size: calc(1.04rem * var(--ega-text-scale, 1));
   line-height: 1.78;
 }
 
@@ -5741,7 +5837,7 @@ textarea {
   border-radius: 999px;
   background: rgba(11, 52, 102, 0.08);
   color: var(--ega-blue-900);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -5785,7 +5881,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  font-size: calc(clamp(1.7rem, 3vw, 2.3rem) * var(--ega-heading-scale, 1));
   line-height: 1.04;
 }
 
@@ -5831,7 +5927,7 @@ textarea {
 
 .ega-exam-countdown-card__head span {
   font-family: var(--font-display);
-  font-size: 1.68rem;
+  font-size: calc(1.68rem * var(--ega-heading-scale, 1));
   line-height: 1.02;
 }
 
@@ -5866,7 +5962,7 @@ textarea {
   justify-content: center;
   min-height: 52px;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 2.7rem);
+  font-size: calc(clamp(2rem, 4vw, 2.7rem) * var(--ega-heading-scale, 1));
   line-height: 0.96;
 }
 
@@ -5878,7 +5974,7 @@ textarea {
 
 .ega-exam-countdown-card__metric span {
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -5897,7 +5993,7 @@ textarea {
 
 .ega-exam-countdown-card__pending strong {
   font-family: var(--font-display);
-  font-size: 1.42rem;
+  font-size: calc(1.42rem * var(--ega-heading-scale, 1));
   line-height: 1.05;
 }
 
@@ -5920,7 +6016,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  font-size: calc(clamp(2rem, 3.4vw, 2.9rem) * var(--ega-heading-scale, 1));
   line-height: 1;
 }
 
@@ -5970,7 +6066,7 @@ textarea {
 
 .ega-exam-rings__session-head span {
   color: var(--ega-teal-700);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -5979,7 +6075,7 @@ textarea {
 .ega-exam-rings__session-head strong {
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-size: calc(clamp(1.35rem, 2.2vw, 1.75rem) * var(--ega-heading-scale, 1));
   line-height: 1.06;
 }
 
@@ -6002,7 +6098,7 @@ textarea {
 }
 
 .ega-exam-rings__grid--compact .ega-exam-ring__core strong {
-  font-size: clamp(2.25rem, 4vw, 3.2rem);
+  font-size: calc(clamp(2.25rem, 4vw, 3.2rem) * var(--ega-text-scale, 1));
 }
 
 .ega-exam-ring {
@@ -6050,7 +6146,7 @@ textarea {
 
 .ega-exam-ring__core span {
   color: #5e7696;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.28em;
   text-transform: uppercase;
@@ -6060,7 +6156,7 @@ textarea {
   min-width: 2ch;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 5vw, 4rem);
+  font-size: calc(clamp(2.8rem, 5vw, 4rem) * var(--ega-heading-scale, 1));
   line-height: 0.88;
 }
 
@@ -6073,7 +6169,7 @@ textarea {
 
 .ega-exam-rings__meta strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-exam-rings__meta span {
@@ -6209,7 +6305,7 @@ textarea {
 .ega-empty-state h2 {
   margin: 0 0 10px;
   font-family: var(--font-display);
-  font-size: 1.9rem;
+  font-size: calc(1.9rem * var(--ega-heading-scale, 1));
   line-height: 1.06;
 }
 
@@ -6235,7 +6331,7 @@ textarea {
   position: relative;
   padding: 20px 56px 20px 22px;
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-heading-scale, 1));
   cursor: pointer;
   list-style: none;
 }
@@ -6258,7 +6354,7 @@ textarea {
   border-radius: 999px;
   color: var(--ega-blue-900);
   background: rgba(11, 52, 102, 0.08);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -6319,7 +6415,7 @@ textarea {
 .ega-cta-panel__copy h2 {
   margin: 16px 0 10px;
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-size: calc(clamp(1.8rem, 3vw, 2.5rem) * var(--ega-heading-scale, 1));
   line-height: 1.06;
 }
 
@@ -6393,7 +6489,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-heading-scale, 1));
   letter-spacing: 0;
 }
 
@@ -6460,7 +6556,7 @@ textarea {
 
 .ega-footer__contact-address span {
   color: var(--ega-muted);
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 900;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -6469,12 +6565,12 @@ textarea {
 .ega-footer__contact-phone strong,
 .ega-footer__contact-address strong {
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-heading-scale, 1));
   letter-spacing: -0.02em;
 }
 
 .ega-footer__contact-address strong {
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-heading-scale, 1));
   line-height: 1.35;
 }
 
@@ -6491,7 +6587,7 @@ textarea {
   width: min(var(--ega-max-width), calc(100% - 32px));
   margin: 18px auto 0;
   color: var(--ega-muted);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
 }
 
 .ega-contact-bookmark {
@@ -6702,7 +6798,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 205, 138, 0.4);
   color: #9d5c0d;
-  font-size: 0.84rem;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.01em;
 }
@@ -6717,7 +6813,7 @@ textarea {
   max-width: 10.5ch;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(3rem, 5vw, 5.2rem);
+  font-size: calc(clamp(3rem, 5vw, 5.2rem) * var(--ega-heading-scale, 1));
   line-height: 0.9;
   letter-spacing: -0.055em;
 }
@@ -6726,7 +6822,7 @@ textarea {
   max-width: 48ch;
   margin: 0;
   color: var(--ega-muted);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.76;
 }
 
@@ -6775,7 +6871,7 @@ textarea {
 
 .ega-auth-highlight-card strong {
   color: var(--ega-blue-900);
-  font-size: 1.02rem;
+  font-size: calc(1.02rem * var(--ega-text-scale, 1));
   line-height: 1.5;
 }
 
@@ -6796,13 +6892,13 @@ textarea {
 }
 
 .ega-auth-showcase__stat strong {
-  font-size: 1.08rem;
+  font-size: calc(1.08rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
 .ega-auth-showcase__stat span {
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.93rem;
+  font-size: calc(0.93rem * var(--ega-text-scale, 1));
   line-height: 1.58;
 }
 
@@ -6825,7 +6921,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.4vw, 3.1rem);
+  font-size: calc(clamp(2rem, 3.4vw, 3.1rem) * var(--ega-heading-scale, 1));
   line-height: 0.96;
   letter-spacing: -0.045em;
 }
@@ -6886,7 +6982,7 @@ textarea {
   margin: 0;
   max-width: 12ch;
   font-family: var(--font-display);
-  font-size: clamp(2.3rem, 4vw, 3.8rem);
+  font-size: calc(clamp(2.3rem, 4vw, 3.8rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
 }
@@ -6917,14 +7013,14 @@ textarea {
 .ega-auth-card h1 {
   margin: 14px 0 10px;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: calc(clamp(2rem, 4vw, 3rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
 }
 
 .ega-auth-card h2 {
   margin: 14px 0 10px;
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.55rem);
+  font-size: calc(clamp(1.8rem, 3vw, 2.55rem) * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.035em;
 }
@@ -6957,7 +7053,7 @@ textarea {
 }
 
 .ega-field label {
-  font-size: 0.94rem;
+  font-size: calc(0.94rem * var(--ega-text-scale, 1));
   font-weight: 700;
   color: var(--ega-blue-900);
 }
@@ -7001,7 +7097,7 @@ textarea {
 
 .ega-inline-note {
   color: var(--ega-muted);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
 }
 
 .ega-inline-links {
@@ -7027,7 +7123,7 @@ textarea {
 .ega-auth-card__footer-note {
   margin-top: 18px;
   color: var(--ega-muted);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   line-height: 1.7;
 }
 
@@ -7087,7 +7183,7 @@ textarea {
 .ega-dashboard-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 4vw, 4rem);
+  font-size: calc(clamp(2.4rem, 4vw, 4rem) * var(--ega-heading-scale, 1));
   line-height: 0.95;
   letter-spacing: -0.05em;
 }
@@ -7117,7 +7213,7 @@ textarea {
 
 .ega-dashboard-completion strong {
   font-family: var(--font-display);
-  font-size: 2.4rem;
+  font-size: calc(2.4rem * var(--ega-heading-scale, 1));
   line-height: 0.96;
   color: var(--ega-blue-900);
 }
@@ -7148,7 +7244,7 @@ textarea {
 
 .ega-dashboard-kpi strong {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-size: calc(clamp(1.5rem, 2vw, 2rem) * var(--ega-heading-scale, 1));
   line-height: 1;
   color: var(--ega-blue-900);
   min-width: 0;
@@ -7163,7 +7259,7 @@ textarea {
 .ega-dashboard-kpi__status {
   display: block;
   max-width: 100%;
-  font-size: clamp(1.05rem, 2vw, 1.45rem) !important;
+  font-size: calc(clamp(1.05rem, 2vw, 1.45rem) * var(--ega-text-scale, 1)) !important;
   line-height: 1.12 !important;
   white-space: normal;
 }
@@ -7191,7 +7287,7 @@ textarea {
 .ega-dashboard-card__head h2 {
   margin: 12px 0 0;
   font-family: var(--font-display);
-  font-size: 1.8rem;
+  font-size: calc(1.8rem * var(--ega-heading-scale, 1));
   line-height: 1.02;
   letter-spacing: -0.035em;
 }
@@ -7207,7 +7303,7 @@ textarea {
   border: 1px solid rgba(11, 52, 102, 0.1);
   background: rgba(243, 247, 251, 0.78);
   color: var(--ega-blue-900);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1;
   text-align: center;
@@ -7276,12 +7372,12 @@ textarea {
 
 .ega-student-order-item__top strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
 }
 
 .ega-student-order-item__meta {
   color: var(--ega-muted);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
 }
 
 .ega-student-orders__detail {
@@ -7308,7 +7404,7 @@ textarea {
 
 .ega-student-order-items__card strong {
   color: var(--ega-blue-900);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   line-height: 1.35;
 }
 
@@ -7345,14 +7441,14 @@ textarea {
 .ega-checkout-summary h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.5vw, 3.2rem);
+  font-size: calc(clamp(2rem, 3.5vw, 3.2rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.045em;
 }
 
 .ega-checkout-summary__price {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 2.8rem);
+  font-size: calc(clamp(2rem, 3vw, 2.8rem) * var(--ega-heading-scale, 1));
   line-height: 1;
   letter-spacing: -0.04em;
   color: var(--ega-blue-900);
@@ -7386,7 +7482,7 @@ textarea {
 .ega-checkout-linkbox h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.45rem;
+  font-size: calc(1.45rem * var(--ega-heading-scale, 1));
   line-height: 1.08;
 }
 
@@ -7604,7 +7700,7 @@ textarea {
 
   .ega-mobile-nav__head strong {
     font-family: var(--font-display);
-    font-size: 1.45rem;
+    font-size: calc(1.45rem * var(--ega-heading-scale, 1));
     color: var(--ega-blue-900);
   }
 
@@ -7615,7 +7711,7 @@ textarea {
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.92);
     color: var(--ega-blue-900);
-    font-size: 1.5rem;
+    font-size: calc(1.5rem * var(--ega-text-scale, 1));
     line-height: 1;
     cursor: pointer;
   }
@@ -7662,7 +7758,7 @@ textarea {
     border-radius: 18px;
     background: rgba(247, 251, 255, 0.94);
     color: var(--ega-blue-900);
-    font-size: 1.55rem;
+    font-size: calc(1.55rem * var(--ega-text-scale, 1));
     cursor: pointer;
   }
 
@@ -7847,6 +7943,10 @@ textarea {
 }
 
 @media (min-width: 781px) and (max-width: 1080px) {
+  .ega-header__inner {
+    min-height: max(78px, calc(min(var(--ega-navbar-logo-height, 0px), 64px) + 20px));
+  }
+
   .ega-brand__logo--desktop {
     display: none;
   }
@@ -7855,19 +7955,19 @@ textarea {
     display: block;
     width: auto;
     max-width: min(150px, 30vw);
-    max-height: 48px;
+    max-height: min(calc(var(--ega-navbar-logo-height, 52px) * 48 / 52), 64px);
   }
 }
 
 @media (max-width: 780px) {
   .ega-header__inner {
-    min-height: 68px;
+    min-height: max(68px, calc(min(var(--ega-navbar-logo-height, 0px), 56px) + 16px));
   }
 
   .ega-brand__logo {
     width: auto;
     max-width: min(136px, 46vw);
-    max-height: 42px;
+    max-height: min(calc(var(--ega-navbar-logo-height, 52px) * 42 / 52), 56px);
   }
 
   .ega-brand__logo--desktop {
@@ -7878,7 +7978,7 @@ textarea {
     display: block;
     width: auto;
     max-width: min(120px, 42vw);
-    max-height: 42px;
+    max-height: min(calc(var(--ega-navbar-logo-height, 52px) * 42 / 52), 56px);
   }
 
   .ega-header__actions {
@@ -7924,7 +8024,7 @@ textarea {
 
   .ega-auth-showcase__copy h1 {
     max-width: none;
-    font-size: clamp(2.5rem, 12vw, 4.2rem);
+    font-size: calc(clamp(2.5rem, 12vw, 4.2rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-form-grid--auth {
@@ -8004,7 +8104,7 @@ textarea {
   }
 
   .ega-coaching-hero__copy h1 {
-    font-size: clamp(2.6rem, 13vw, 4.4rem);
+    font-size: calc(clamp(2.6rem, 13vw, 4.4rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-coaching-hero__copy p,
@@ -8021,7 +8121,7 @@ textarea {
   }
 
   .ega-coaching-hero__scene-card strong {
-    font-size: 1.5rem;
+    font-size: calc(1.5rem * var(--ega-heading-scale, 1));
   }
 
   .ega-coaching-hero__scene-mini {
@@ -8132,11 +8232,11 @@ textarea {
 
   .ega-showcase-hero__main .ega-hero-gallery__copy h2 {
     max-width: 10.5ch;
-    font-size: clamp(2.25rem, 11vw, 3.6rem);
+    font-size: calc(clamp(2.25rem, 11vw, 3.6rem) * var(--ega-text-scale, 1));
   }
 
   .ega-showcase-hero__main .ega-hero-gallery__copy p {
-    font-size: 0.98rem;
+    font-size: calc(0.98rem * var(--ega-text-scale, 1));
     line-height: 1.7;
   }
 
@@ -8288,7 +8388,7 @@ textarea {
 
 .ega-lms-course-card__top strong {
   font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-size: calc(clamp(1.2rem, 2vw, 1.5rem) * var(--ega-heading-scale, 1));
   color: #102a4d;
 }
 
@@ -8303,7 +8403,7 @@ textarea {
   flex-wrap: wrap;
   gap: 10px;
   color: rgba(16, 42, 77, 0.7);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
 }
 
 .ega-lms-course-card__cta {
@@ -8326,7 +8426,7 @@ textarea {
 }
 
 .ega-lms-module-card > strong {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--ega-text-scale, 1));
   color: #102a4d;
 }
 
@@ -8367,7 +8467,7 @@ textarea {
 
 .ega-lms-lesson-button span {
   color: rgba(16, 42, 77, 0.72);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
 }
 
 .ega-lms-player-shell {
@@ -8395,7 +8495,7 @@ textarea {
 
 .ega-lms-video-placeholder strong {
   font-family: var(--font-display);
-  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-size: calc(clamp(1.3rem, 2vw, 1.8rem) * var(--ega-heading-scale, 1));
 }
 
 .ega-lms-lesson-copy {
@@ -8420,7 +8520,7 @@ textarea {
   border-radius: 999px;
   background: rgba(15, 90, 126, 0.08);
   color: #0f4e79;
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
   font-weight: 700;
 }
 
@@ -8447,7 +8547,7 @@ textarea {
 
 .ega-lms-resource-card span {
   color: rgba(16, 42, 77, 0.68);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
 }
 
 @media (max-width: 1100px) {
@@ -8533,7 +8633,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.64);
   color: var(--ega-blue-900);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
 }
 
@@ -8549,7 +8649,7 @@ textarea {
   max-width: 18ch;
   color: #fff;
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 2.8vw, 3.15rem);
+  font-size: calc(clamp(1.8rem, 2.8vw, 3.15rem) * var(--ega-heading-scale, 1));
   font-weight: 650;
   line-height: 1.03;
   letter-spacing: 0;
@@ -8560,7 +8660,7 @@ textarea {
   margin: 0;
   max-width: 44ch;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 1.01rem;
+  font-size: calc(1.01rem * var(--ega-text-scale, 1));
   line-height: 1.72;
 }
 
@@ -8588,7 +8688,7 @@ textarea {
   min-height: 42px;
   padding: 0 16px;
   border-radius: 999px;
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 900;
   text-decoration: none;
   transition:
@@ -8624,7 +8724,7 @@ textarea {
 
 .ega-showcase-hero__indicator-count {
   color: rgba(255, 255, 255, 0.86);
-  font-size: 0.92rem;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.18em;
 }
@@ -8763,14 +8863,14 @@ textarea {
 }
 
 .ega-showcase-action-icon__label strong {
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1.1;
 }
 
 .ega-showcase-action-icon__label small {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.79rem;
+  font-size: calc(0.79rem * var(--ega-text-scale, 1));
   line-height: 1.35;
 }
 
@@ -8821,7 +8921,7 @@ textarea {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.94);
   color: var(--ega-blue-900);
-  font-size: 1.65rem;
+  font-size: calc(1.65rem * var(--ega-text-scale, 1));
   line-height: 1;
   cursor: pointer;
 }
@@ -8841,7 +8941,7 @@ textarea {
   margin: 0;
   color: var(--ega-blue-900);
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  font-size: calc(clamp(1.8rem, 3.2vw, 2.6rem) * var(--ega-heading-scale, 1));
   line-height: 0.98;
   letter-spacing: -0.04em;
 }
@@ -8963,7 +9063,7 @@ textarea {
   padding: 10px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -8971,14 +9071,14 @@ textarea {
 
 .ega-showcase-hero__placeholder strong {
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 2.15vw, 1.95rem);
+  font-size: calc(clamp(1.4rem, 2.15vw, 1.95rem) * var(--ega-heading-scale, 1));
   line-height: 1.05;
 }
 
 .ega-showcase-hero__placeholder span {
   max-width: 28ch;
   color: rgba(255, 255, 255, 0.86);
-  font-size: 0.94rem;
+  font-size: calc(0.94rem * var(--ega-text-scale, 1));
   line-height: 1.56;
 }
 
@@ -9007,7 +9107,7 @@ textarea {
   border-radius: 999px;
   background: rgba(9, 28, 51, 0.34);
   color: #fff;
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--ega-text-scale, 1));
   line-height: 1;
   cursor: pointer;
 }
@@ -9110,12 +9210,12 @@ textarea {
 
   .ega-showcase-hero__copy h2 {
     max-width: 100%;
-    font-size: clamp(1.75rem, 8.4vw, 2.65rem);
+    font-size: calc(clamp(1.75rem, 8.4vw, 2.65rem) * var(--ega-heading-scale, 1));
     line-height: 1.06;
   }
 
   .ega-showcase-hero__copy p {
-    font-size: 0.98rem;
+    font-size: calc(0.98rem * var(--ega-text-scale, 1));
     line-height: 1.7;
   }
 
@@ -9188,7 +9288,7 @@ textarea {
   }
 
   .ega-exam-hero__intro h1 {
-    font-size: clamp(2rem, 5.6vw, 2.4rem);
+    font-size: calc(clamp(2rem, 5.6vw, 2.4rem) * var(--ega-heading-scale, 1));
     line-height: 1.04;
   }
 
@@ -9235,7 +9335,7 @@ textarea {
     border-top: 0;
     background: linear-gradient(135deg, rgba(17, 69, 125, 0.96), rgba(28, 155, 151, 0.92));
     color: #ffffff;
-    font-size: 1.02rem;
+    font-size: calc(1.02rem * var(--ega-text-scale, 1));
   }
 
   .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:not(.ega-why-gurmesi__cell--feature) {
@@ -9247,7 +9347,7 @@ textarea {
 
   .ega-why-gurmesi__row:not(.ega-why-gurmesi__row--head) .ega-why-gurmesi__cell:not(.ega-why-gurmesi__cell--feature)::before {
     color: #5c7698;
-    font-size: 0.75rem;
+    font-size: calc(0.75rem * var(--ega-text-scale, 1));
     font-weight: 900;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -9327,14 +9427,14 @@ textarea {
 
   .ega-auth-showcase__copy h1 {
     max-width: 15ch;
-    font-size: clamp(2rem, 8.2vw, 2.45rem);
+    font-size: calc(clamp(2rem, 8.2vw, 2.45rem) * var(--ega-heading-scale, 1));
     line-height: 1.02;
     letter-spacing: -0.045em;
   }
 
   .ega-auth-showcase__copy p,
   .ega-auth-panel__head p {
-    font-size: 0.95rem;
+    font-size: calc(0.95rem * var(--ega-text-scale, 1));
     line-height: 1.62;
   }
 
@@ -9343,7 +9443,7 @@ textarea {
   }
 
   .ega-auth-panel__head h2 {
-    font-size: clamp(1.8rem, 7vw, 2.4rem);
+    font-size: calc(clamp(1.8rem, 7vw, 2.4rem) * var(--ega-heading-scale, 1));
     line-height: 1.03;
   }
 
@@ -9404,13 +9504,13 @@ textarea {
   }
 
   .ega-exam-hero__intro h1 {
-    font-size: clamp(2rem, 8.2vw, 2.35rem);
+    font-size: calc(clamp(2rem, 8.2vw, 2.35rem) * var(--ega-heading-scale, 1));
     line-height: 1.03;
     letter-spacing: -0.04em;
   }
 
   .ega-exam-hero__intro p {
-    font-size: 0.96rem;
+    font-size: calc(0.96rem * var(--ega-text-scale, 1));
     line-height: 1.65;
   }
 
@@ -9420,7 +9520,7 @@ textarea {
   }
 
   .ega-exam-rings__heading h2 {
-    font-size: clamp(1.65rem, 7vw, 2.15rem);
+    font-size: calc(clamp(1.65rem, 7vw, 2.15rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-exam-ring__visual,
@@ -9430,7 +9530,7 @@ textarea {
 
   .ega-exam-ring__core strong,
   .ega-exam-rings__grid--compact .ega-exam-ring__core strong {
-    font-size: clamp(2.2rem, 10vw, 3rem);
+    font-size: calc(clamp(2.2rem, 10vw, 3rem) * var(--ega-text-scale, 1));
   }
 }
 
@@ -9468,7 +9568,7 @@ textarea {
     max-width: calc(100vw - 120px);
     min-height: 48px;
     padding: 0 16px;
-    font-size: 0.9rem;
+    font-size: calc(0.9rem * var(--ega-text-scale, 1));
   }
 
   .ega-showcase-hero__indicator {
@@ -9574,7 +9674,7 @@ textarea {
     max-width: calc(100vw - 132px);
     min-height: 44px;
     padding-inline: 13px;
-    font-size: 0.84rem;
+    font-size: calc(0.84rem * var(--ega-text-scale, 1));
   }
 
   .ega-instagram-float,
@@ -9601,12 +9701,12 @@ textarea {
   }
 
   .ega-staff-showcase__head h2 {
-    font-size: clamp(1.85rem, 8vw, 2.45rem);
+    font-size: calc(clamp(1.85rem, 8vw, 2.45rem) * var(--ega-heading-scale, 1));
     line-height: 1.04;
   }
 
   .ega-staff-showcase__head p {
-    font-size: 0.95rem;
+    font-size: calc(0.95rem * var(--ega-text-scale, 1));
     line-height: 1.65;
   }
 
@@ -9659,13 +9759,13 @@ textarea {
   .ega-pack-card__title {
     min-height: 0;
     margin: 13px 0 8px;
-    font-size: 1.12rem;
+    font-size: calc(1.12rem * var(--ega-heading-scale, 1));
     line-height: 1.12;
   }
 
   .ega-pack-card__subtitle {
     min-height: 0;
-    font-size: 0.88rem;
+    font-size: calc(0.88rem * var(--ega-text-scale, 1));
     line-height: 1.45;
   }
 
@@ -9681,12 +9781,12 @@ textarea {
 
   .ega-pack-card__features li {
     padding-left: 20px;
-    font-size: 0.86rem;
+    font-size: calc(0.86rem * var(--ega-text-scale, 1));
     line-height: 1.34;
   }
 
   .ega-pack-card__features li strong {
-    font-size: 0.86rem;
+    font-size: calc(0.86rem * var(--ega-text-scale, 1));
     line-height: 1.28;
   }
 
@@ -9710,7 +9810,7 @@ textarea {
     background: rgba(243, 248, 252, 0.9);
     color: var(--ega-blue-900);
     font: inherit;
-    font-size: 0.86rem;
+    font-size: calc(0.86rem * var(--ega-text-scale, 1));
     font-weight: 900;
     cursor: pointer;
   }
@@ -9729,12 +9829,12 @@ textarea {
   }
 
   .ega-why-gurmesi__head h2 {
-    font-size: clamp(1.75rem, 7vw, 2.25rem);
+    font-size: calc(clamp(1.75rem, 7vw, 2.25rem) * var(--ega-heading-scale, 1));
     line-height: 1.04;
   }
 
   .ega-why-gurmesi__head p {
-    font-size: 0.94rem;
+    font-size: calc(0.94rem * var(--ega-text-scale, 1));
     line-height: 1.6;
   }
 
@@ -9775,14 +9875,14 @@ textarea {
     background: linear-gradient(135deg, rgba(13, 62, 119, 0.96), rgba(25, 157, 151, 0.92));
     color: #ffffff;
     font: inherit;
-    font-size: 0.9rem;
+    font-size: calc(0.9rem * var(--ega-text-scale, 1));
     font-weight: 900;
     box-shadow: 0 12px 26px rgba(8, 33, 63, 0.14);
     cursor: pointer;
   }
 
   .ega-exam-hero__intro h1 {
-    font-size: clamp(1.9rem, 8vw, 2.35rem);
+    font-size: calc(clamp(1.9rem, 8vw, 2.35rem) * var(--ega-heading-scale, 1));
     line-height: 1.03;
     letter-spacing: -0.04em;
   }
@@ -9801,11 +9901,11 @@ textarea {
   }
 
   .ega-exam-rings__heading h2 {
-    font-size: clamp(1.5rem, 6vw, 1.95rem);
+    font-size: calc(clamp(1.5rem, 6vw, 1.95rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-exam-rings__heading p {
-    font-size: 0.92rem;
+    font-size: calc(0.92rem * var(--ega-text-scale, 1));
     line-height: 1.55;
   }
 
@@ -9827,11 +9927,11 @@ textarea {
 
   .ega-exam-ring__core strong,
   .ega-exam-rings__grid--compact .ega-exam-ring__core strong {
-    font-size: clamp(1.85rem, 9vw, 2.55rem);
+    font-size: calc(clamp(1.85rem, 9vw, 2.55rem) * var(--ega-text-scale, 1));
   }
 
   .ega-exam-ring__core span {
-    font-size: 0.66rem;
+    font-size: calc(0.66rem * var(--ega-text-scale, 1));
     letter-spacing: 0.22em;
   }
 
@@ -9856,7 +9956,7 @@ textarea {
     background: transparent;
     color: var(--ega-blue-900);
     font: inherit;
-    font-size: 0.88rem;
+    font-size: calc(0.88rem * var(--ega-text-scale, 1));
     font-weight: 900;
     cursor: pointer;
   }
@@ -9883,15 +9983,15 @@ textarea {
   }
 
   .ega-exam-rings__session-head span {
-    font-size: 0.76rem;
+    font-size: calc(0.76rem * var(--ega-text-scale, 1));
   }
 
   .ega-exam-rings__session-head strong {
-    font-size: clamp(1.08rem, 5vw, 1.3rem);
+    font-size: calc(clamp(1.08rem, 5vw, 1.3rem) * var(--ega-heading-scale, 1));
   }
 
   .ega-exam-rings__session-head p {
-    font-size: 0.9rem;
+    font-size: calc(0.9rem * var(--ega-text-scale, 1));
     line-height: 1.45;
   }
 
@@ -9923,7 +10023,7 @@ textarea {
 
   .ega-exam-ring__core strong,
   .ega-exam-rings__grid--compact .ega-exam-ring__core strong {
-    font-size: clamp(1.7rem, 8vw, 2.15rem);
+    font-size: calc(clamp(1.7rem, 8vw, 2.15rem) * var(--ega-text-scale, 1));
   }
 }
 
@@ -9977,12 +10077,12 @@ textarea {
   background: rgba(14, 165, 164, 0.13);
   color: #0f766e;
   font-weight: 900;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
 }
 
 .ega-session-modal__card h2 {
   margin: 0;
-  font-size: clamp(1.5rem, 6vw, 2.2rem);
+  font-size: calc(clamp(1.5rem, 6vw, 2.2rem) * var(--ega-text-scale, 1));
   letter-spacing: -0.045em;
 }
 
@@ -10015,7 +10115,7 @@ textarea {
   padding: 10px 16px;
   background: #102f55;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--ega-text-scale, 1));
   line-height: 1.4;
   text-align: center;
 }
@@ -10050,7 +10150,7 @@ textarea {
 @media (max-width: 600px) {
   .ega-preview-banner {
     padding: 10px 12px;
-    font-size: 0.84rem;
+    font-size: calc(0.84rem * var(--ega-text-scale, 1));
   }
 }
 
@@ -10115,7 +10215,7 @@ textarea {
   gap: 10px;
   margin-bottom: 10px;
   color: var(--ega-section-accent, #0d7a86);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -10233,13 +10333,13 @@ textarea {
 }
 
 .ega-materials-explorer__item-text strong {
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--ega-text-scale, 1));
   font-weight: 800;
   line-height: 1.3;
 }
 
 .ega-materials-explorer__item-text small {
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   opacity: 0.82;
 }
 
@@ -10320,20 +10420,20 @@ textarea {
   padding: 8px 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.28);
-  font-size: 0.76rem;
+  font-size: calc(0.76rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .ega-material-stage__placeholder strong {
-  font-size: 1.28rem;
+  font-size: calc(1.28rem * var(--ega-text-scale, 1));
   line-height: 1.25;
 }
 
 .ega-material-stage__index {
   align-self: end;
-  font-size: 2.6rem;
+  font-size: calc(2.6rem * var(--ega-text-scale, 1));
   font-weight: 900;
   opacity: 0.32;
 }
@@ -10416,7 +10516,7 @@ textarea {
 
 .ega-material-stage__kicker {
   color: var(--ega-tone, #1f5fa8);
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -10424,7 +10524,7 @@ textarea {
 
 .ega-material-stage__copy h3 {
   margin: 0;
-  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  font-size: calc(clamp(1.3rem, 2.4vw, 1.9rem) * var(--ega-text-scale, 1));
   line-height: 1.18;
 }
 
@@ -10436,10 +10536,726 @@ textarea {
 
 .ega-material-stage__file {
   color: rgba(9, 36, 63, 0.58);
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--ega-text-scale, 1));
 }
 
 .ega-material-stage__action {
   justify-self: start;
   margin-top: 4px;
+}
+
+/*
+ * Ucretsiz Materyaller hub: ten tool cards, five per side, with a preview in
+ * the middle. Restored from the original page design (commit 503ec18) on the
+ * customer request, under its own class names so it cannot collide with the
+ * category-page styles.
+ */
+.ega-free-hub-surface {
+  display: grid;
+  gap: 28px;
+}
+
+.ega-free-hub-head {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.ega-free-hub-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(clamp(2.4rem, 4.6vw, 4.4rem) * var(--ega-heading-scale, 1));
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  color: var(--ega-blue-900);
+}
+
+.ega-free-hub-board {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.32fr) minmax(0, 0.92fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.ega-free-hub-column {
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 14px;
+}
+
+.ega-free-hub-category {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  font: inherit;
+  padding: 18px 18px 17px;
+  border: 1px solid rgba(11, 52, 102, 0.12);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 28px rgba(8, 33, 63, 0.08);
+  color: var(--ega-blue-900);
+  text-align: left;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  cursor: pointer;
+}
+
+.ega-free-hub-category[data-active="true"] {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 24px 42px rgba(8, 33, 63, 0.12);
+  color: #ffffff;
+}
+
+.ega-free-hub-category strong {
+  font-family: var(--font-display);
+  font-size: calc(1.08rem * var(--ega-heading-scale, 1));
+  line-height: 1.08;
+}
+
+.ega-free-hub-category span {
+  color: #577492;
+  font-size: calc(0.84rem * var(--ega-text-scale, 1));
+  font-weight: 700;
+}
+
+.ega-free-hub-category[data-active="true"] span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.ega-free-hub-category[data-tone="gold"] {
+  background: linear-gradient(145deg, #fff9eb, #fff1cf);
+}
+
+.ega-free-hub-category[data-tone="gold"][data-active="true"] {
+  background: linear-gradient(145deg, #e9a324, #ffcd63);
+}
+
+.ega-free-hub-category[data-tone="amber"] {
+  background: linear-gradient(145deg, #fff0df, #ffe1bc);
+}
+
+.ega-free-hub-category[data-tone="amber"][data-active="true"] {
+  background: linear-gradient(145deg, #ef8c24, #ffb853);
+}
+
+.ega-free-hub-category[data-tone="blue"] {
+  background: linear-gradient(145deg, #e9f2ff, #d5e5ff);
+}
+
+.ega-free-hub-category[data-tone="blue"][data-active="true"] {
+  background: linear-gradient(145deg, #2760b8, #4c85da);
+}
+
+.ega-free-hub-category[data-tone="teal"] {
+  background: linear-gradient(145deg, #def7f3, #c8f1ec);
+}
+
+.ega-free-hub-category[data-tone="teal"][data-active="true"] {
+  background: linear-gradient(145deg, #138793, #2fb9b8);
+}
+
+.ega-free-hub-category[data-tone="violet"] {
+  background: linear-gradient(145deg, #edeaff, #dfd9ff);
+}
+
+.ega-free-hub-category[data-tone="violet"][data-active="true"] {
+  background: linear-gradient(145deg, #5a55b9, #7b6fe1);
+}
+
+.ega-free-hub-category[data-tone="green"] {
+  background: linear-gradient(145deg, #e4f9eb, #d0f1dd);
+}
+
+.ega-free-hub-category[data-tone="green"][data-active="true"] {
+  background: linear-gradient(145deg, #16956d, #35b78c);
+}
+
+.ega-free-hub-category[data-tone="orange"] {
+  background: linear-gradient(145deg, #fff0e2, #ffd7bc);
+}
+
+.ega-free-hub-category[data-tone="orange"][data-active="true"] {
+  background: linear-gradient(145deg, #d96c2b, #f39b57);
+}
+
+.ega-free-hub-category[data-tone="pink"] {
+  background: linear-gradient(145deg, #fff0f5, #ffd9e6);
+}
+
+.ega-free-hub-category[data-tone="pink"][data-active="true"] {
+  background: linear-gradient(145deg, #c14d82, #e27ba9);
+}
+
+.ega-free-hub-category[data-tone="navy"] {
+  background: linear-gradient(145deg, #e3ecfb, #d1def6);
+}
+
+.ega-free-hub-category[data-tone="navy"][data-active="true"] {
+  background: linear-gradient(145deg, #173a67, #2a5e9b);
+}
+
+.ega-free-hub-preview {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-height: 0;
+  padding: 28px;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 34px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(243, 250, 255, 0.98));
+  box-shadow: 0 28px 60px rgba(8, 33, 63, 0.14);
+}
+
+.ega-free-hub-preview__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ega-free-hub-preview__counter {
+  color: #6f88a2;
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.ega-free-hub-preview__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.08);
+  color: var(--ega-blue-900);
+  font-size: calc(0.8rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+}
+
+.ega-free-hub-preview__stage {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.92fr) minmax(0, 1fr);
+  gap: 20px;
+  min-height: 0;
+  height: 100%;
+}
+
+.ega-free-hub-preview__media {
+  display: flex;
+  min-height: 360px;
+}
+
+.ega-free-hub-preview__media-shell {
+  position: relative;
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  width: 100%;
+  padding: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 28px;
+  color: #ffffff;
+}
+
+.ega-free-hub-preview__media-shell::before,
+.ega-free-hub-preview__media-shell::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  opacity: 0.28;
+}
+
+.ega-free-hub-preview__media-shell::before {
+  width: 220px;
+  height: 220px;
+  right: -46px;
+  top: -42px;
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.ega-free-hub-preview__media-shell::after {
+  width: 160px;
+  height: 160px;
+  left: -34px;
+  bottom: -40px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ega-free-hub-preview__media-shell span,
+.ega-free-hub-preview__media-shell strong {
+  position: relative;
+  z-index: 1;
+}
+
+.ega-free-hub-preview__media-shell span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: calc(0.78rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ega-free-hub-preview__media-shell strong {
+  font-family: var(--font-display);
+  font-size: calc(clamp(2rem, 3vw, 2.9rem) * var(--ega-heading-scale, 1));
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+}
+
+.ega-free-hub-preview[data-tone="gold"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #d18d19, #ffc44d);
+}
+
+.ega-free-hub-preview[data-tone="amber"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #db7a11, #ffb347);
+}
+
+.ega-free-hub-preview[data-tone="blue"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #16468b, #4e7fca);
+}
+
+.ega-free-hub-preview[data-tone="teal"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #0f7f84, #34bbb6);
+}
+
+.ega-free-hub-preview[data-tone="violet"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #5243a8, #8679dc);
+}
+
+.ega-free-hub-preview[data-tone="green"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #18805b, #44ba8c);
+}
+
+.ega-free-hub-preview[data-tone="orange"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #c8641c, #ef9b58);
+}
+
+.ega-free-hub-preview[data-tone="pink"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #b64d78, #e691b1);
+}
+
+.ega-free-hub-preview[data-tone="navy"] .ega-free-hub-preview__media-shell {
+  background: linear-gradient(145deg, #122d4d, #2d5b93);
+}
+
+.ega-free-hub-preview__copy {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+}
+
+.ega-free-hub-preview__copy h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(clamp(2rem, 2.6vw, 2.7rem) * var(--ega-heading-scale, 1));
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  color: var(--ega-blue-900);
+}
+
+.ega-free-hub-preview__copy p {
+  margin: 0;
+  color: var(--ega-muted);
+  font-size: calc(1rem * var(--ega-text-scale, 1));
+  line-height: 1.8;
+}
+
+.ega-free-hub-preview__meta {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.ega-free-hub-preview__meta span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.08);
+  color: var(--ega-blue-900);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ega-free-hub-preview__meta small {
+  color: #64809c;
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
+  line-height: 1.7;
+}
+
+.ega-free-hub-options {
+  display: grid;
+  gap: 12px;
+}
+
+.ega-free-hub-options__group {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid rgba(11, 52, 102, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.ega-free-hub-options__group strong {
+  color: var(--ega-blue-900);
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
+}
+
+.ega-free-hub-options__group div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ega-free-hub-options__group a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: rgba(11, 52, 102, 0.08);
+  color: var(--ega-blue-900);
+  font-size: calc(0.86rem * var(--ega-text-scale, 1));
+  font-weight: 850;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.ega-free-hub-options__group a:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, var(--ega-blue-900), var(--ega-teal-700));
+  color: #ffffff;
+}
+
+.ega-free-hub-preview__action {
+  padding-top: 8px;
+}
+
+@media (max-width: 1100px) {
+
+  .ega-free-hub-board {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-free-hub-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ega-free-hub-preview {
+    min-height: 0;
+  }
+
+  .ega-free-hub-preview__stage {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-free-hub-preview__media,
+  .ega-free-hub-preview__copy {
+    min-height: 0;
+  }
+
+  .ega-free-hub-preview__media {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 720px) {
+
+
+  .ega-free-hub-surface {
+    gap: 20px;
+  }
+
+  .ega-free-hub-head h1 {
+    font-size: calc(clamp(2rem, 10vw, 3rem) * var(--ega-text-scale, 1));
+  }
+
+  .ega-free-hub-column {
+    grid-template-columns: 1fr;
+  }
+
+  .ega-free-hub-preview {
+    padding: 22px;
+    border-radius: 28px;
+  }
+
+  .ega-free-hub-preview__top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ega-free-hub-preview__copy h2 {
+    font-size: calc(clamp(1.8rem, 8vw, 2.5rem) * var(--ega-text-scale, 1));
+  }
+
+  .ega-free-hub-preview__media {
+    min-height: 220px;
+  }
+}
+
+.ega-free-hub-preview__action .ega-button {
+  cursor: pointer;
+}
+
+.ega-free-hub-preview__action .ega-button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* The editor-managed material cards, revealed under the board. */
+.ega-free-hub-materials {
+  display: grid;
+  gap: 18px;
+  margin-top: 48px;
+  /* Lands below the sticky header when scrolled into view. */
+  scroll-margin-top: calc(var(--ega-navbar-logo-height, 52px) + 60px);
+}
+
+.ega-free-hub-materials__head {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.ega-free-hub-materials__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: calc(clamp(1.8rem, 3vw, 2.6rem) * var(--ega-heading-scale, 1));
+  line-height: 1;
+  color: var(--ega-blue-900);
+}
+
+.ega-free-hub-materials__head p {
+  margin: 0;
+  color: var(--ega-muted);
+  line-height: 1.7;
+}
+
+.ega-free-hub-preview__action button.ega-button {
+  font-family: inherit;
+}
+
+/*
+ * Symmetric board (desktop): the two card stacks set the height and the
+ * middle card fills exactly that. `contain: size` stops the preview's own
+ * content from growing the row, so the board no longer jumps when a card with
+ * option links (YKS sayaçları, YKS puan) is previewed — that jump moved the
+ * cards under the pointer and made hovering flicker.
+ */
+@media (min-width: 1101px) {
+  .ega-free-hub-preview {
+    contain: size;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 22px;
+    overflow: hidden;
+    border-radius: 30px;
+  }
+
+  .ega-free-hub-preview__stage {
+    grid-template-columns: minmax(140px, 0.72fr) minmax(0, 1.28fr);
+    gap: 18px;
+    height: auto;
+    min-height: 0;
+  }
+
+  .ega-free-hub-preview__media {
+    min-height: 0;
+  }
+
+  .ega-free-hub-preview__media-shell {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  .ega-free-hub-preview__media-shell strong {
+    font-size: calc(clamp(1.35rem, 1.9vw, 1.9rem) * var(--ega-heading-scale, 1));
+  }
+
+  .ega-free-hub-preview__copy {
+    align-content: start;
+    gap: 12px;
+    min-height: 0;
+    /* Room for the button's shadow inside the clipped column. */
+    padding-bottom: 14px;
+    overflow: hidden;
+  }
+
+  .ega-free-hub-preview__copy h2 {
+    font-size: calc(clamp(1.4rem, 1.8vw, 1.85rem) * var(--ega-heading-scale, 1));
+    line-height: 1.02;
+  }
+
+  .ega-free-hub-preview__copy p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    font-size: calc(0.95rem * var(--ega-text-scale, 1));
+    line-height: 1.6;
+  }
+
+  .ega-free-hub-options__group {
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+
+  .ega-free-hub-options__group a {
+    min-height: 30px;
+    padding: 0 11px;
+  }
+
+  .ega-free-hub-preview__meta {
+    margin-top: 0;
+  }
+
+  .ega-free-hub-preview__action {
+    padding-top: 0;
+  }
+  /* Slimmer cards: five of them set a board about 20% shorter than before. */
+  .ega-free-hub-column {
+    gap: 12px;
+  }
+
+  .ega-free-hub-category {
+    gap: 5px;
+    padding: 13px 18px 12px;
+    border-radius: 22px;
+  }
+}
+
+/* Hover only hints that a card is clickable; colour marks the selected one. */
+.ega-free-hub-category:not([data-active="true"]):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 32px rgba(8, 33, 63, 0.12);
+}
+
+.ega-free-hub-category:focus-visible {
+  outline: 3px solid #09243f;
+  outline-offset: 3px;
+}
+
+/* Revealed download tiles: simple squares in each material's colour. */
+.ega-free-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+
+.ega-free-tile {
+  display: grid;
+  /* Text rows keep their full (clamped) height; the free space goes above the button. */
+  grid-template-rows: auto auto auto 1fr;
+  gap: 10px;
+  /* Square-ish: tiles in a row stretch to the tallest, so the grid stays even. */
+  min-height: 220px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(145deg, var(--ega-tone), var(--ega-tone-deep));
+  color: #fff;
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--ega-tone) 30%, transparent);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.ega-free-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 38px color-mix(in srgb, var(--ega-tone) 38%, transparent);
+}
+
+.ega-free-tile__badge {
+  justify-self: start;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: calc(0.72rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ega-free-tile h3 {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-family: var(--font-display);
+  font-size: calc(1.2rem * var(--ega-heading-scale, 1));
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.ega-free-tile p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: calc(0.88rem * var(--ega-text-scale, 1));
+  line-height: 1.5;
+  opacity: 0.88;
+}
+
+.ega-free-tile__action {
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ega-tone-deep);
+  font-size: calc(0.92rem * var(--ega-text-scale, 1));
+  font-weight: 800;
+  text-decoration: none;
+  transition: transform 160ms ease;
+}
+
+.ega-free-tile__action:hover {
+  transform: translateY(-1px);
+}
+
+.ega-free-tile__action:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .ega-free-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ega-free-tile {
+    min-height: 190px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .ega-free-tile p {
+    -webkit-line-clamp: 2;
+  }
 }

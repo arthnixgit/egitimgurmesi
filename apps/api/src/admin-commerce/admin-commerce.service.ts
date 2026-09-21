@@ -1171,6 +1171,7 @@ export class AdminCommerceService {
         title: variant.title.trim(),
         sku: variant.sku.trim(),
         billingLabel: normalizeNullableText(variant.billingLabel),
+        priceNote: normalizeNullableText(variant.priceNote)?.slice(0, 40) ?? null,
         price: normalizeDecimalInput(variant.price),
         compareAtPrice: variant.compareAtPrice
           ? normalizeDecimalInput(variant.compareAtPrice)
@@ -1598,6 +1599,7 @@ function normalizeProduct(
         title: variant.title,
         sku: variant.sku,
         billingLabel: variant.billingLabel,
+        priceNote: variant.priceNote,
         price: variant.price.toFixed(2),
         compareAtPrice: variant.compareAtPrice?.toFixed(2) ?? null,
         currency: variant.currency,

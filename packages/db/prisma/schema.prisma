@@ -1009,6 +1009,8 @@ model SuccessStory {
   highlight     String
   story         String?
   avatarUrl     String?
+  /// Photo of the student's official score report, shown on the public card.
+  scoreReportImageUrl String?
   sortOrder     Int           @default(0)
   isFeatured    Boolean       @default(false)
   publishStatus ContentStatus @default(PUBLISHED)
@@ -1199,6 +1201,18 @@ model SiteSetting {
   footerNotice               String?
   defaultSeoTitle            String?
   defaultSeoDescription      String?
+  /// Navbar logo height in CSS pixels. Null keeps the stylesheet default.
+  navbarLogoHeight           Int?
+  /// Whether the site name is shown as text beside the navbar logo.
+  showNavbarWordmark         Boolean   @default(true)
+  /// Body text font: key of a curated font (see @ega/ui site-presentation). Null keeps the default.
+  fontFamily                 String?
+  /// Heading font: key of a curated font. Null keeps the default.
+  headingFontFamily          String?
+  /// Heading size as a percentage of the design default, e.g. 110.
+  headingScale               Int?
+  /// Body text size as a percentage of the design default.
+  bodyScale                  Int?
   version                    Int       @default(1)
   publishedAt                DateTime?
   lastPublishedByStaffUserId String?
@@ -1319,6 +1333,8 @@ model ProductVariant {
   title                 String
   sku                   String                    @unique
   billingLabel          String?
+  /// Short note (3–5 words) shown beside the price on the package card.
+  priceNote             String?
   price                 Decimal                   @db.Decimal(10, 2)
   compareAtPrice        Decimal?                  @db.Decimal(10, 2)
   currency              Currency                  @default(TRY)

@@ -26,6 +26,7 @@ import {
   SaveStaffProfilesDocumentDto,
   SaveSuccessStoriesDocumentDto
 } from "./dto/admin-content.dto";
+import { normalizeSitePresentation } from "./site-presentation";
 
 const WEBSITE_FORBIDDEN_MESSAGE = "Web sitesi yönetimi için yetkiniz bulunmuyor.";
 const STALE_CONTENT_MESSAGE =
@@ -108,6 +109,12 @@ const defaultSiteSettings = {
   socialLinks: [] as Array<{ label: string; href: string }>,
   copyrightText: "© Eğitim Gurmesi Akademi. Tüm hakları saklıdır.",
   footerNotice: "Eğitim Gurmesi Akademi iletişim ve marka bilgileri.",
+  navbarLogoHeight: null as number | null,
+  showNavbarWordmark: true,
+  fontFamily: null as string | null,
+  headingFontFamily: null as string | null,
+  headingScale: null as number | null,
+  bodyScale: null as number | null,
   defaultSeoTitle: "Eğitim Gurmesi Akademi",
   defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.",
   version: 1,
@@ -920,6 +927,8 @@ export class AdminContentService {
       };
     }
 
+    assertPublishableStaffProfiles(payload);
+
     const groups = await this.prisma.$transaction(async (tx) => {
       const activeGroupKeys: string[] = [];
       const activeProfileSlugs: string[] = [];
@@ -1128,6 +1137,7 @@ export class AdminContentService {
             highlight: sanitizePlainText(story.highlight),
             story: sanitizeNullableText(story.story),
             avatarUrl: normalizeOptionalContentUrl(story.avatarUrl),
+            scoreReportImageUrl: normalizeOptionalContentUrl(story.scoreReportImageUrl),
             isFeatured: story.isFeatured ?? false,
             sortOrder: story.sortOrder ?? (index + 1) * 10,
             publishStatus: statusForPublish(story.publishStatus),
@@ -1144,6 +1154,7 @@ export class AdminContentService {
             highlight: sanitizePlainText(story.highlight),
             story: sanitizeNullableText(story.story),
             avatarUrl: normalizeOptionalContentUrl(story.avatarUrl),
+            scoreReportImageUrl: normalizeOptionalContentUrl(story.scoreReportImageUrl),
             isFeatured: story.isFeatured ?? false,
             sortOrder: story.sortOrder ?? (index + 1) * 10,
             publishStatus: statusForPublish(story.publishStatus)
@@ -2078,6 +2089,7 @@ function normalizeSiteSettings(record: SiteSettingRecord | null) {
     defaultSeoTitle: source.defaultSeoTitle ?? defaultSiteSettings.defaultSeoTitle,
     defaultSeoDescription:
       source.defaultSeoDescription ?? defaultSiteSettings.defaultSeoDescription,
+    ...normalizeSitePresentation(source),
     version: source.version ?? defaultSiteSettings.version,
     publishedAt: formatDate(source.publishedAt),
     lastPublishedByStaffUserId: source.lastPublishedByStaffUserId ?? null,
@@ -2154,7 +2166,8 @@ function normalizeSiteSettingsPayload(payload: SaveSiteSettingsDto) {
     copyrightText: sanitizePlainText(payload.copyrightText),
     footerNotice: sanitizeNullableText(payload.footerNotice),
     defaultSeoTitle: sanitizeNullableText(payload.defaultSeoTitle),
-    defaultSeoDescription: sanitizeNullableText(payload.defaultSeoDescription)
+    defaultSeoDescription: sanitizeNullableText(payload.defaultSeoDescription),
+    ...normalizeSitePresentation(payload)
   };
 }
 
@@ -2406,6 +2419,7 @@ function normalizeSuccessStoriesDocument(stories: readonly Prisma.SuccessStoryGe
       highlight: story.highlight,
       story: story.story,
       avatarUrl: story.avatarUrl,
+      scoreReportImageUrl: story.scoreReportImageUrl,
       isFeatured: story.isFeatured,
       sortOrder: story.sortOrder,
       publishStatus: story.publishStatus,
@@ -2427,6 +2441,7 @@ function normalizeSuccessStoriesPayload(payload: SaveSuccessStoriesDocumentDto, 
       highlight: sanitizePlainText(story.highlight),
       story: sanitizeNullableText(story.story),
       avatarUrl: normalizeOptionalContentUrl(story.avatarUrl),
+      scoreReportImageUrl: normalizeOptionalContentUrl(story.scoreReportImageUrl),
       isFeatured: story.isFeatured ?? false,
       sortOrder: story.sortOrder ?? (index + 1) * 10,
       publishStatus: story.publishStatus ?? ContentStatus.PUBLISHED
@@ -2434,23 +2449,56 @@ function normalizeSuccessStoriesPayload(payload: SaveSuccessStoriesDocumentDto, 
   };
 }
 
-function assertPublishableSuccessStories(payload: SaveSuccessStoriesDocumentDto) {
-  for (const story of payload.stories) {
-    const status = story.publishStatus ?? ContentStatus.PUBLISHED;
-
-    if (status !== ContentStatus.PUBLISHED) {
+/**
+ * Every visible group needs a heading and every visible person a name and a
+ * title, or the public page shows blank cards. Hidden (archived) entries are
+ * not shown and are skipped.
+ */
+export function assertPublishableStaffProfiles(payload: SaveStaffProfilesDocumentDto) {
+  for (const group of payload.groups) {
+    if (statusForPublish(group.publishStatus) !== ContentStatus.PUBLISHED) {
       continue;
     }
 
-    if (
-      !story.slug?.trim() ||
-      !story.studentName?.trim() ||
-      !story.examLabel?.trim() ||
-      !story.resultTitle?.trim() ||
-      !story.highlight?.trim() ||
-      !story.story?.trim()
-    ) {
-      throw new BadRequestException("Yayına alınacak başarı hikayelerinde öğrenci adı, sınav/yıl, sonuç başlığı, kısa vurgu ve hikaye zorunludur.");
+    if (!group.label?.trim()) {
+      throw new BadRequestException(`"${group.key}" kadro grubu yayınlanamıyor: grup başlığı boş.`);
+    }
+
+    for (const profile of group.profiles) {
+      if (statusForPublish(profile.publishStatus) !== ContentStatus.PUBLISHED) {
+        continue;
+      }
+
+      if (!profile.fullName?.trim() || !profile.title?.trim()) {
+        throw new BadRequestException(
+          `"${group.label}" grubunda "${profile.fullName?.trim() || "isimsiz kişi"}" yayınlanamıyor: ad soyad ve unvan zorunludur.`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * A published story must be able to fill its result card: who, and the score.
+ * Everything else (exam, city, highlight, story text, photos) is optional, so
+ * a card built around the score-report photo needs no filler text.
+ *
+ * Checked against what publishing will actually do: statusForPublish turns
+ * every non-archived story into a published one, so drafts are checked too.
+ * The error names the story, so the editor knows which card to fix.
+ */
+export function assertPublishableSuccessStories(payload: SaveSuccessStoriesDocumentDto) {
+  for (const story of payload.stories) {
+    if (statusForPublish(story.publishStatus) !== ContentStatus.PUBLISHED) {
+      continue;
+    }
+
+    const name = story.studentName?.trim() || story.slug || "İsimsiz hikaye";
+
+    if (!story.slug?.trim() || !story.studentName?.trim() || !story.resultTitle?.trim()) {
+      throw new BadRequestException(
+        `"${name}" başarı kartı yayınlanamıyor: öğrenci adı ve puan / sonuç alanları zorunludur.`
+      );
     }
   }
 }

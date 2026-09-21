@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { AcademicStaffGroup, AcademicStaffMember } from "../lib/academic-staff";
 import { isDirectVideoUrl, normalizeVideoEmbedUrl } from "../lib/media-url";
 
@@ -35,11 +34,16 @@ function StaffCard({ member }: { member: AcademicStaffMember }) {
     <article className="ega-staff-card">
       <div className="ega-staff-card__media">
         {member.photoSrc ? (
-          <Image
+          // A plain <img>: photos uploaded in the admin panel are served from the
+          // API's domain, which next/image rejects without a remotePatterns
+          // entry — the whole page would fail to render.
+          <img
             src={member.photoSrc}
             alt={`${member.name} profil fotoğrafı`}
             width={220}
             height={220}
+            loading="lazy"
+            decoding="async"
             className="ega-staff-card__photo"
           />
         ) : (

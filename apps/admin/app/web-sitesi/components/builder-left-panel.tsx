@@ -86,7 +86,7 @@ function PageTree({
       <div className="admin-builder-tree__group">
         <h2>Global</h2>
         {areas
-          .filter((area) => ["genel", "marka", "header", "footer", "ana-sayfa-slideri", "ucretsiz-materyaller", "akademik-kadro", "basari-hikayeleri", "gecmis"].includes(area.key))
+          .filter((area) => ["genel", "marka", "tipografi", "header", "footer", "ana-sayfa-slideri", "ucretsiz-materyaller", "akademik-kadro", "basari-hikayeleri", "gecmis"].includes(area.key))
           .map((area) => (
             <button
               key={area.key}

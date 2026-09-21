@@ -173,6 +173,7 @@ export type AdminSuccessStory = {
   highlight: string;
   story?: string | null;
   avatarUrl?: string | null;
+  scoreReportImageUrl?: string | null;
   sortOrder?: number;
   isFeatured?: boolean;
   publishStatus?: string;
@@ -299,6 +300,12 @@ export type AdminSiteSettings = {
   footerNotice?: string | null;
   defaultSeoTitle?: string | null;
   defaultSeoDescription?: string | null;
+  navbarLogoHeight?: number | null;
+  showNavbarWordmark?: boolean | null;
+  fontFamily?: string | null;
+  headingFontFamily?: string | null;
+  headingScale?: number | null;
+  bodyScale?: number | null;
   version: number;
   publishedAt?: string | null;
   updatedAt?: string | null;
@@ -784,7 +791,13 @@ export function serializeSiteSettingsPayload(settings: AdminSiteSettings) {
     copyrightText: settings.copyrightText,
     footerNotice: settings.footerNotice ?? null,
     defaultSeoTitle: settings.defaultSeoTitle ?? null,
-    defaultSeoDescription: settings.defaultSeoDescription ?? null
+    defaultSeoDescription: settings.defaultSeoDescription ?? null,
+    navbarLogoHeight: settings.navbarLogoHeight ?? null,
+    showNavbarWordmark: settings.showNavbarWordmark !== false,
+    fontFamily: settings.fontFamily ?? null,
+    headingFontFamily: settings.headingFontFamily ?? null,
+    headingScale: settings.headingScale ?? null,
+    bodyScale: settings.bodyScale ?? null
   };
 }
 
@@ -828,6 +841,7 @@ export function serializeSuccessStoriesPayload(document: AdminSuccessStoriesDocu
       highlight: story.highlight,
       story: story.story ?? null,
       avatarUrl: story.avatarUrl ?? null,
+      scoreReportImageUrl: story.scoreReportImageUrl ?? null,
       isFeatured: story.isFeatured,
       sortOrder: story.sortOrder,
       publishStatus: story.publishStatus

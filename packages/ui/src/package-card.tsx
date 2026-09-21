@@ -19,6 +19,8 @@ export type PackageCardProduct = {
   title: string;
   subtitle: string;
   price: string;
+  /** Short note (3–5 words) beside the price, set per package in /ticaret. */
+  priceNote?: string | null;
   compareAtPrice?: string | null;
   hasInstallments?: boolean;
   installmentLabel?: string | null;
@@ -151,6 +153,7 @@ export function PackageCard({ product, previewMode = false }: PackageCardProps) 
             <span className="ega-pack-card__compare-price">{product.compareAtPrice}</span>
           ) : null}
           <strong className="ega-pack-card__price">{product.price}</strong>
+          {product.priceNote ? <span className="ega-pack-card__price-note">{product.priceNote}</span> : null}
           {product.installmentLabel ? (
             <span className="ega-pack-card__installment">{product.installmentLabel}</span>
           ) : null}

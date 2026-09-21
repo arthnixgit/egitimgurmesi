@@ -15,6 +15,7 @@ import {
   type MaterialDestinationItem
 } from "../free-materials/material-destination";
 import { mergePreviewMarketingPage, mergePreviewSiteSettings } from "../preview/preview-content";
+import { normalizeSitePresentation } from "../admin-content/site-presentation";
 import { verifyPreviewToken } from "../preview/preview-token";
 
 type NavigationNode = {
@@ -103,6 +104,12 @@ const defaultPublicSiteSettings = {
   socialLinks: [] as Array<{ label: string; href: string }>,
   copyrightText: "© Eğitim Gurmesi Akademi. Tüm hakları saklıdır.",
   footerNotice: "Eğitim Gurmesi Akademi iletişim ve marka bilgileri.",
+  navbarLogoHeight: null as number | null,
+  showNavbarWordmark: true,
+  fontFamily: null as string | null,
+  headingFontFamily: null as string | null,
+  headingScale: null as number | null,
+  bodyScale: null as number | null,
   defaultSeoTitle: "Eğitim Gurmesi Akademi",
   defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.",
   version: 1,
@@ -170,7 +177,8 @@ export class PublicContentService {
       whatsappHref: `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`,
       whatsappMessage,
       footerQuickLinks: normalizeJsonLinks(source.footerQuickLinks),
-      socialLinks: normalizeJsonLinks(source.socialLinks)
+      socialLinks: normalizeJsonLinks(source.socialLinks),
+      ...normalizeSitePresentation(source)
     };
   }
 
@@ -189,7 +197,7 @@ export class PublicContentService {
 
     if (!menu) {
       this.logger.warn(`Public navigation menu missing for key "${safeLogValue(key)}".`);
-      return createSafeNavigationFallbackSnapshot(key, generatedAt);
+      return this.fallbackWithCatalog(key, generatedAt);
     }
 
     if (!menu.isActive) {
@@ -199,15 +207,24 @@ export class PublicContentService {
     const builtNavigation = buildNavigationTree(menu.items);
     logNavigationDiagnostics(this.logger, builtNavigation.diagnostics);
     const categoryLoad = await this.loadPackageNavigationCategories(key);
-    const items = attachCatalogPackageNavigation(builtNavigation.roots, categoryLoad.categories);
-    const validation = validateNavigationSnapshotItems(items);
+    const composed = attachCatalogPackageNavigation(builtNavigation.roots, categoryLoad.categories);
+    // One bad row used to discard the whole menu and serve the hardcoded
+    // fallback, which has no dropdowns at all — the site silently lost its
+    // Paketlerimiz menu. Now only the offending entries are dropped and logged.
+    const pruned = pruneNavigationSnapshotItems(composed);
 
-    if (validation) {
-      this.logger.warn(
-        `Public navigation for key "${safeLogValue(key)}" is invalid: ${validation}. Returning safe fallback.`
-      );
-      return createSafeNavigationFallbackSnapshot(key, generatedAt);
+    for (const problem of pruned.problems) {
+      this.logger.warn(`Public navigation for key "${safeLogValue(key)}": dropped ${problem}.`);
     }
+
+    if (!pruned.items.length) {
+      this.logger.warn(
+        `Public navigation for key "${safeLogValue(key)}" has no valid top-level items. Returning safe fallback.`
+      );
+      return this.fallbackWithCatalog(key, generatedAt);
+    }
+
+    const items = pruned.items;
 
     return {
       id: menu.id,
@@ -221,6 +238,25 @@ export class PublicContentService {
       catalogStatus: categoryLoad.catalogStatus,
       items
     } satisfies PublicNavigationSnapshot;
+  }
+
+  /**
+   * The hardcoded menu, still with the Paketlerimiz dropdown from the catalog.
+   * Production served this fallback with every dropdown empty, which is how
+   * the hover menu disappeared: the fallback never looked at the catalog.
+   */
+  private async fallbackWithCatalog(key: string, generatedAt: string): Promise<PublicNavigationSnapshot> {
+    const fallback = createSafeNavigationFallbackSnapshot(key, generatedAt);
+    const categoryLoad = await this.loadPackageNavigationCategories(key);
+    const items = pruneNavigationSnapshotItems(
+      attachCatalogPackageNavigation(fallback.items, categoryLoad.categories)
+    ).items;
+
+    return {
+      ...fallback,
+      catalogStatus: categoryLoad.catalogStatus,
+      items: items.length ? items : fallback.items
+    };
   }
 
   private async loadPackageNavigationCategories(key: string) {
@@ -659,65 +695,84 @@ function normalizeNavigationMenuItem(item: NavigationMenuItemRecord): Navigation
   };
 }
 
-function validateNavigationSnapshotItems(items: readonly NavigationNode[]) {
-  if (!items.length) {
-    return "active navigation has zero valid top-level items";
-  }
-
+/**
+ * Returns the menu with every invalid entry removed, plus a description of each
+ * removal for the log. A node is dropped (with its subtree) when it is nested
+ * too deep, has an empty key or label, an unsafe href, a key already used
+ * elsewhere in the menu, or a catalog key ("packages-…") outside Paketlerimiz.
+ */
+function pruneNavigationSnapshotItems(items: readonly NavigationNode[]) {
   const seenItemKeys = new Set<string>();
+  const problems: string[] = [];
+  const pruned = pruneNavigationLevel(items, seenItemKeys, problems, 0, false);
 
-  for (const item of items) {
-    const invalid = validateNavigationNode(item, seenItemKeys, 0, false);
-    if (invalid) {
-      return invalid;
-    }
-  }
-
-  return "";
+  return { items: pruned, problems };
 }
 
-function validateNavigationNode(
+function pruneNavigationLevel(
+  nodes: readonly NavigationNode[],
+  seenItemKeys: Set<string>,
+  problems: string[],
+  depth: number,
+  isInsidePackagesTree: boolean
+): NavigationNode[] {
+  const kept: NavigationNode[] = [];
+
+  for (const node of nodes) {
+    const problem = describeInvalidNavigationNode(node, seenItemKeys, depth, isInsidePackagesTree);
+
+    if (problem) {
+      problems.push(problem);
+      continue;
+    }
+
+    seenItemKeys.add(node.itemKey);
+    const childIsInsidePackagesTree = isInsidePackagesTree || isPackagesNavigationNode(node);
+    kept.push({
+      ...node,
+      children: pruneNavigationLevel(
+        Array.isArray(node.children) ? node.children : [],
+        seenItemKeys,
+        problems,
+        depth + 1,
+        childIsInsidePackagesTree
+      )
+    });
+  }
+
+  return kept;
+}
+
+function describeInvalidNavigationNode(
   node: NavigationNode,
   seenItemKeys: Set<string>,
   depth: number,
   isInsidePackagesTree: boolean
 ): string {
+  const key = safeLogValue(node.itemKey ?? "");
+
   if (depth > 2) {
-    return "navigation depth exceeds supported maximum";
+    return `"${key}" (nested deeper than the menu supports)`;
   }
 
-  if (!node.itemKey.trim()) {
-    return "navigation item has empty itemKey";
+  if (!node.itemKey?.trim()) {
+    return "an item with an empty key";
   }
 
   if (seenItemKeys.has(node.itemKey)) {
-    return `duplicate itemKey "${safeLogValue(node.itemKey)}"`;
+    return `"${key}" (duplicate key)`;
   }
-  seenItemKeys.add(node.itemKey);
 
-  if (!node.label.trim()) {
-    return `navigation item "${safeLogValue(node.itemKey)}" has empty label`;
+  if (!node.label?.trim()) {
+    return `"${key}" (empty label)`;
   }
 
   if (!isSafeContentHref(node.href)) {
-    return `navigation item "${safeLogValue(node.itemKey)}" has unsafe href`;
-  }
-
-  if (!Array.isArray(node.children)) {
-    return `navigation item "${safeLogValue(node.itemKey)}" has invalid children`;
+    return `"${key}" (unsafe href)`;
   }
 
   if (node.itemKey.startsWith("packages-") && !isInsidePackagesTree) {
-    return `package child "${safeLogValue(node.itemKey)}" is not attached to Paketlerimiz`;
-  }
-
-  const childIsInsidePackagesTree = isInsidePackagesTree || isPackagesNavigationNode(node);
-
-  for (const child of node.children) {
-    const invalid = validateNavigationNode(child, seenItemKeys, depth + 1, childIsInsidePackagesTree);
-    if (invalid) {
-      return invalid;
-    }
+    return `"${key}" (catalog key outside Paketlerimiz)`;
   }
 
   return "";
@@ -738,20 +793,35 @@ function logNavigationDiagnostics(logger: Logger, diagnostics: readonly Navigati
   }
 }
 
+/**
+ * Paketlerimiz's dropdown comes from the catalog's active categories. When the
+ * catalog has none to offer (none active yet, or the query failed), the
+ * sub-items authored in the menu editor are kept rather than replaced with an
+ * empty list — an empty list is what turned the dropdown off. Legacy
+ * "packages-…" rows (copies of old catalog categories) are still dropped.
+ */
 function attachCatalogPackageNavigation(
   roots: NavigationNode[],
   categories: PackageNavigationCategory[]
 ) {
   const packageChildren = sortPackageNavigationCategories(categories).map(normalizePackageNavigationRoot);
 
-  return roots.map((root) =>
-    isPackagesNavigationNode(root)
-      ? {
-          ...root,
-          children: packageChildren
-        }
-      : root
-  );
+  return roots.map((root) => {
+    if (!isPackagesNavigationNode(root)) {
+      return root;
+    }
+
+    if (packageChildren.length) {
+      return { ...root, children: packageChildren };
+    }
+
+    // "packages-…" rows are legacy mirrors of old catalog categories and would
+    // link to categories that no longer exist; everything else was authored.
+    return {
+      ...root,
+      children: root.children.filter((child) => !child.itemKey.startsWith("packages-"))
+    };
+  });
 }
 
 function normalizePackageNavigationRoot(category: PackageNavigationCategory): NavigationNode {

@@ -132,6 +132,7 @@ function normalizePublicProduct(
     price:
       defaultVariant?.billingLabel ??
       `${defaultVariant?.price.toFixed(2) ?? "0.00"} ${defaultVariant?.currency ?? "TRY"}`,
+    priceNote: defaultVariant?.priceNote?.trim() || null,
     compareAtPrice: defaultVariant?.compareAtPrice
       ? `${formatMoney(defaultVariant.compareAtPrice)} ${defaultVariant.currency}`
       : null,

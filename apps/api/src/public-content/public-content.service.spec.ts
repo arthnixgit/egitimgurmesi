@@ -243,6 +243,23 @@ describe("PublicContentService navigation", () => {
     assert.deepEqual(menu.items[0].children, []);
   });
 
+  it("keeps the catalog dropdown on Paketlerimiz even when serving the fallback menu", async () => {
+    // Production served the fallback with an empty Paketlerimiz, which is how
+    // the navbar hover menu disappeared.
+    const service = createService({
+      getNavigationMenu: async () => null,
+      listPackageNavigationCategories: async () => [
+        packageRoot({ id: "root_online", slug: "online-kocluk", name: "Online Koçluk", childCategories: [] })
+      ]
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.equal(menu.source, "fallback");
+    assert.equal(menu.catalogStatus, "ready");
+    assert.deepEqual(menu.items[0].children.map((item) => item.label), ["Online Koçluk"]);
+  });
+
   it("does not return an unexplained successful empty result for an active empty menu", async () => {
     const service = createService({
       getNavigationMenu: async () => navigationMenu([])
@@ -284,7 +301,7 @@ describe("PublicContentService navigation", () => {
     assert.equal(menu.source, "database");
     assert.deepEqual(menu.items.map((item) => item.label), ["Hakkımızda", "Ücretsiz Materyaller"]);
   });
-  it("rejects package child keys outside the Paketlerimiz subtree", async () => {
+  it("drops package child keys outside the Paketlerimiz subtree without losing the menu", async () => {
     const service = createService({
       getNavigationMenu: async () =>
         navigationMenu([
@@ -300,8 +317,74 @@ describe("PublicContentService navigation", () => {
 
     const menu = await service.getNavigationMenu("primary");
 
-    assert.equal(menu.source, "fallback");
-    assert.equal(menu.items[0].itemKey, "packages");
+    // Previously one stale row replaced the whole menu with the hardcoded
+    // fallback, which has no dropdowns — the Paketlerimiz menu disappeared.
+    assert.equal(menu.source, "database");
+    assert.deepEqual(menu.items.map((item) => item.itemKey), ["about"]);
+  });
+
+  it("keeps the catalog dropdown when an unrelated row is invalid", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({ id: "nav_bad", itemKey: "bad", label: "Bad", href: "javascript:alert(1)" }),
+          navItem({ id: "nav_stale", itemKey: "packages-stale-root", label: "Stale", href: "/paketlerimiz" })
+        ]),
+      listPackageNavigationCategories: async () => [
+        packageRoot({ id: "root_online", slug: "online-kocluk", name: "Online Koçluk", childCategories: [] })
+      ]
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+    const packages = menu.items.find((item) => item.itemKey === "packages");
+
+    assert.equal(menu.source, "database");
+    assert.deepEqual(packages?.children.map((item) => item.label), ["Online Koçluk"]);
+  });
+
+  it("keeps sub-items authored in the menu editor when the catalog has no categories", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_packages", itemKey: "packages", label: "Paketlerimiz", href: "/paketlerimiz" }),
+          navItem({
+            id: "nav_packages_lgs",
+            parentId: "nav_packages",
+            itemKey: "lgs-paketleri",
+            label: "LGS Paketleri",
+            href: "/paketlerimiz?kategori=lgs"
+          })
+        ]),
+      listPackageNavigationCategories: async () => []
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.deepEqual(
+      menu.items[0].children.map((item) => item.label),
+      ["LGS Paketleri"]
+    );
+  });
+
+  it("serves dropdowns authored under any top-level item", async () => {
+    const service = createService({
+      getNavigationMenu: async () =>
+        navigationMenu([
+          navItem({ id: "nav_about", itemKey: "about", label: "Hakkımızda", href: "/hakkimizda" }),
+          navItem({
+            id: "nav_staff",
+            parentId: "nav_about",
+            itemKey: "kadro",
+            label: "Akademik Kadro",
+            href: "/akademik-kadro"
+          })
+        ])
+    });
+
+    const menu = await service.getNavigationMenu("primary");
+
+    assert.deepEqual(menu.items[0].children.map((item) => item.href), ["/akademik-kadro"]);
   });
 });
 

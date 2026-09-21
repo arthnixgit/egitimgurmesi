@@ -49,6 +49,7 @@ import { buildPreviewUrl, pagePathForSlug, resolveSiteUrl } from "../../lib/site
 import { useClientValue } from "../../lib/use-client-value";
 import { WebsiteBuilderShell } from "./components/website-builder-shell";
 import { cloneSnapshot, emptyHistory, pushHistory, redoHistory, undoHistory } from "./lib/builder-history";
+import { isSiteSettingsArea } from "./lib/builder-types";
 import type {
   BuilderActions,
   BuilderCommand,
@@ -77,7 +78,8 @@ type StaffMe = Awaited<ReturnType<typeof fetchCurrentStaffUser>>;
 
 const areas: Array<{ key: WebsiteArea; label: string; description: string }> = [
   { key: "genel", label: "Genel Ayarlar", description: "Site adı, SEO ve yayın bilgileri" },
-  { key: "marka", label: "Logo ve Marka", description: "Logo, favicon ve paylaşım görseli" },
+  { key: "marka", label: "Logo ve Marka", description: "Logo, boyutu, favicon ve paylaşım görseli" },
+  { key: "tipografi", label: "Tipografi", description: "Yazı tipleri ve metin boyutları" },
   { key: "header", label: "Header ve Menü", description: "Ana menü ve mobil navigasyon" },
   { key: "footer", label: "Footer ve İletişim", description: "Telefon, WhatsApp, adres ve hızlı erişim" },
   { key: "ana-sayfa-slideri", label: "Ana Sayfa Sliderı", description: "Hero görselleri, metinleri, CTA ve geçiş ayarları" },
@@ -129,6 +131,12 @@ const defaultSettings: AdminSiteSettings = {
   footerNotice: "Eğitim Gurmesi Akademi iletişim ve marka bilgileri.",
   defaultSeoTitle: "Eğitim Gurmesi Akademi",
   defaultSeoDescription: "Video paketleri, koçluk programları ve ücretsiz öğrenci kaynakları.",
+  navbarLogoHeight: null,
+  showNavbarWordmark: true,
+  fontFamily: null,
+  headingFontFamily: null,
+  headingScale: null,
+  bodyScale: null,
   version: 1
 };
 
@@ -212,6 +220,7 @@ export function WebsiteBuilderClient() {
     selectedArea === "ana-sayfa-slideri" ||
     selectedArea === "genel" ||
     selectedArea === "marka" ||
+    selectedArea === "tipografi" ||
     selectedArea === "header" ||
     selectedArea === "footer";
   const previewPath =
@@ -430,7 +439,7 @@ export function WebsiteBuilderClient() {
       setAreaLoading(true);
       setError("");
       try {
-        if (["genel", "marka", "footer"].includes(selectedArea)) {
+        if (isSiteSettingsArea(selectedArea)) {
           setSettings(await fetchAdminSiteSettings());
         } else if (selectedArea === "header") {
           setNavigationLoaded(false);
@@ -1250,11 +1259,11 @@ export function WebsiteBuilderClient() {
   }
 
   /**
-   * The draft entity behind the selected area. Site settings back three areas
-   * (Genel, Marka, Footer), and the page areas are keyed by the open page.
+   * The draft entity behind the selected area. Site settings back four areas
+   * (Genel, Marka, Tipografi, Footer), and the page areas are keyed by the open page.
    */
   function resolveDraftEntity(): { entityType: string; entityKey: string } | null {
-    if (["genel", "marka", "footer"].includes(selectedArea)) {
+    if (isSiteSettingsArea(selectedArea)) {
       return { entityType: "SiteSetting", entityKey: "default" };
     }
     if (selectedArea === "header") {
@@ -1277,7 +1286,7 @@ export function WebsiteBuilderClient() {
 
   /** The draft state reported by the API for whatever is currently open. */
   function resolveDraftState() {
-    if (["genel", "marka", "footer"].includes(selectedArea)) {
+    if (isSiteSettingsArea(selectedArea)) {
       return settings;
     }
     if (selectedArea === "header") {
@@ -1348,7 +1357,7 @@ export function WebsiteBuilderClient() {
     setError("");
     setMessage("");
     try {
-      if (["genel", "marka", "footer"].includes(selectedArea)) {
+      if (isSiteSettingsArea(selectedArea)) {
         const response = action === "publish" ? await publishAdminSiteSettings(settings) : await saveAdminSiteSettings(settings);
         setSettings(response);
       } else if (selectedArea === "header") {

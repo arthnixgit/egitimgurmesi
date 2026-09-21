@@ -346,6 +346,7 @@ type SuccessStoryResponse = {
   highlight: string;
   story: string;
   avatarUrl: string | null;
+  scoreReportImageUrl?: string | null;
   isFeatured: boolean;
 };
 
@@ -429,6 +430,8 @@ export type SuccessStoryContent = {
   highlight: string;
   story: string;
   avatarUrl?: string;
+  /** Photo of the score report; the result card shows it instead of a text table. */
+  scoreReportImageUrl?: string;
   isFeatured: boolean;
 };
 
@@ -690,6 +693,7 @@ function normalizeSuccessStory(story: SuccessStoryResponse): SuccessStoryContent
     highlight: story.highlight,
     story: story.story,
     avatarUrl: story.avatarUrl ?? undefined,
+    scoreReportImageUrl: story.scoreReportImageUrl ?? undefined,
     isFeatured: story.isFeatured
   };
 }

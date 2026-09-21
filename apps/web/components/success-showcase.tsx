@@ -22,12 +22,13 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
   const siteSettings = usePublicSiteSettings();
 
   const activeStory = stories[activeIndex] ?? stories[0] ?? null;
+  const cardMeta = activeStory ? [activeStory.examLabel, activeStory.city].filter(Boolean).join(" · ") : "";
 
   const metrics = useMemo(() => {
     return [
       { value: String(stories.length).padStart(2, "0"), label: "yayınlanan başarı hikâyesi" },
       { value: String(new Set(stories.map((story) => story.city).filter(Boolean)).size).padStart(2, "0"), label: "farklı şehir" },
-      { value: String(new Set(stories.map((story) => story.examLabel)).size).padStart(2, "0"), label: "farklı sınav akışı" }
+      { value: String(new Set(stories.map((story) => story.examLabel).filter(Boolean)).size).padStart(2, "0"), label: "farklı sınav akışı" }
     ];
   }, [stories]);
 
@@ -76,9 +77,9 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
                   aria-pressed={isActive}
                   onClick={() => setActiveIndex(index)}
                 >
-                  <span>{story.examLabel}</span>
+                  {story.examLabel ? <span>{story.examLabel}</span> : null}
                   <strong>{story.studentName}</strong>
-                  <p>{story.highlight}</p>
+                  {story.highlight ? <p>{story.highlight}</p> : null}
                 </button>
               );
             })}
@@ -100,14 +101,14 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
               <span className="ega-pill ega-pill--dark">{activeStory.city ?? "Türkiye"}</span>
               <button type="button" className="ega-success-play-button" onClick={() => setActiveIndex((current) => (current + 1) % stories.length)}>
                 <span>▶</span>
-                <strong>{activeStory.examLabel}</strong>
+                <strong>{activeStory.examLabel || "Sonraki hikâye"}</strong>
               </button>
             </div>
 
             <div className="ega-success-video-stage__body">
               <span>{activeStory.studentName}</span>
               <strong>{activeStory.resultTitle}</strong>
-              <p>{activeStory.story}</p>
+              {activeStory.story ? <p>{activeStory.story}</p> : null}
             </div>
           </div>
         </article>
@@ -130,7 +131,7 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
                 </div>
                 <div className="ega-success-video-thumb__copy">
                   <strong>{story.studentName}</strong>
-                  <p>{story.highlight}</p>
+                  <p>{story.highlight || story.resultTitle}</p>
                 </div>
               </button>
             );
@@ -148,42 +149,43 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
 
         <div className="ega-success-poster-stage">
           <article className="ega-success-poster-card">
+            {/* Logo on top, the score big and bold in the middle, and the
+                student's score report below — the layout the customer asked for. */}
             <div className="ega-success-poster-card__brand">
-              {activeStory.avatarUrl ? (
-                <img src={activeStory.avatarUrl} alt={`${activeStory.studentName} görseli`} />
-              ) : (
-                <img src={siteSettings.logoMarkUrl} alt={siteSettings.logoAltText} />
-              )}
-              <span>{activeStory.studentName}</span>
+              <img
+                src={activeStory.avatarUrl || siteSettings.logoPrimaryUrl}
+                alt={activeStory.avatarUrl ? `${activeStory.studentName} görseli` : siteSettings.logoAltText}
+              />
             </div>
 
             <div className="ega-success-poster-card__hero">
-              <span>{activeStory.examLabel}</span>
-              <strong>{activeStory.city ?? "Ankara"}</strong>
-              <p>{activeStory.resultTitle}</p>
+              {cardMeta ? <span>{cardMeta}</span> : null}
+              <strong>{activeStory.resultTitle}</strong>
+              <p>{activeStory.studentName}</p>
             </div>
 
-            <div className="ega-success-poster-card__sheet">
-              <div className="ega-success-poster-card__sheet-head">
-                <strong>{activeStory.highlight}</strong>
-                <span>{activeStory.isFeatured ? "Öne çıkan sonuç kartı" : "Başarı arşivi kaydı"}</span>
+            {activeStory.scoreReportImageUrl ? (
+              <a
+                className="ega-success-poster-card__report"
+                href={activeStory.scoreReportImageUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${activeStory.studentName} sonuç belgesini büyük aç`}
+              >
+                <img
+                  src={activeStory.scoreReportImageUrl}
+                  alt={`${activeStory.studentName} sonuç belgesi`}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+            ) : activeStory.highlight ? (
+              <div className="ega-success-poster-card__sheet">
+                <div className="ega-success-poster-card__sheet-head">
+                  <strong>{activeStory.highlight}</strong>
+                </div>
               </div>
-
-              <div className="ega-success-score-table">
-                <div className="ega-success-score-table__row">
-                  <span>Öğrenci</span>
-                  <strong>{activeStory.studentName}</strong>
-                </div>
-                <div className="ega-success-score-table__row">
-                  <span>Sınav Akışı</span>
-                  <strong>{activeStory.examLabel}</strong>
-                </div>
-                <div className="ega-success-score-table__row">
-                  <span>Şehir</span>
-                  <strong>{activeStory.city ?? "Belirtilmedi"}</strong>
-                </div>
-              </div>
-            </div>
+            ) : null}
           </article>
         </div>
 
@@ -201,9 +203,9 @@ export function SuccessShowcase({ stories }: SuccessShowcaseProps) {
                 onClick={() => setActiveIndex(index)}
               >
                 <div className="ega-success-poster-thumb__frame">
-                  <span>{story.examLabel}</span>
-                  <strong>{story.studentName}</strong>
-                  <p>{story.resultTitle}</p>
+                  {story.examLabel ? <span>{story.examLabel}</span> : null}
+                  <strong>{story.resultTitle}</strong>
+                  <p>{story.studentName}</p>
                 </div>
               </button>
             );

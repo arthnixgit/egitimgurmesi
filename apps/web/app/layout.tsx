@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
+import { sitePresentationStyle } from "@ega/ui";
+import "./fonts.css";
 import "./globals.css";
 import { FloatingInstagramLink } from "../components/floating-instagram-link";
 import { FloatingWhatsAppLink } from "../components/floating-whatsapp-link";
@@ -59,7 +62,10 @@ export default async function RootLayout({
   ]);
 
   return (
-    <html lang="tr">
+    // Fonts, text scale and navbar logo height from the admin panel, as CSS
+    // custom properties on the root. Empty when nothing was customised, so the
+    // stylesheet's own defaults apply.
+    <html lang="tr" style={sitePresentationStyle(siteSettings) as CSSProperties}>
       <body>
         <PublicNavigationProvider initialSnapshot={navigationSnapshot}>
           <PublicSiteSettingsProvider initialSettings={siteSettings}>

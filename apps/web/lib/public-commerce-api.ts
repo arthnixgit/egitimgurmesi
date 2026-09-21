@@ -27,6 +27,7 @@ type PublicCommerceProductResponse = {
   title: string;
   subtitle: string;
   price: string;
+  priceNote?: string | null;
   compareAtPrice?: string | null;
   hasInstallments?: boolean;
   installmentLabel?: string | null;
@@ -103,6 +104,7 @@ function normalizeProduct(product: PublicCommerceProductResponse): PackageProduc
     title: product.title,
     subtitle: product.subtitle,
     price: product.price,
+    priceNote: product.priceNote ?? null,
     compareAtPrice: product.compareAtPrice ?? null,
     hasInstallments: product.hasInstallments ?? false,
     installmentLabel: product.installmentLabel ?? null,
